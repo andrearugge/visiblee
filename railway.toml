@@ -9,6 +9,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm run worker --workspace=apps/web"
+startCommand = "npm run db:generate --workspace=apps/web && npm run worker --workspace=apps/web"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
