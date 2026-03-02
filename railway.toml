@@ -9,7 +9,7 @@ builder = "nixpacks"
 buildCommand = "npm install && npm run db:generate --workspace=apps/web"
 
 [build.nixpacksPlan.phases.setup]
-nixPkgs = ["nodejs_20", "npm-10_x", "openssl"]
+nixPkgs = ["nodejs_22", "npm-10_x", "openssl"]
 
 [deploy]
 startCommand = "npm run worker --workspace=apps/web"
