@@ -5,11 +5,8 @@
 # Root Directory: . (monorepo root)
 
 [build]
-builder = "nixpacks"
-buildCommand = "npm install && npm run db:generate --workspace=apps/web"
-
-[build.nixpacksPlan.phases.setup]
-nixPkgs = ["nodejs_24", "npm-10_x", "openssl"]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "npm run worker --workspace=apps/web"
