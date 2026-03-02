@@ -1547,26 +1547,28 @@ maintenanceWorker.on("failed", (job, err) =>
 
 // Schedule daily cleanup at 03:00 server time.
 // The stable jobId prevents duplicate schedules across worker restarts.
-await maintenanceQueue.add(
-  "CLEANUP_AUDIT_LOGS",
-  {},
-  {
-    repeat: { pattern: "0 3 * * *" },
-    jobId: "cleanup-audit-logs-daily",
-  }
-);
+(async () => {
+  await maintenanceQueue.add(
+    "CLEANUP_AUDIT_LOGS",
+    {},
+    {
+      repeat: { pattern: "0 3 * * *" },
+      jobId: "cleanup-audit-logs-daily",
+    }
+  );
 
-// Check discovery schedules every hour.
-await maintenanceQueue.add(
-  "CHECK_DISCOVERY_SCHEDULES",
-  {},
-  {
-    repeat: { pattern: "0 * * * *" },
-    jobId: "check-discovery-schedules-hourly",
-  }
-);
+  // Check discovery schedules every hour.
+  await maintenanceQueue.add(
+    "CHECK_DISCOVERY_SCHEDULES",
+    {},
+    {
+      repeat: { pattern: "0 * * * *" },
+      jobId: "check-discovery-schedules-hourly",
+    }
+  );
 
-console.log("[worker] Maintenance worker started — audit log cleanup @ 03:00 daily, discovery schedule check @ every hour");
+  console.log("[worker] Maintenance worker started — audit log cleanup @ 03:00 daily, discovery schedule check @ every hour");
+})();
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
