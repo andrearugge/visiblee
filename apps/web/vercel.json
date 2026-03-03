@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "prisma migrate deploy && next build",
+  "buildCommand": "node scripts/migrate.mjs && next build",
   "installCommand": "npm install",
   "outputDirectory": ".next"
 }
