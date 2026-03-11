@@ -100,9 +100,9 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 1 — Foundation
-**Status**: IN PROGRESS
-**Last completed task**: Task 1.4 — Route groups and layouts
+**Phase**: 1 — Foundation (COMPLETE) → Phase 2 starting
+**Status**: COMPLETE
+**Last completed task**: Task 1.9 — User settings page
 
 ---
 
@@ -253,7 +253,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.5 — Prisma setup and database schema
-**Status**: TODO
+**Status**: DONE
 **Goal**: Set up Prisma with the full database schema for Phase 1 tables.
 
 **Steps**:
@@ -285,7 +285,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.6 — Authentication with Auth.js v5
-**Status**: TODO
+**Status**: DONE
 **Goal**: Set up Auth.js v5 with Google OAuth + email/password (credentials).
 
 **Steps**:
@@ -316,7 +316,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.7 — CRUD Projects
-**Status**: TODO
+**Status**: DONE
 **Goal**: Implement project creation, listing, editing, and deletion.
 
 **Steps**:
@@ -345,7 +345,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.8 — Admin panel (base)
-**Status**: TODO
+**Status**: DONE
 **Goal**: Build superadmin panel with user management.
 
 **Steps**:
@@ -373,7 +373,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.9 — User settings page
-**Status**: TODO  
+**Status**: DONE
 **Goal**: Build user account settings with language preference.
 
 **Steps**:
