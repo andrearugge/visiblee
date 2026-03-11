@@ -74,6 +74,7 @@ coverage/
 # ========================
 # Keep schema and migrations, ignore generated client
 # (generated on `npx prisma generate`)
+apps/web/lib/generated/
 
 # ========================
 # Misc

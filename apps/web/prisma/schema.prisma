@@ -1,0 +1,466 @@
+// Visiblee — Prisma schema
+// Database: PostgreSQL + pgvector
+// Vector columns use Unsupported("vector(1024)") — pgvector extension
+// enabled via raw SQL in the initial migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  avatarUrl         String?
+  hashedPassword    String?
+  role              String    @default("user") // 'user' | 'admin' | 'superadmin'
+  preferredLocale   String    @default("en")   // 'en' | 'it'
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+  notifications Notification[]
+  previewAnalyses PreviewAnalysis[]
+
+  @@map("users")
+}
+
+// Auth.js v5 adapter tables
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────
+// PREVIEW ANALYSES
+// ─────────────────────────────────────────────
+
+model PreviewAnalysis {
+  id         String   @id @default(uuid())
+
+  // Data from landing page form
+  websiteUrl   String
+  brandName    String
+  queryTargets String[]
+
+  // Micro-analysis results
+  aiReadinessScore     Float?
+  fanoutCoverageScore  Float?
+  passageQualityScore  Float?
+  chunkabilityScore    Float?
+  entityCoherenceScore Float?
+  crossPlatformScore   Float?
+  insights             Json?
+  contentsFound        Int?
+  analysisData         Json?
+
+  // Post-registration link
+  userId      String?
+  projectId   String?
+  convertedAt DateTime?
+
+  // Lead capture
+  reportEmail  String?
+  reportSentAt DateTime?
+
+  // Tracking
+  ipAddress  String?
+  userAgent  String?
+  referrer   String?
+  locale     String?
+
+  // Status
+  status    String   @default("pending") // 'pending' | 'processing' | 'completed' | 'failed'
+  createdAt DateTime @default(now())
+  expiresAt DateTime @default(dbgenerated("NOW() + INTERVAL '30 days'"))
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  jobs    Job[]
+
+  @@index([status])
+  @@index([userId])
+  @@index([reportEmail])
+  @@map("preview_analyses")
+}
+
+// ─────────────────────────────────────────────
+// PROJECTS
+// ─────────────────────────────────────────────
+
+model Project {
+  id           String  @id @default(uuid())
+  userId       String
+  name         String
+  description  String?
+  brandName    String
+  websiteUrl   String
+  brandContext String?
+  previewId    String?
+  status       String  @default("active") // 'active' | 'paused' | 'archived'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetQueries TargetQuery[]
+  contents      Content[]
+  competitors   Competitor[]
+  scoreSnapshots ProjectScoreSnapshot[]
+  recommendations Recommendation[]
+  notifications Notification[]
+  jobs          Job[]
+  previewAnalyses PreviewAnalysis[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────
+// QUERIES
+// ─────────────────────────────────────────────
+
+model TargetQuery {
+  id        String  @id @default(uuid())
+  projectId String
+  queryText String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fanoutQueries    FanoutQuery[]
+  competitorContents CompetitorContent[]
+
+  @@index([projectId])
+  @@map("target_queries")
+}
+
+model FanoutQuery {
+  id            String   @id @default(uuid())
+  targetQueryId String
+  queryText     String
+  queryType     String   // 'related' | 'implicit' | 'comparative' | 'exploratory' | 'decisional' | 'recent'
+  embedding     Unsupported("vector(1024)")?
+  generatedAt   DateTime @default(now())
+  batchId       String
+
+  targetQuery   TargetQuery          @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
+  coverageMap   FanoutCoverageMap[]
+
+  @@index([targetQueryId])
+  @@index([batchId])
+  @@map("fanout_queries")
+}
+
+// ─────────────────────────────────────────────
+// CONTENTS
+// ─────────────────────────────────────────────
+
+model Content {
+  id                  String   @id @default(uuid())
+  projectId           String
+  url                 String
+  title               String?
+  platform            String   // 'website' | 'linkedin' | 'medium' | 'substack' | 'reddit' | 'youtube' | 'news' | 'other'
+  contentType         String   @default("own")       // 'own' | 'mention'
+  source              String   @default("discovery") // 'discovery' | 'manual'
+  isIndexed           Boolean  @default(true)
+  isConfirmed         Boolean  @default(false)
+  rawText             String?
+  wordCount           Int?
+  lastFetchedAt       DateTime?
+  lastModifiedAt      DateTime?
+  discoveryConfidence Float?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  passages      Passage[]
+  contentScores ContentScore[]
+  recommendations Recommendation[]
+
+  @@unique([url, projectId])
+  @@index([projectId])
+  @@index([platform])
+  @@map("contents")
+}
+
+model Passage {
+  id           String   @id @default(uuid())
+  contentId    String
+  passageText  String
+  passageIndex Int
+  wordCount    Int?
+  heading      String?
+  embedding    Unsupported("vector(1024)")?
+  createdAt    DateTime @default(now())
+
+  content        Content          @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  passageScores  PassageScore[]
+  coverageMap    FanoutCoverageMap[]
+  weakestForContentScores ContentScore[] @relation("WeakestPassage")
+  recommendations Recommendation[]
+
+  @@index([contentId])
+  @@map("passages")
+}
+
+// ─────────────────────────────────────────────
+// COMPETITORS
+// ─────────────────────────────────────────────
+
+model Competitor {
+  id          String  @id @default(uuid())
+  projectId   String
+  name        String
+  websiteUrl  String?
+  source      String  @default("auto") // 'auto' | 'manual'
+  isConfirmed Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  project  Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contents CompetitorContent[]
+
+  @@index([projectId])
+  @@map("competitors")
+}
+
+model CompetitorContent {
+  id             String  @id @default(uuid())
+  competitorId   String
+  url            String
+  title          String?
+  rawText        String?
+  foundForQueryId String?
+  createdAt      DateTime @default(now())
+
+  competitor   Competitor         @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  foundForQuery TargetQuery?      @relation(fields: [foundForQueryId], references: [id])
+  passages     CompetitorPassage[]
+
+  @@map("competitor_contents")
+}
+
+model CompetitorPassage {
+  id                  String   @id @default(uuid())
+  competitorContentId String
+  passageText         String
+  passageIndex        Int
+  wordCount           Int?
+  embedding           Unsupported("vector(1024)")?
+  createdAt           DateTime @default(now())
+
+  competitorContent CompetitorContent @relation(fields: [competitorContentId], references: [id], onDelete: Cascade)
+
+  @@map("competitor_passages")
+}
+
+// ─────────────────────────────────────────────
+// SCORING
+// ─────────────────────────────────────────────
+
+model ProjectScoreSnapshot {
+  id                  String   @id @default(uuid())
+  projectId           String
+  snapshotType        String   @default("weekly") // 'weekly' | 'manual'
+  aiReadinessScore    Float
+  fanoutCoverageScore Float
+  passageQualityScore Float
+  chunkabilityScore   Float
+  entityCoherenceScore Float
+  crossPlatformScore  Float
+  metadata            Json?
+  createdAt           DateTime @default(now())
+
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contentScores    ContentScore[]
+  passageScores    PassageScore[]
+  recommendations  Recommendation[]
+
+  @@index([projectId])
+  @@map("project_score_snapshots")
+}
+
+model ContentScore {
+  id                  String   @id @default(uuid())
+  contentId           String
+  snapshotId          String
+  overallScore        Float
+  passageQualityScore Float?
+  chunkabilityScore   Float?
+  fanoutCoverageScore Float?
+  weakestPassageId    String?
+  details             Json?
+  createdAt           DateTime @default(now())
+
+  content         Content              @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  snapshot        ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  weakestPassage  Passage?             @relation("WeakestPassage", fields: [weakestPassageId], references: [id])
+
+  @@index([contentId])
+  @@index([snapshotId])
+  @@map("content_scores")
+}
+
+model PassageScore {
+  id                 String   @id @default(uuid())
+  passageId          String
+  snapshotId         String
+  selfContainedness  Float?
+  claimClarity       Float?
+  informationDensity Float?
+  completeness       Float?
+  verifiability      Float?
+  overallScore       Float?
+  llmReasoning       String?
+  createdAt          DateTime @default(now())
+
+  passage  Passage              @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  snapshot ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([passageId])
+  @@index([snapshotId])
+  @@map("passage_scores")
+}
+
+model FanoutCoverageMap {
+  id             String   @id @default(uuid())
+  fanoutQueryId  String
+  passageId      String
+  similarityScore Float
+  isCovered      Boolean
+  createdAt      DateTime @default(now())
+
+  fanoutQuery FanoutQuery @relation(fields: [fanoutQueryId], references: [id], onDelete: Cascade)
+  passage     Passage     @relation(fields: [passageId], references: [id], onDelete: Cascade)
+
+  @@index([fanoutQueryId])
+  @@index([passageId])
+  @@map("fanout_coverage_map")
+}
+
+// ─────────────────────────────────────────────
+// RECOMMENDATIONS
+// ─────────────────────────────────────────────
+
+model Recommendation {
+  id              String   @id @default(uuid())
+  projectId       String
+  contentId       String?
+  passageId       String?
+  type            String   // 'quick_win' | 'content_gap' | 'platform_opportunity'
+  priority        String   @default("medium") // 'high' | 'medium' | 'low'
+  effort          String?  // 'quick' | 'moderate' | 'significant'
+  title           String
+  description     String
+  suggestedAction String?
+  estimatedImpact Float?
+  targetScore     String?
+  status          String   @default("pending") // 'pending' | 'in_progress' | 'completed' | 'dismissed'
+  snapshotId      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project  Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  content  Content?             @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  passage  Passage?             @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  snapshot ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
+
+  @@index([projectId])
+  @@index([contentId])
+  @@map("recommendations")
+}
+
+// ─────────────────────────────────────────────
+// JOB QUEUE
+// ─────────────────────────────────────────────
+
+model Job {
+  id          String   @id @default(uuid())
+  projectId   String?
+  previewId   String?
+  type        String   // 'preview_analysis' | 'discovery' | 'fetch_content' | ...
+  status      String   @default("pending") // 'pending' | 'running' | 'completed' | 'failed'
+  payload     Json?
+  result      Json?
+  error       String?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  project Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  preview PreviewAnalysis? @relation(fields: [previewId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([projectId])
+  @@index([previewId])
+  @@map("jobs")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String?
+  type      String   // 'analysis_complete' | 'score_change' | 'new_recommendations' | 'system'
+  title     String
+  message   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
