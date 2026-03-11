@@ -24,7 +24,7 @@ model User {
   hashedPassword    String?
   role              String    @default("user") // 'user' | 'admin' | 'superadmin'
   preferredLocale   String    @default("en")   // 'en' | 'it'
-  emailVerifiedAt   DateTime?
+  emailVerified     DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
