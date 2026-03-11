@@ -52,7 +52,7 @@ export default async function LandingPage() {
             </p>
 
             {/* Form card */}
-            <div className="w-full max-w-2xl rounded-2xl border border-zinc-200/80 bg-white/90 p-6 shadow-xl shadow-zinc-100 backdrop-blur-sm sm:p-8">
+            <div id="analysis-form" className="w-full max-w-2xl rounded-2xl border border-zinc-200/80 bg-white/90 p-6 shadow-xl shadow-zinc-100 backdrop-blur-sm sm:p-8">
               <h2 className="mb-6 text-lg font-semibold text-zinc-900">
                 {t('formTitle')}
               </h2>
@@ -131,11 +131,7 @@ export default async function LandingPage() {
           </h2>
           <p className="mb-8 text-lg text-zinc-500">{t('ctaSubtitle')}</p>
           <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            href="#analysis-form"
             className={cn(
               buttonVariants({ size: 'lg' }),
               'h-12 gap-2 px-8 text-base font-semibold',
