@@ -102,7 +102,7 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 **Phase**: 1 — Foundation
 **Status**: IN PROGRESS
-**Last completed task**: Task 1.1 — Monorepo scaffold
+**Last completed task**: Task 1.2 — shadcn/ui setup
 
 ---
 
@@ -131,7 +131,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.2 — shadcn/ui setup
-**Status**: TODO
+**Status**: DONE
 **Goal**: Initialize shadcn/ui in the Next.js app.
 
 **Steps**:
