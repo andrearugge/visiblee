@@ -100,9 +100,9 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 1 — Foundation (COMPLETE) → Phase 2 starting
-**Status**: COMPLETE
-**Last completed task**: Task 1.9 — User settings page
+**Phase**: 2 — Landing page & preview flow
+**Status**: IN PROGRESS
+**Last completed task**: Task 1.10 — README.md
 
 ---
 
@@ -410,7 +410,7 @@ Then update this file:
 - Add Phase 2 atomic tasks (Landing page & preview flow)
 
 ### Task 1.10 — README.md
-**Status**: TODO
+**Status**: DONE
 **Goal**: Write the project README as the first commit of Phase 2, once the Phase 1 foundation is stable and fully working.
 
 **Content**:
@@ -428,6 +428,199 @@ Then update this file:
 - Link to `docs/` for specs and theory
 
 **Commit**: `docs: add project README with setup instructions`
+
+---
+
+---
+
+## Phase 2 — Landing page & preview flow (atomic tasks)
+
+Complete in order. Each task = one commit. Verify before proceeding.
+
+---
+
+### Task 2.1 — Google Analytics setup
+**Status**: TODO
+**Goal**: Integrate GA4 on the marketing site only.
+
+**Steps**:
+1. Add `NEXT_PUBLIC_GA_MEASUREMENT_ID` to `.env` and `.env.example`
+2. Create `components/analytics/google-analytics.tsx` — loads `gtag.js` script, initializes GA4, exposes `sendGAEvent(name, params)` helper
+3. Add component to `(marketing)/layout.tsx` only (never in app/admin layouts)
+4. Create `lib/analytics.ts` with typed `sendGAEvent` function
+5. Fire `page_view` automatically on route change (GA4 default with SPA config)
+
+**Verify**: GA4 DebugView shows `page_view` when navigating between `/`, `/pricing`, `/about`. No events fire when navigating in `/app`.
+
+**Commit**: `feat: setup Google Analytics 4 on marketing site`
+
+---
+
+### Task 2.2 — Landing page
+**Status**: TODO
+**Goal**: Build the full landing page with the analysis form.
+
+**Steps**:
+1. Replace placeholder `(marketing)/page.tsx` with a real hero section:
+   - Headline + subheading (i18n)
+   - Form: website URL, brand name, 3 target query fields (above the fold)
+   - Primary CTA button: "Get your AI Score"
+   - Brief "how it works" section below the fold (3 steps: analyze → score → improve)
+2. Create `components/features/preview-form.tsx` (client component):
+   - Validates inputs
+   - `POST /api/preview/analyze` on submit
+   - On success: `router.push('/preview/[id]')`
+   - On error: show inline error message
+   - GA events: `form_start` (first field touched), `analysis_requested` (submit)
+3. Add all i18n keys to `messages/en.json` and `messages/it.json` under `landing` namespace
+4. Marketing navbar already exists — verify Login/Register links work
+
+**Verify**: Form submits, creates a `PreviewAnalysis` record in DB, redirects to `/preview/[id]`. GA events appear in DebugView.
+
+**Commit**: `feat: build landing page with analysis form`
+
+---
+
+### Task 2.3 — Preview API routes
+**Status**: TODO
+**Goal**: Implement the three preview API endpoints.
+
+**Steps**:
+1. `POST /api/preview/analyze`:
+   - Body: `{ websiteUrl, brandName, queryTargets: string[], locale? }`
+   - Validate inputs (URL format, brandName not empty, 1–5 queries)
+   - Capture `ipAddress` (from `x-forwarded-for` header), `userAgent`, `referrer` from request headers
+   - Detect `locale` from cookie `NEXT_LOCALE` or `Accept-Language` if not in body
+   - Create `PreviewAnalysis` record (status: `pending`)
+   - Create `Job` record (type: `preview_analysis`, payload: `{ previewId }`)
+   - Return `{ previewId }` — no auth required
+
+2. `GET /api/preview/[id]`:
+   - Find `PreviewAnalysis` by ID
+   - If not found or expired (`expiresAt < now`): 404
+   - Return: `{ id, status, websiteUrl, brandName, aiReadinessScore, fanoutCoverageScore, passageQualityScore, chunkabilityScore, entityCoherenceScore, crossPlatformScore, insights, contentsFound, createdAt, expiresAt }`
+   - No auth required
+
+3. `POST /api/preview/[id]/send-report`:
+   - Body: `{ email }`
+   - Validate email format
+   - Update `PreviewAnalysis.reportEmail = email`
+   - Create `Job` record (type: `send_preview_report`, payload: `{ previewId, email }`)
+   - Return `{ success: true }`
+   - No auth required
+
+**Verify**: All three endpoints return correct responses. Curl `POST /api/preview/analyze` → creates DB records → `GET /api/preview/[id]` returns the preview.
+
+**Commit**: `feat: implement preview API routes (analyze, status, send-report)`
+
+---
+
+### Task 2.4 — Python microservice — preview pipeline
+**Status**: TODO
+**Goal**: Implement the full micro-analysis pipeline in FastAPI.
+
+**Steps**:
+1. Update `services/analyzer/requirements.txt`:
+   - `fastapi`, `uvicorn`, `httpx`, `anthropic`, `google-generativeai`, `voyageai`, `numpy`, `beautifulsoup4`, `python-dotenv`, `mailersend`
+2. Create `services/analyzer/app/config.py` — loads env vars
+3. Implement `POST /api/v1/preview-analyze` endpoint:
+   - Input: `{ website_url, brand_name, query_targets, language }`
+   - **Step 1** — Quick crawl via Brave Search API (`site:{domain}`, max 20 results)
+   - **Step 2** — Fetch + chunk top 5–10 pages (BeautifulSoup, passage segmentation)
+   - **Step 3** — Fan-out queries via Gemini 2.0 Flash (10 per target query, in `language`)
+   - **Step 4** — Embed queries + passages via Voyage AI `voyage-3-large` (1024 dims); cosine similarity; coverage threshold 0.75
+   - **Step 5** — Passage quality via Claude Sonnet (2 best passages per page, 5 criteria: self-containedness, claim clarity, info density, completeness, verifiability)
+   - **Step 6** — Chunkability score (heuristic: paragraph length 134–167 words optimal, heading coverage, answer-first structure)
+   - **Step 7** — Entity coherence (simplified: term consistency across pages)
+   - **Step 8** — Cross-platform signal via Brave Search (search brand on LinkedIn, Medium, Substack, Reddit, YouTube)
+   - **Step 9** — Composite AI Readiness Score (weighted average)
+   - **Step 10** — Insight generation via Claude or Gemini (3–4 bullets, in `language`)
+   - Return full result JSON
+4. Create `services/analyzer/app/worker.py` — polls `jobs` table (type: `preview_analysis`), calls preview pipeline, updates `PreviewAnalysis` record with results (status: `completed`)
+5. Keep pipeline under 60 seconds — parallelize where possible (asyncio)
+
+**Verify**: `curl POST /api/v1/preview-analyze` with a real website returns all 6 scores + insights within 60s. Worker processes a job end-to-end.
+
+**Commit**: `feat: implement Python preview analysis pipeline`
+
+---
+
+### Task 2.5 — Preview result page UI
+**Status**: TODO
+**Goal**: Build the `/preview/[id]` result page with score display, radar chart, insights, and CTAs.
+
+**Steps**:
+1. Replace placeholder `(marketing)/preview/[id]/page.tsx`:
+   - Server component: load preview data on server (no client polling if status=completed)
+   - If status = `pending` or `processing`: render `PreviewPolling` client component that polls `GET /api/preview/[id]` every 3s with a progress indicator
+   - If status = `completed`: render full results
+   - If status = `failed` or not found: show error state
+2. Score display section:
+   - Large central `aiReadinessScore` (e.g., "42/100")
+   - Radar/spider chart with 5 sub-scores — use `recharts` (install)
+   - Each sub-score row: name + value + `?` icon tooltip (opens `ScoreExplainer` popover)
+3. `ScoreExplainer` component: popover with what-is, example, improve action (i18n)
+4. Insights section: 3–4 AI-generated bullets
+5. Blurred "locked" section (full content list + detailed recommendations — blurred overlay with register CTA)
+6. Two CTA buttons:
+   - "Get the report via email" → inline email input appears → `POST /api/preview/[id]/send-report` → confirmation message
+   - "Sign up for full analysis" → `/register?preview=[id]`
+7. All text i18n under `preview` namespace
+8. GA events: `preview_viewed` on load, `report_requested` on email submit, `registration_started` on CTA click
+
+**Verify**: Preview page shows scores and radar chart. Polling works (shows progress then results). Email CTA sends report job. Register CTA navigates correctly.
+
+**Commit**: `feat: build preview result page with scores, radar chart, and CTAs`
+
+---
+
+### Task 2.6 — Email + PDF report
+**Status**: TODO
+**Goal**: Send a PDF report via MailerSend when user requests it.
+
+**Steps**:
+1. Install: `@react-email/components`, `@react-pdf/renderer` (or use `puppeteer` for PDF), `mailersend` in `apps/web`
+2. Create `lib/email.ts` — MailerSend client wrapper with `sendEmail(to, subject, html, attachments?)` helper
+3. Create `emails/preview-report.tsx` — React Email template:
+   - Visiblee branding header
+   - AI Readiness Score (prominent)
+   - 5 sub-scores table
+   - Insights section (3–4 bullets)
+   - Register CTA button
+   - Footer with legal links
+   - Translatable (accepts locale, uses `messages/*.json`)
+4. Create `lib/pdf.ts` — renders the report template to PDF buffer using `@react-pdf/renderer`
+5. Create job worker in Next.js (or Python service): listens for `send_preview_report` jobs, generates PDF, calls MailerSend, updates `preview_analyses.reportSentAt`
+6. Add env vars: `MAILERSEND_API_KEY`, `EMAIL_FROM` to `.env` and `.env.example`
+
+**Verify**: Trigger email from preview page → email arrives with PDF attachment containing the correct scores and insights. Works in both IT and EN.
+
+**Commit**: `feat: implement PDF report generation and MailerSend email delivery`
+
+---
+
+### Task 2.7 — Registration conversion from preview
+**Status**: TODO
+**Goal**: When a user registers after viewing a preview, automatically create their first project from preview data.
+
+**Steps**:
+1. Update register page to accept `?preview=[id]` query param:
+   - Pre-fill email if `preview.reportEmail` is set
+   - After registration, look up the preview and call conversion logic
+2. Create server action `lib/actions/convert-preview.ts`:
+   - Input: `userId`, `previewId`
+   - Create `Project` from preview: `name = brandName`, `websiteUrl`, status `active`
+   - Create `TargetQuery` records from preview's `queryTargets`
+   - Update `PreviewAnalysis`: `userId`, `projectId`, `convertedAt = now()`
+   - Create `Job` (type: `full_analysis`, payload: `{ projectId }`) — placeholder for Phase 3
+   - Return `{ projectId }`
+3. Update register flow in `lib/actions/auth.ts`: after user creation, check for `previewId` param, call `convertPreview`, redirect to `/app/projects/[id]/overview`
+4. Show banner on project overview page if `?converted=true` query param is present: "We've imported your preview data. Full analysis is starting."
+5. Add `projectId` to `PreviewAnalysis` in conversion
+
+**Verify**: Register via `/register?preview=[id]` → project created → redirect to project overview → banner shown → preview linked to user in DB.
+
+**Commit**: `feat: implement preview-to-project conversion on registration`
 
 ---
 
