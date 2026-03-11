@@ -3,7 +3,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "loading": "Loading...",
-    "error": "Error"
+    "error": "Error",
+    "comingSoon": "Coming soon"
   },
   "nav": {
     "overview": "Overview",
@@ -15,7 +16,20 @@
     "geoExpert": "GEO Expert",
     "settings": "Settings",
     "projects": "Projects",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "pricing": "Pricing",
+    "about": "About",
+    "login": "Login",
+    "register": "Register",
+    "signOut": "Sign out",
+    "users": "Users",
+    "adminPanel": "Admin Panel"
+  },
+  "footer": {
+    "allRightsReserved": "All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "language": "Language"
   },
   "scores": {
     "aiReadiness": "AI Readiness Score",
@@ -39,5 +53,9 @@
       "label": "Source Authority",
       "description": "How present you are across diverse, authoritative sources"
     }
+  },
+  "placeholder": {
+    "pageTitle": "{page}",
+    "emptyState": "This section is under construction. Content will appear here once analysis is complete."
   }
 }

@@ -3,7 +3,8 @@
     "save": "Salva",
     "cancel": "Annulla",
     "loading": "Caricamento...",
-    "error": "Errore"
+    "error": "Errore",
+    "comingSoon": "Prossimamente"
   },
   "nav": {
     "overview": "Overview",
@@ -15,7 +16,20 @@
     "geoExpert": "GEO Expert",
     "settings": "Impostazioni",
     "projects": "Progetti",
-    "notifications": "Notifiche"
+    "notifications": "Notifiche",
+    "pricing": "Prezzi",
+    "about": "Chi siamo",
+    "login": "Accedi",
+    "register": "Registrati",
+    "signOut": "Esci",
+    "users": "Utenti",
+    "adminPanel": "Pannello Admin"
+  },
+  "footer": {
+    "allRightsReserved": "Tutti i diritti riservati.",
+    "privacy": "Privacy Policy",
+    "terms": "Termini di Servizio",
+    "language": "Lingua"
   },
   "scores": {
     "aiReadiness": "AI Readiness Score",
@@ -39,5 +53,9 @@
       "label": "Source Authority",
       "description": "Quanto sei presente su fonti diverse e autorevoli"
     }
+  },
+  "placeholder": {
+    "pageTitle": "{page}",
+    "emptyState": "Questa sezione è in costruzione. I contenuti appariranno qui una volta completata l'analisi."
   }
 }

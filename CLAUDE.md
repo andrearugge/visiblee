@@ -102,7 +102,7 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 **Phase**: 1 — Foundation
 **Status**: IN PROGRESS
-**Last completed task**: Task 1.3 — i18n setup with next-intl
+**Last completed task**: Task 1.4 — Route groups and layouts
 
 ---
 
@@ -190,7 +190,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.4 — Route groups and layouts
-**Status**: TODO
+**Status**: DONE
 **Goal**: Create the 4 route groups with their layouts and all placeholder pages.
 
 **Steps**:
@@ -408,6 +408,26 @@ Then update this file:
 - Set Phase 1 status to COMPLETE
 - Set current phase to Phase 2
 - Add Phase 2 atomic tasks (Landing page & preview flow)
+
+### Task 1.10 — README.md
+**Status**: TODO
+**Goal**: Write the project README as the first commit of Phase 2, once the Phase 1 foundation is stable and fully working.
+
+**Content**:
+- Project description and tech stack overview
+- Prerequisites (Node ≥20, Python ≥3.11, PostgreSQL with pgvector, Google OAuth credentials)
+- Local setup step by step:
+  1. Clone + `npm install`
+  2. Copy `.env.example` → `.env` and fill in values
+  3. `cd apps/web && npx prisma migrate dev`
+  4. `npx prisma db seed` (creates local superadmin)
+  5. `cd services/analyzer && python3 -m venv .venv && pip install -r requirements.txt`
+  6. `npm run dev:web` (port 3000) + `uvicorn app.main:app` (port 8000)
+- Monorepo structure diagram
+- Link to CLAUDE.md for conventions and architecture decisions
+- Link to `docs/` for specs and theory
+
+**Commit**: `docs: add project README with setup instructions`
 
 ---
 
