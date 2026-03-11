@@ -1,0 +1,20 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(yarn *)",
+            "Bash(npx prisma *)",
+            "Bash(cd *)",
+            "Bash(cat *)",
+            "Bash(ls *)",
+            "Bash(mkdir *)",
+            "Bash(cp *)",
+            "Bash(mv *)",
+            "Bash(rm *)",
+            "Bash(git *)",
+            "Bash(node *)",
+            "Bash(python *)",
+            "Bash(pip *)",
+            "Bash(uvicorn *)"
+        ]
+    }
+}
