@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Web crawling: Brave Search API + BeautifulSoup page fetching/chunking.
 """

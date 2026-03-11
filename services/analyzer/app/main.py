@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Visiblee — Python Analyzer Microservice
 Handles AI analysis, scoring, embedding, and content processing.

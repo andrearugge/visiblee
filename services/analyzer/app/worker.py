@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Job worker — polls the jobs table for preview_analysis jobs and processes them.
 """

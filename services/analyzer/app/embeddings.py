@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Voyage AI embeddings + cosine similarity utilities.
 """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Pydantic schemas for request/response validation.
 """

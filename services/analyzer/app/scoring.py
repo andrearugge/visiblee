@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Scoring logic for all 6 AI Readiness dimensions.
 """

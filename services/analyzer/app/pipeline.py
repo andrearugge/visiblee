@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Preview analysis pipeline — orchestrates all steps async.
 """
