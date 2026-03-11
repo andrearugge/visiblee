@@ -102,7 +102,7 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 **Phase**: 1 — Foundation
 **Status**: IN PROGRESS
-**Last completed task**: Task 1.2 — shadcn/ui setup
+**Last completed task**: Task 1.3 — i18n setup with next-intl
 
 ---
 
@@ -146,7 +146,7 @@ Complete these tasks in order. Each task is one commit. Verify each works before
 ---
 
 ### Task 1.3 — i18n setup with next-intl
-**Status**: TODO
+**Status**: DONE
 **Goal**: Set up next-intl for Italian + English with browser detection, no URL prefix.
 
 **Steps**:

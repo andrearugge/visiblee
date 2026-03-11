@@ -1,0 +1,43 @@
+{
+  "common": {
+    "save": "Salva",
+    "cancel": "Annulla",
+    "loading": "Caricamento...",
+    "error": "Errore"
+  },
+  "nav": {
+    "overview": "Overview",
+    "queries": "Query",
+    "contents": "Contenuti",
+    "opportunityMap": "Mappa Opportunità",
+    "competitors": "Competitor",
+    "optimizationTips": "Consigli di Ottimizzazione",
+    "geoExpert": "GEO Expert",
+    "settings": "Impostazioni",
+    "projects": "Progetti",
+    "notifications": "Notifiche"
+  },
+  "scores": {
+    "aiReadiness": "AI Readiness Score",
+    "queryReach": {
+      "label": "Query Reach",
+      "description": "Quante domande correlate riesce a rispondere il tuo contenuto"
+    },
+    "answerStrength": {
+      "label": "Answer Strength",
+      "description": "Quanto è forte ogni paragrafo rispetto alla concorrenza"
+    },
+    "extractability": {
+      "label": "Extractability",
+      "description": "Con quale facilità l'AI riesce a estrarre informazioni dal tuo contenuto"
+    },
+    "brandTrust": {
+      "label": "Brand Trust",
+      "description": "Quanto è riconoscibile e coerente il tuo brand"
+    },
+    "sourceAuthority": {
+      "label": "Source Authority",
+      "description": "Quanto sei presente su fonti diverse e autorevoli"
+    }
+  }
+}
