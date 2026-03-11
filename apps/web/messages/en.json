@@ -54,6 +54,29 @@
       "description": "How present you are across diverse, authoritative sources"
     }
   },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "totalUsers": "Total users",
+    "totalProjects": "Total projects",
+    "activeProjects": "Active projects",
+    "users": "Users",
+    "searchPlaceholder": "Search by email or name...",
+    "filterByRole": "Filter by role",
+    "allRoles": "All roles",
+    "email": "Email",
+    "name": "Name",
+    "role": "Role",
+    "projects": "Projects",
+    "provider": "Provider",
+    "locale": "Locale",
+    "createdAt": "Created",
+    "userDetail": "User detail",
+    "saveRole": "Save role",
+    "saving": "Saving...",
+    "roleSaved": "Role updated",
+    "roleError": "Failed to update role",
+    "noUsers": "No users found"
+  },
   "projects": {
     "newProject": "New project",
     "myProjects": "My projects",

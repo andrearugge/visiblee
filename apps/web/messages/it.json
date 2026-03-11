@@ -54,6 +54,29 @@
       "description": "Quanto sei presente su fonti diverse e autorevoli"
     }
   },
+  "admin": {
+    "dashboard": "Pannello Admin",
+    "totalUsers": "Utenti totali",
+    "totalProjects": "Progetti totali",
+    "activeProjects": "Progetti attivi",
+    "users": "Utenti",
+    "searchPlaceholder": "Cerca per email o nome...",
+    "filterByRole": "Filtra per ruolo",
+    "allRoles": "Tutti i ruoli",
+    "email": "Email",
+    "name": "Nome",
+    "role": "Ruolo",
+    "projects": "Progetti",
+    "provider": "Provider",
+    "locale": "Lingua",
+    "createdAt": "Creato il",
+    "userDetail": "Dettaglio utente",
+    "saveRole": "Salva ruolo",
+    "saving": "Salvataggio...",
+    "roleSaved": "Ruolo aggiornato",
+    "roleError": "Errore nell'aggiornamento del ruolo",
+    "noUsers": "Nessun utente trovato"
+  },
   "projects": {
     "newProject": "Nuovo progetto",
     "myProjects": "I miei progetti",
