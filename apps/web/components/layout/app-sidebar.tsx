@@ -10,23 +10,23 @@ interface AppSidebarProps {
   isSuperadmin?: boolean;
 }
 
+const LINKS = [
+  { href: '/app', i18nKey: 'projects' as const, icon: FolderOpen, exact: true },
+  { href: '/app/settings', i18nKey: 'settings' as const, icon: Settings },
+];
+
+const ADMIN_LINKS = [
+  { href: '/admin', i18nKey: 'users' as const, icon: Users },
+];
+
 export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
 
-  const links = [
-    { href: '/app', label: t('projects'), icon: FolderOpen, exact: true },
-    { href: '/app/settings', label: t('settings'), icon: Settings },
-  ];
-
-  const adminLinks = [
-    { href: '/admin', label: t('users'), icon: Users },
-  ];
-
   return (
     <aside className="flex w-56 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        {links.map(({ href, label, icon: Icon, exact }) => {
+        {LINKS.map(({ href, i18nKey, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
           return (
             <Link
@@ -40,18 +40,17 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
               )}
             >
               <Icon className="size-4 shrink-0" />
-              {label}
+              {t(i18nKey)}
             </Link>
           );
         })}
 
-        {/* Superadmin section */}
-        {isSuperadmin && (
+        {isSuperadmin ? (
           <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
             <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Admin
             </p>
-            {adminLinks.map(({ href, label, icon: Icon }) => {
+            {ADMIN_LINKS.map(({ href, i18nKey, icon: Icon }) => {
               const active = pathname.startsWith(href);
               return (
                 <Link
@@ -65,12 +64,12 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
-                  {label}
+                  {t(i18nKey)}
                 </Link>
               );
             })}
           </div>
-        )}
+        ) : null}
       </nav>
     </aside>
   );

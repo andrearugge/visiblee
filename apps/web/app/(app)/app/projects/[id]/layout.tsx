@@ -10,8 +10,7 @@ export default async function ProjectLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  const { id } = await params;
+  const [session, { id }] = await Promise.all([auth(), params]);
 
   const project = await db.project.findFirst({
     where: { id, userId: session!.user.id },

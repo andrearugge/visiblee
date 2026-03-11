@@ -11,9 +11,11 @@ interface Props {
 }
 
 export default async function AdminUserDetailPage({ params }: Props) {
-  const { id } = await params;
-  const t = await getTranslations('admin');
-  const tProjects = await getTranslations('projects');
+  const [{ id }, t, tProjects] = await Promise.all([
+    params,
+    getTranslations('admin'),
+    getTranslations('projects'),
+  ]);
 
   const user = await db.user.findUnique({
     where: { id },

@@ -122,11 +122,11 @@ export function ProjectSettingsForm({ project }: Props) {
           />
         </div>
 
-        {saveMsg && (
+        {saveMsg ? (
           <p className={`text-sm ${saveMsg === t('saved') ? 'text-green-600' : 'text-red-500'}`}>
             {saveMsg}
           </p>
-        )}
+        ) : null}
 
         <Button type="submit" disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}

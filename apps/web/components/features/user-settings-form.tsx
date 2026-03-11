@@ -88,7 +88,7 @@ export function UserSettingsForm({ name: initialName, email, preferredLocale: in
         </div>
       </div>
 
-      {provider === 'credentials' && (
+      {provider === 'credentials' ? (
         <>
           <Separator />
           <div className="space-y-1.5">
@@ -96,13 +96,13 @@ export function UserSettingsForm({ name: initialName, email, preferredLocale: in
             <p className="text-sm text-zinc-400">{t('changePasswordComingSoon')}</p>
           </div>
         </>
-      )}
+      ) : null}
 
-      {msg && (
+      {msg ? (
         <p className={`text-sm ${msg === t('saved') ? 'text-green-600' : 'text-red-500'}`}>
           {msg}
         </p>
-      )}
+      ) : null}
 
       <Button type="submit" disabled={saving}>
         {saving ? t('saving') : t('saveChanges')}

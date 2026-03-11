@@ -9,9 +9,7 @@ interface Props {
 }
 
 export default async function ProjectSettingsPage({ params }: Props) {
-  const session = await auth();
-  const { id } = await params;
-  const t = await getTranslations('projects');
+  const [session, { id }, t] = await Promise.all([auth(), params, getTranslations('projects')]);
 
   const project = await db.project.findFirst({
     where: { id, userId: session!.user.id },

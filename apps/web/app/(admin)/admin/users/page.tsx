@@ -4,6 +4,12 @@ import { db } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
+const ROLE_COLORS: Record<string, 'default' | 'secondary' | 'destructive'> = {
+  superadmin: 'destructive',
+  admin: 'default',
+  user: 'secondary',
+};
+
 interface Props {
   searchParams: Promise<{ search?: string; role?: string }>;
 }
@@ -28,12 +34,6 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     take: 50,
     include: { _count: { select: { projects: true } }, accounts: { select: { provider: true } } },
   });
-
-  const roleColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    superadmin: 'destructive',
-    admin: 'default',
-    user: 'secondary',
-  };
 
   return (
     <div className="p-6">
@@ -91,7 +91,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                   </td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{user.name ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={roleColors[user.role] ?? 'secondary'}>{user.role}</Badge>
+                    <Badge variant={ROLE_COLORS[user.role] ?? 'secondary'}>{user.role}</Badge>
                   </td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{user._count.projects}</td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">

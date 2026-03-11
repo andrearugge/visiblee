@@ -60,14 +60,14 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
             <ChevronDown className="size-3 text-zinc-400" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            {userEmail && (
+            {userEmail ? (
               <>
                 <div className="px-2 py-1.5">
                   <p className="text-xs text-zinc-500">{userEmail}</p>
                 </div>
                 <DropdownMenuSeparator />
               </>
-            )}
+            ) : null}
             <DropdownMenuItem onClick={() => router.push('/app/settings')}>
               {t('settings')}
             </DropdownMenuItem>

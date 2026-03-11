@@ -21,27 +21,26 @@ interface ProjectSidebarProps {
   brandName?: string;
 }
 
+const MAIN_LINK_DEFS = [
+  { segment: 'overview', i18nKey: 'overview' as const, icon: BarChart2 },
+  { segment: 'queries', i18nKey: 'queries' as const, icon: Search },
+  { segment: 'contents', i18nKey: 'contents' as const, icon: FileText },
+  { segment: 'opportunities', i18nKey: 'opportunityMap' as const, icon: Map },
+  { segment: 'competitors', i18nKey: 'competitors' as const, icon: Users },
+  { segment: 'optimization', i18nKey: 'optimizationTips' as const, icon: Lightbulb },
+  { segment: 'agent', i18nKey: 'geoExpert' as const, icon: Bot },
+];
+
+const BOTTOM_LINK_DEFS = [
+  { segment: 'settings', i18nKey: 'settings' as const, icon: Settings },
+];
+
 export function ProjectSidebar({ projectId, projectName, brandName }: ProjectSidebarProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const base = `/app/projects/${projectId}`;
 
-  const mainLinks = [
-    { href: `${base}/overview`, label: t('overview'), icon: BarChart2 },
-    { href: `${base}/queries`, label: t('queries'), icon: Search },
-    { href: `${base}/contents`, label: t('contents'), icon: FileText },
-    { href: `${base}/opportunities`, label: t('opportunityMap'), icon: Map },
-    { href: `${base}/competitors`, label: t('competitors'), icon: Users },
-    { href: `${base}/optimization`, label: t('optimizationTips'), icon: Lightbulb },
-    { href: `${base}/agent`, label: t('geoExpert'), icon: Bot },
-  ];
-
-  const bottomLinks = [
-    { href: `${base}/settings`, label: t('settings'), icon: Settings },
-  ];
-
-  function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
-    const active = pathname === href || pathname.startsWith(href + '/');
+  function NavLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: React.ElementType; active: boolean }) {
     return (
       <Link
         href={href}
@@ -60,21 +59,29 @@ export function ProjectSidebar({ projectId, projectName, brandName }: ProjectSid
 
   return (
     <aside className="flex w-56 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-      {(projectName || brandName) && (
+      {(projectName || brandName) ? (
         <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
-          {brandName && <p className="text-xs font-semibold text-zinc-500">{brandName}</p>}
-          {projectName && <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{projectName}</p>}
+          {brandName ? <p className="text-xs font-semibold text-zinc-500">{brandName}</p> : null}
+          {projectName ? <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{projectName}</p> : null}
         </div>
-      )}
+      ) : null}
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        {mainLinks.map((link) => (
-          <NavLink key={link.href} {...link} />
-        ))}
+        {MAIN_LINK_DEFS.map(({ segment, i18nKey, icon: Icon }) => {
+          const href = `${base}/${segment}`;
+          const active = pathname === href || pathname.startsWith(href + '/');
+          return (
+            <NavLink key={href} href={href} label={t(i18nKey)} icon={Icon} active={active} />
+          );
+        })}
       </nav>
       <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
-        {bottomLinks.map((link) => (
-          <NavLink key={link.href} {...link} />
-        ))}
+        {BOTTOM_LINK_DEFS.map(({ segment, i18nKey, icon: Icon }) => {
+          const href = `${base}/${segment}`;
+          const active = pathname === href || pathname.startsWith(href + '/');
+          return (
+            <NavLink key={href} href={href} label={t(i18nKey)} icon={Icon} active={active} />
+          );
+        })}
       </div>
     </aside>
   );

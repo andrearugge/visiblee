@@ -4,8 +4,7 @@ import { db } from '@/lib/db';
 import { UserSettingsForm } from '@/components/features/user-settings-form';
 
 export default async function UserSettingsPage() {
-  const session = await auth();
-  const t = await getTranslations('settings');
+  const [session, t] = await Promise.all([auth(), getTranslations('settings')]);
 
   const user = await db.user.findUnique({
     where: { id: session!.user.id },

@@ -29,8 +29,8 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="antialiased">
         <SessionProvider>
           <NextIntlClientProvider locale={locale} messages={messages}>
             {children}

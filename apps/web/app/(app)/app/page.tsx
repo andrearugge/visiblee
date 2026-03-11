@@ -9,8 +9,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Globe, BarChart3 } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const session = await auth();
-  const t = await getTranslations('projects');
+  const [session, t] = await Promise.all([auth(), getTranslations('projects')]);
 
   const projects = await db.project.findMany({
     where: { userId: session!.user.id, status: { not: 'archived' } },
