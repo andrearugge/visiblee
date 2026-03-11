@@ -54,6 +54,24 @@
       "description": "How present you are across diverse, authoritative sources"
     }
   },
+  "settings": {
+    "title": "Account settings",
+    "name": "Full name",
+    "email": "Email",
+    "emailReadOnly": "Email cannot be changed",
+    "language": "Language",
+    "english": "English",
+    "italian": "Italiano",
+    "authProvider": "Sign-in method",
+    "providerGoogle": "Google",
+    "providerCredentials": "Email & Password",
+    "changePassword": "Change password",
+    "changePasswordComingSoon": "Password change coming soon",
+    "saveChanges": "Save changes",
+    "saving": "Saving...",
+    "saved": "Settings saved",
+    "saveError": "Failed to save settings"
+  },
   "admin": {
     "dashboard": "Admin Dashboard",
     "totalUsers": "Total users",

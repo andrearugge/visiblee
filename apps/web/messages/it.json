@@ -54,6 +54,24 @@
       "description": "Quanto sei presente su fonti diverse e autorevoli"
     }
   },
+  "settings": {
+    "title": "Impostazioni account",
+    "name": "Nome completo",
+    "email": "Email",
+    "emailReadOnly": "L'email non può essere modificata",
+    "language": "Lingua",
+    "english": "English",
+    "italian": "Italiano",
+    "authProvider": "Metodo di accesso",
+    "providerGoogle": "Google",
+    "providerCredentials": "Email e Password",
+    "changePassword": "Cambia password",
+    "changePasswordComingSoon": "Cambio password in arrivo",
+    "saveChanges": "Salva modifiche",
+    "saving": "Salvataggio...",
+    "saved": "Impostazioni salvate",
+    "saveError": "Errore nel salvataggio"
+  },
   "admin": {
     "dashboard": "Pannello Admin",
     "totalUsers": "Utenti totali",
