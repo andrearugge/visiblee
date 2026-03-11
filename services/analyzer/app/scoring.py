@@ -17,12 +17,10 @@ except ImportError:
     _claude = None
 
 try:
-    import google.generativeai as genai
-    if config.GOOGLE_AI_API_KEY:
-        genai.configure(api_key=config.GOOGLE_AI_API_KEY)
-    _gemini = genai.GenerativeModel("gemini-2.0-flash") if config.GOOGLE_AI_API_KEY else None
+    from google import genai as google_genai
+    _gemini_client = google_genai.Client(api_key=config.GOOGLE_AI_API_KEY) if config.GOOGLE_AI_API_KEY else None
 except ImportError:
-    _gemini = None
+    _gemini_client = None
 
 
 # ── Fanout query generation ────────────────────────────────────────────────
@@ -33,7 +31,7 @@ async def generate_fanout_queries(
     language: str,
 ) -> list[str]:
     """Generate N fanout queries per target query using Gemini Flash."""
-    if not _gemini:
+    if not _gemini_client:
         return target_queries
 
     n = config.FANOUT_PER_QUERY
@@ -48,7 +46,9 @@ async def generate_fanout_queries(
             f"Return ONLY the queries, one per line, no numbering, no extra text."
         )
         try:
-            response = await asyncio.to_thread(_gemini.generate_content, prompt)
+            response = await _gemini_client.aio.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
             lines = [l.strip() for l in response.text.strip().splitlines() if l.strip()]
             return lines[:n]
         except Exception:
@@ -255,9 +255,11 @@ async def generate_insights(
         except Exception:
             pass
 
-    if _gemini:
+    if _gemini_client:
         try:
-            response = await asyncio.to_thread(_gemini.generate_content, prompt)
+            response = await _gemini_client.aio.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
             text = response.text.strip()
             bullets = [l.strip().lstrip("•").strip() for l in text.splitlines() if l.strip().startswith("•")]
             if bullets:

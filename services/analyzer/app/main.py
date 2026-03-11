@@ -8,6 +8,7 @@ Handles AI analysis, scoring, embedding, and content processing.
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 
-def verify_api_key(credentials: HTTPAuthorizationCredentials | None) -> None:
+def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials]) -> None:
     """Validate internal API key."""
     if not config.ANALYZER_API_KEY:
         return  # no key configured — open in dev
@@ -52,7 +53,7 @@ async def health() -> dict:
 @app.post("/api/v1/preview-analyze", response_model=PreviewAnalyzeResponse)
 async def preview_analyze(
     request: PreviewAnalyzeRequest,
-    credentials: HTTPAuthorizationCredentials | None = Security(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> PreviewAnalyzeResponse:
     """
     Run the full preview analysis pipeline for a given website.
