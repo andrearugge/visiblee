@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from "@/lib/button-variants";
 import { cn } from '@/lib/utils';
 
 interface AppNavbarProps {
