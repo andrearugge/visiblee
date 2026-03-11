@@ -101,8 +101,8 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 ## Current state
 
 **Phase**: 1 — Foundation
-**Status**: NOT STARTED
-**Last completed task**: None
+**Status**: IN PROGRESS
+**Last completed task**: Task 1.1 — Monorepo scaffold
 
 ---
 
@@ -111,7 +111,7 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 Complete these tasks in order. Each task is one commit. Verify each works before proceeding to the next.
 
 ### Task 1.1 — Monorepo scaffold
-**Status**: TODO
+**Status**: DONE
 **Goal**: Create the base monorepo structure with Next.js app and Python microservice placeholder.
 
 **Steps**:
