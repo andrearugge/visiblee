@@ -17,9 +17,11 @@ import { cn } from '@/lib/utils';
 
 interface ProjectSidebarProps {
   projectId: string;
+  projectName?: string;
+  brandName?: string;
 }
 
-export function ProjectSidebar({ projectId }: ProjectSidebarProps) {
+export function ProjectSidebar({ projectId, projectName, brandName }: ProjectSidebarProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const base = `/app/projects/${projectId}`;
@@ -58,6 +60,12 @@ export function ProjectSidebar({ projectId }: ProjectSidebarProps) {
 
   return (
     <aside className="flex w-56 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+      {(projectName || brandName) && (
+        <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
+          {brandName && <p className="text-xs font-semibold text-zinc-500">{brandName}</p>}
+          {projectName && <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{projectName}</p>}
+        </div>
+      )}
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {mainLinks.map((link) => (
           <NavLink key={link.href} {...link} />
