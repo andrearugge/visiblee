@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { signOut } from 'next-auth/react';
 import { Bell, ChevronDown, User } from 'lucide-react';
 import {
   DropdownMenu,
@@ -71,10 +72,9 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
               {t('settings')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {/* Sign out — wired in Task 1.6 */}
             <DropdownMenuItem
               variant="destructive"
-              onClick={() => {/* TODO Task 1.6 */}}
+              onClick={() => signOut({ callbackUrl: '/login' })}
             >
               {t('signOut')}
             </DropdownMenuItem>

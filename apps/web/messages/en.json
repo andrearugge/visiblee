@@ -54,6 +54,26 @@
       "description": "How present you are across diverse, authoritative sources"
     }
   },
+  "auth": {
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Sign in to your Visiblee account",
+    "registerTitle": "Create your account",
+    "registerSubtitle": "Start optimizing your AI visibility",
+    "continueWithGoogle": "Continue with Google",
+    "orContinueWith": "Or continue with",
+    "email": "Email",
+    "password": "Password",
+    "name": "Full name",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "registerLink": "Sign up",
+    "loginLink": "Sign in",
+    "invalidCredentials": "Invalid email or password",
+    "emailTaken": "Email already registered",
+    "genericError": "Something went wrong. Please try again."
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "This section is under construction. Content will appear here once analysis is complete."

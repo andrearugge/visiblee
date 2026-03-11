@@ -54,6 +54,26 @@
       "description": "Quanto sei presente su fonti diverse e autorevoli"
     }
   },
+  "auth": {
+    "loginTitle": "Bentornato",
+    "loginSubtitle": "Accedi al tuo account Visiblee",
+    "registerTitle": "Crea il tuo account",
+    "registerSubtitle": "Inizia ad ottimizzare la tua visibilità AI",
+    "continueWithGoogle": "Continua con Google",
+    "orContinueWith": "Oppure continua con",
+    "email": "Email",
+    "password": "Password",
+    "name": "Nome completo",
+    "signIn": "Accedi",
+    "createAccount": "Crea account",
+    "noAccount": "Non hai ancora un account?",
+    "haveAccount": "Hai già un account?",
+    "registerLink": "Registrati",
+    "loginLink": "Accedi",
+    "invalidCredentials": "Email o password non validi",
+    "emailTaken": "Email già registrata",
+    "genericError": "Si è verificato un errore. Riprova."
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "Questa sezione è in costruzione. I contenuti appariranno qui una volta completata l'analisi."

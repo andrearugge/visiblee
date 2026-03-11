@@ -1,19 +1,16 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTranslations } from 'next-intl/server';
+import { LoginForm } from '@/components/auth/login-form';
 
 export default async function LoginPage() {
-  const t = await getTranslations('nav');
+  const t = await getTranslations('auth');
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>{t('login')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-zinc-500">
-          Auth form coming in Task 1.6.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="w-full max-w-sm space-y-2">
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">{t('loginTitle')}</h1>
+        <p className="text-sm text-zinc-500">{t('loginSubtitle')}</p>
+      </div>
+      <LoginForm />
+    </div>
   );
 }
