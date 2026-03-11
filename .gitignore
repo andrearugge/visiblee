@@ -81,3 +81,7 @@ apps/web/lib/generated/
 # ========================
 *.tgz
 .turbo
+# Claude Code
+.agents/
+.claude/
+skills-lock.json
