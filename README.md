@@ -19,7 +19,7 @@ AI Visibility Platform — helps brands, creators, and professionals improve the
 ## Prerequisites
 
 - Node.js ≥ 20.19.0
-- Python ≥ 3.11
+- Python ≥ 3.9 (3.11+ recommended — some Google SDK warnings on 3.9)
 - PostgreSQL 16 with pgvector extension (Docker recommended)
 - Google OAuth credentials (for social login)
 
@@ -77,24 +77,56 @@ npm run db:seed   # creates superadmin: admin@visiblee.dev / superadmin123
 
 ```bash
 cd services/analyzer
+
+# Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Copy and fill in environment variables
+cp .env.example .env
+```
+
+Edit `services/analyzer/.env` and fill in your API keys:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/visiblee
+ANTHROPIC_API_KEY=<your key>
+GOOGLE_AI_API_KEY=<your key>
+VOYAGE_API_KEY=<your key>
+BRAVE_SEARCH_API_KEY=<your key>
+ANALYZER_API_KEY=dev-internal-key
 ```
 
 ### 6. Start development servers
 
-In two separate terminals:
+Open **3 separate terminals**:
 
 ```bash
 # Terminal 1 — Next.js on http://localhost:3000
+# From the repo root:
 npm run dev:web
+# Or from apps/web:
+cd apps/web && npm run dev
 
 # Terminal 2 — FastAPI on http://localhost:8000
-cd services/analyzer && uvicorn app.main:app --reload
+# Make sure the venv is active first (you'll see (.venv) in the prompt)
+cd services/analyzer
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 3 — Python job worker (processes preview analysis jobs from DB)
+# Same venv as Terminal 2
+cd services/analyzer
+source .venv/bin/activate
+python -m app.worker
 ```
 
-Health check: `curl http://localhost:8000/api/v1/health` → `{"status":"ok"}`
+Health checks:
+- Next.js: `curl http://localhost:3000/api/auth/session` → `{}`
+- FastAPI: `curl http://localhost:8000/api/v1/health` → `{"status":"ok"}`
 
 ## Project Structure
 
@@ -128,6 +160,13 @@ visiblee/
 - **[docs/visiblee-specs.md](./docs/visiblee-specs.md)** — full technical specification
 - **[docs/visiblee-project-description.md](./docs/visiblee-project-description.md)** — product vision and UX flows
 - **[docs/visiblee-theory.md](./docs/visiblee-theory.md)** — Google AI Mode mechanisms and scoring rationale
+
+## Known Issues / Notes
+
+| Issue | Status | Notes |
+|---|---|---|
+| `fanout_coverage_score` always 0 | ⚠️ To investigate | Voyage AI embeddings may not be generating correctly despite key being set. Fanout queries count stays at the original number instead of expanding. Verify once preview UI (Task 2.5) is complete. |
+| Python 3.9 Google SDK warnings | ℹ️ Non-blocking | `google-auth` and `google-genai` show FutureWarning on Python 3.9. Upgrade to Python 3.11+ to suppress. |
 
 ## Superadmin Access
 
