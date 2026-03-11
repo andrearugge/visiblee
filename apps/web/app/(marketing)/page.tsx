@@ -37,13 +37,8 @@ export default async function LandingPage() {
             </span>
 
             {/* Headline */}
-            <h1 className="mb-5 max-w-2xl text-balance text-5xl font-bold leading-[1.1] tracking-tight text-zinc-900 sm:text-6xl lg:text-7xl">
-              {t('heroTitle').split('\n').map((line, i) => (
-                <span key={i}>
-                  {i > 0 ? <br /> : null}
-                  {line}
-                </span>
-              ))}
+            <h1 className="mb-5 max-w-2xl text-balance text-5xl font-bold leading-[1.1] tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl">
+              {t('heroTitle')}
             </h1>
 
             {/* Subtitle */}
