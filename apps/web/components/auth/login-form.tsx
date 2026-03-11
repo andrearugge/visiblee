@@ -12,9 +12,19 @@ import { Separator } from '@/components/ui/separator';
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from '@/lib/utils';
 
-export function LoginForm() {
+interface LoginFormProps {
+  oauthError?: string;
+}
+
+const OAUTH_ERROR_MAP: Record<string, string> = {
+  OAuthAccountNotLinked: 'errorOAuthAccountNotLinked',
+  Configuration: 'errorConfiguration',
+  AccessDenied: 'errorAccessDenied',
+  Verification: 'errorVerification',
+};
+
+export function LoginForm({ oauthError }: LoginFormProps) {
   const t = useTranslations('auth');
-  const tNav = useTranslations('nav');
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -47,8 +57,18 @@ export function LoginForm() {
     await signIn('google', { callbackUrl: '/app' });
   }
 
+  const oauthErrorMessage = oauthError
+    ? t(OAUTH_ERROR_MAP[oauthError] ?? 'errorDefault')
+    : null;
+
   return (
     <div className="space-y-4">
+      {oauthErrorMessage ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+          {oauthErrorMessage}
+        </div>
+      ) : null}
+
       <Button
         variant="outline"
         className="w-full"

@@ -151,7 +151,12 @@
     "loginLink": "Sign in",
     "invalidCredentials": "Invalid email or password",
     "emailTaken": "Email already registered",
-    "genericError": "Something went wrong. Please try again."
+    "genericError": "Something went wrong. Please try again.",
+    "errorOAuthAccountNotLinked": "This email is already registered with a different sign-in method. Please sign in using the original method.",
+    "errorConfiguration": "There is a server configuration error. Please try again later.",
+    "errorAccessDenied": "Access denied. You are not authorized to sign in.",
+    "errorVerification": "The verification link has expired or has already been used.",
+    "errorDefault": "An error occurred during sign in. Please try again."
   },
   "placeholder": {
     "pageTitle": "{page}",

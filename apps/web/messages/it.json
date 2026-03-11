@@ -151,7 +151,12 @@
     "loginLink": "Accedi",
     "invalidCredentials": "Email o password non validi",
     "emailTaken": "Email già registrata",
-    "genericError": "Si è verificato un errore. Riprova."
+    "genericError": "Si è verificato un errore. Riprova.",
+    "errorOAuthAccountNotLinked": "Questa email è già registrata con un metodo di accesso diverso. Accedi usando il metodo originale.",
+    "errorConfiguration": "Errore di configurazione del server. Riprova più tardi.",
+    "errorAccessDenied": "Accesso negato. Non sei autorizzato ad accedere.",
+    "errorVerification": "Il link di verifica è scaduto o è già stato utilizzato.",
+    "errorDefault": "Si è verificato un errore durante l'accesso. Riprova."
   },
   "placeholder": {
     "pageTitle": "{page}",
