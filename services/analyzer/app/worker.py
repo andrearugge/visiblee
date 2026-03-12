@@ -7,24 +7,72 @@ Job worker — polls the jobs table for preview_analysis jobs and processes them
 import asyncio
 import json
 import logging
+import warnings
 from datetime import datetime, timezone
+
+# Suppress known harmless warnings on macOS with Python 3.9 / LibreSSL
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="urllib3")
+warnings.filterwarnings("ignore", message=".*NotOpenSSLWarning.*")
+warnings.filterwarnings("ignore", message=".*end of life.*", category=FutureWarning)
 
 import psycopg2
 import psycopg2.extras
 
 from .config import config
+from .email import send_preview_report
 from .pipeline import run_preview_pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
+
+# Pipeline timeout: abort if analysis takes longer than this (seconds)
+PIPELINE_TIMEOUT = 120
 
 
 def get_conn() -> psycopg2.extensions.connection:
     return psycopg2.connect(config.DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
 
 
+def recover_stale_jobs(conn) -> int:
+    """
+    Reset jobs stuck in 'running' state for longer than PIPELINE_TIMEOUT.
+    This handles the case where the worker was killed mid-job (e.g. uvicorn --reload).
+    Returns the number of jobs reset.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE jobs
+            SET status = 'pending',
+                "startedAt" = NULL,
+                error = 'Recovered from stale running state'
+            WHERE type = 'preview_analysis'
+              AND status = 'running'
+              AND "startedAt" < NOW() - INTERVAL '%s seconds'
+              AND attempts < "maxAttempts"
+            """,
+            (PIPELINE_TIMEOUT,),
+        )
+        count = cur.rowcount
+        if count:
+            # Also reset the corresponding previews back to pending
+            cur.execute(
+                """
+                UPDATE preview_analyses SET status = 'pending'
+                WHERE id IN (
+                    SELECT "previewId" FROM jobs
+                    WHERE type = 'preview_analysis'
+                      AND status = 'pending'
+                      AND error = 'Recovered from stale running state'
+                )
+                """,
+            )
+        conn.commit()
+    return count
+
+
 def claim_job(conn) -> dict | None:
-    """Atomically claim the next pending preview_analysis job."""
+    """Atomically claim the next pending job of any handled type."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -34,14 +82,14 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type = 'preview_analysis'
+                WHERE type IN ('preview_analysis', 'send_preview_report')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                 ORDER BY "createdAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
-            RETURNING id, "previewId", payload
+            RETURNING id, type, "previewId", payload
             """,
         )
         row = cur.fetchone()
@@ -106,7 +154,7 @@ def complete_job(conn, job_id: str) -> None:
 
 
 async def process_job(job: dict) -> None:
-    """Run the pipeline for one job."""
+    """Run the pipeline for one job, with a hard timeout."""
     job_id = job["id"]
     preview_id = job["previewId"]
     log.info(f"Processing job {job_id} for preview {preview_id}")
@@ -133,19 +181,105 @@ async def process_job(job: dict) -> None:
             )
             conn.commit()
 
-        result = await run_preview_pipeline(
-            website_url=preview["websiteUrl"],
-            brand_name=preview["brandName"],
-            query_targets=list(preview["queryTargets"]),
-            language=preview["locale"] or "en",
+        result = await asyncio.wait_for(
+            run_preview_pipeline(
+                website_url=preview["websiteUrl"],
+                brand_name=preview["brandName"],
+                query_targets=list(preview["queryTargets"]),
+                language=preview["locale"] or "en",
+            ),
+            timeout=PIPELINE_TIMEOUT,
         )
 
         update_preview(conn, preview_id, result)
         complete_job(conn, job_id)
         log.info(f"Job {job_id} completed. AI Readiness: {result['scores']['ai_readiness_score']:.0%}")
 
+    except asyncio.TimeoutError:
+        log.error(f"Job {job_id} timed out after {PIPELINE_TIMEOUT}s")
+        try:
+            fail_job(conn, job_id, f"Pipeline timed out after {PIPELINE_TIMEOUT}s")
+        except Exception:
+            pass
     except Exception as e:
-        log.error(f"Job {job_id} failed: {e}")
+        log.error(f"Job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e))
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
+async def process_email_job(job: dict) -> None:
+    """Send a preview report email."""
+    job_id = job["id"]
+    preview_id = job["previewId"]
+    payload = job.get("payload") or {}
+    to_email = payload.get("email") if isinstance(payload, dict) else None
+
+    if not to_email:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing email in job payload")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Sending report email for preview {preview_id} to {to_email}")
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT "brandName", "websiteUrl", locale,
+                       "aiReadinessScore", "fanoutCoverageScore", "passageQualityScore",
+                       "chunkabilityScore", "entityCoherenceScore", "crossPlatformScore",
+                       insights
+                FROM preview_analyses
+                WHERE id = %s AND status = 'completed'
+                """,
+                (preview_id,),
+            )
+            preview = cur.fetchone()
+
+        if not preview:
+            fail_job(conn, job_id, "Preview not found or not completed")
+            return
+
+        import json as _json
+        raw_insights = preview["insights"]
+        insights: list[str] = (
+            _json.loads(raw_insights) if isinstance(raw_insights, str) else (raw_insights or [])
+        )
+
+        send_preview_report(
+            to_email=to_email,
+            brand_name=preview["brandName"],
+            website_url=preview["websiteUrl"],
+            ai_readiness_score=float(preview["aiReadinessScore"] or 0),
+            fanout_coverage_score=float(preview["fanoutCoverageScore"] or 0),
+            passage_quality_score=float(preview["passageQualityScore"] or 0),
+            chunkability_score=float(preview["chunkabilityScore"] or 0),
+            entity_coherence_score=float(preview["entityCoherenceScore"] or 0),
+            cross_platform_score=float(preview["crossPlatformScore"] or 0),
+            insights=insights,
+            preview_id=preview_id,
+            language=preview["locale"] or "en",
+        )
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE preview_analyses SET \"reportSentAt\" = NOW() WHERE id = %s",
+                (preview_id,),
+            )
+            conn.commit()
+
+        complete_job(conn, job_id)
+        log.info(f"Report email sent for job {job_id}")
+
+    except Exception as e:
+        log.error(f"Email job {job_id} failed: {e}", exc_info=True)
         try:
             fail_job(conn, job_id, str(e))
         except Exception:
@@ -157,6 +291,16 @@ async def process_job(job: dict) -> None:
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
+
+    # Recover any jobs left in 'running' state from a previous crashed worker
+    conn = get_conn()
+    try:
+        recovered = recover_stale_jobs(conn)
+        if recovered:
+            log.info(f"Recovered {recovered} stale job(s) back to pending.")
+    finally:
+        conn.close()
+
     while True:
         conn = get_conn()
         try:
@@ -165,7 +309,10 @@ async def run_worker() -> None:
             conn.close()
 
         if job:
-            await process_job(job)
+            if job["type"] == "send_preview_report":
+                await process_email_job(job)
+            else:
+                await process_job(job)
         else:
             await asyncio.sleep(config.WORKER_POLL_INTERVAL)
 

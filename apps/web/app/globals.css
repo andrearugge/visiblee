@@ -116,6 +116,23 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+.grid-pattern {
+  --_fine: calc(50% + 12.5px);
+  --_coarse: calc(50% + 50px);
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(90deg, #ffffff08 0 1px, transparent 1px 25px),
+    repeating-linear-gradient(#ffffff08 0 1px, transparent 1px 25px),
+    repeating-linear-gradient(90deg, #ffffff0f 0 1px, transparent 1px 100px),
+    repeating-linear-gradient(#ffffff0f 0 1px, transparent 1px 100px);
+  background-position:
+    var(--_fine) var(--_fine),
+    var(--_fine) var(--_fine),
+    var(--_coarse) var(--_coarse),
+    var(--_coarse) var(--_coarse);
+  background-size: 25px 25px, 25px 25px, 100px 100px, 100px 100px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -7,8 +7,14 @@ Handles AI analysis, scoring, embedding, and content processing.
 
 import asyncio
 import logging
+import warnings
 from contextlib import asynccontextmanager
 from typing import Optional
+
+# Suppress known harmless warnings on macOS with Python 3.9 / LibreSSL
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="urllib3")
+warnings.filterwarnings("ignore", message=".*NotOpenSSLWarning.*")
+warnings.filterwarnings("ignore", message=".*end of life.*", category=FutureWarning)
 
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -16,6 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .config import config
 from .models import PreviewAnalyzeRequest, PreviewAnalyzeResponse
 from .pipeline import run_preview_pipeline
+from .worker import run_worker
 
 log = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -32,7 +39,14 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials]) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("Analyzer microservice starting up.")
+    worker_task = asyncio.create_task(run_worker())
+    log.info("Job worker started as background task.")
     yield
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
     log.info("Analyzer microservice shutting down.")
 
 
@@ -57,7 +71,11 @@ async def preview_analyze(
 ) -> PreviewAnalyzeResponse:
     """
     Run the full preview analysis pipeline for a given website.
-    Called by the Next.js worker or directly for testing.
+    Used for direct HTTP testing. In production the worker calls
+    run_preview_pipeline() directly as a Python function.
+
+    Expected body (snake_case):
+      { "website_url": "...", "brand_name": "...", "query_targets": [...], "language": "en" }
     """
     verify_api_key(credentials)
 
