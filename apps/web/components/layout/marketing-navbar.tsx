@@ -10,7 +10,7 @@ export function MarketingNavbar() {
     <>
       {/* ── Desktop: floating pill centered (md+) ── */}
       <header className="fixed left-1/2 top-7 z-50 hidden -translate-x-1/2 md:block">
-        <div className="flex h-[52px] items-center gap-1 overflow-hidden rounded-[26px] bg-zinc-950 pl-3.5 pr-3 shadow-lg shadow-black/20">
+        <div className="flex h-[52px] items-center gap-1 overflow-hidden rounded-[26px] bg-visiblee-green-950 pl-3.5 pr-3 shadow-lg shadow-black/20">
 
           <Link href="/" className="mr-1 shrink-0 text-white" aria-label="Visiblee">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31,7 +31,7 @@ export function MarketingNavbar() {
           <Link href="/login" className="px-2.5 py-1 text-sm font-medium text-zinc-400 transition-colors hover:text-white">
             {t('login')}
           </Link>
-          <Link href="/register" className="ml-1 rounded-full bg-amber-500 px-3.5 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 active:scale-95">
+          <Link href="/register" className="ml-1 rounded-full bg-visiblee-green-500 px-3.5 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 active:scale-95">
             {t('register')}
           </Link>
 
@@ -40,7 +40,7 @@ export function MarketingNavbar() {
 
       {/* ── Mobile: floating pill full-width with margins (< md) ── */}
       <header className="fixed left-4 right-4 top-4 z-50 md:hidden">
-        <div className="flex h-[52px] items-center justify-between overflow-hidden rounded-[26px] bg-zinc-950 pl-4 pr-3 shadow-lg shadow-black/20">
+        <div className="flex h-[52px] items-center justify-between overflow-hidden rounded-[26px] bg-visiblee-green-950 pl-4 pr-3 shadow-lg shadow-black/20">
 
           <Link href="/" className="shrink-0 text-white" aria-label="Visiblee">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -53,7 +53,7 @@ export function MarketingNavbar() {
             <Link href="/login" className="px-2 py-1 text-sm font-medium text-zinc-400 transition-colors hover:text-white">
               {t('login')}
             </Link>
-            <Link href="/register" className="rounded-full bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 active:scale-95">
+            <Link href="/register" className="rounded-full bg-visiblee-green-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 active:scale-95">
               {t('register')}
             </Link>
             {/* Hamburger */}

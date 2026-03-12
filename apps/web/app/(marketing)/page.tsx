@@ -14,11 +14,11 @@ const HOW_IT_WORKS_STEPS = [
 ] as const;
 
 const MOCK_SCORES = [
-  { label: 'Query Reach', value: 0.72, color: '#22c55e' },
-  { label: 'Answer Strength', value: 0.58, color: '#f59e0b' },
-  { label: 'Extractability', value: 0.81, color: '#22c55e' },
+  { label: 'Query Reach', value: 0.72, color: '#24a887' },
+  { label: 'Answer Strength', value: 0.58, color: '#3ec3a1' },
+  { label: 'Extractability', value: 0.81, color: '#24a887' },
   { label: 'Brand Trust', value: 0.34, color: '#ef4444' },
-  { label: 'Source Authority', value: 0.47, color: '#f59e0b' },
+  { label: 'Source Authority', value: 0.47, color: '#3ec3a1' },
 ];
 
 // Add your client/partner logos to /public/marketing/brands/
@@ -48,7 +48,7 @@ export default async function LandingPage() {
       {/* ── Hero text ── */}
       <section className="px-4 pb-10 pt-24 text-center md:pt-32">
         <div className="mx-auto max-w-3xl">
-          <h1 className="mb-5 text-balance text-5xl font-bold tracking-tight text-zinc-950">
+          <h1 className="font-brand mb-5 text-balance text-5xl font-bold tracking-tight text-zinc-950">
             {t('heroTitle')}
           </h1>
           <p className="mx-auto max-w-xl text-balance text-lg leading-relaxed text-zinc-500">
@@ -107,9 +107,9 @@ export default async function LandingPage() {
           />
 
           <div
-            className="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1.5 pl-1.5 pr-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
+            className="inline-flex items-center gap-2 rounded-full bg-visiblee-green-50 py-1.5 pl-1.5 pr-2.5 text-sm font-medium text-visiblee-green-700 transition-colors hover:bg-visiblee-green-100"
           >
-            <span className="flex h-5 items-center justify-center rounded-full bg-gradient-to-r from-amber-500 to-orange-400 px-1.5 text-xs font-semibold uppercase text-white">
+            <span className="flex h-5 items-center justify-center rounded-full bg-gradient-to-r from-visiblee-green-500 to-visiblee-green-400 px-1.5 text-xs font-semibold uppercase text-white">
               {t('badgeLabel')}
             </span>
             {t('badge')}
@@ -142,7 +142,7 @@ export default async function LandingPage() {
           />
 
           <div
-            className="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1.5 px-4 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
+            className="inline-flex items-center gap-2 rounded-full bg-visiblee-green-50 py-1.5 px-4 text-sm font-medium text-visiblee-green-700 transition-colors hover:bg-visiblee-green-100"
           >
             {t('trustNote')}
           </div>
@@ -175,7 +175,7 @@ export default async function LandingPage() {
       <section className="border-y border-zinc-100 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
+            <h2 className="font-brand mb-3 text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
               {t('previewSectionTitle')}
             </h2>
             <p className="mx-auto max-w-lg text-zinc-500">{t('previewSectionSubtitle')}</p>
@@ -232,7 +232,7 @@ export default async function LandingPage() {
       <section className="bg-zinc-50 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-14 text-center">
-            <h2 className="mb-3 text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
+            <h2 className="font-brand mb-3 text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
               {t('howItWorksTitle')}
             </h2>
             <p className="text-zinc-500">{t('howItWorksSubtitle')}</p>
@@ -255,17 +255,17 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Bottom CTA — dark ── */}
-      <section className="bg-zinc-950 px-4 py-24">
+      <section className="bg-visiblee-green-950 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="font-brand mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             {t('ctaTitle')}
           </h2>
-          <p className="mb-8 text-lg text-zinc-400">{t('ctaSubtitle')}</p>
+          <p className="mb-8 text-lg text-visiblee-green-200">{t('ctaSubtitle')}</p>
           <Link
             href="#analysis-form"
             className={cn(
               buttonVariants({ size: 'lg' }),
-              'h-12 gap-2 bg-white px-8 text-base font-semibold text-zinc-950 hover:bg-zinc-100',
+              'h-12 gap-2 bg-white px-8 text-base font-semibold text-visiblee-green-950 hover:bg-visiblee-green-50',
             )}
           >
             {t('ctaButton')}

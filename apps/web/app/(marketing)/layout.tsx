@@ -10,6 +10,8 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
+      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+      <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
       <Suspense>
         <GoogleAnalytics />
       </Suspense>
