@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -16,10 +17,15 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useProject } from './project-context';
 
 interface AppSidebarProps {
   isSuperadmin?: boolean;
+}
+
+interface ProjectData {
+  id: string;
+  name: string;
+  brandName: string;
 }
 
 const MAIN_LINKS = [
@@ -75,11 +81,27 @@ function NavLink({
 export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
-  const project = useProject();
+
+  // Detect project ID from pathname
+  const projectMatch = pathname.match(/^\/app\/projects\/([^/]+)/);
+  const projectId = projectMatch?.[1] ?? null;
+
+  const [project, setProject] = useState<ProjectData | null>(null);
+
+  useEffect(() => {
+    if (!projectId) {
+      setProject(null);
+      return;
+    }
+    fetch(`/api/projects/${projectId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setProject(data ?? null))
+      .catch(() => setProject(null));
+  }, [projectId]);
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-      {project ? (
+      {projectId ? (
         // ── Project nav ──────────────────────────────────────────────
         <>
           <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
@@ -90,17 +112,23 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
               <ChevronLeft className="size-3.5" />
               {t('projects')}
             </Link>
-            {project.brandName && (
-              <p className="text-xs font-semibold text-zinc-500">{project.brandName}</p>
+            {project ? (
+              <>
+                {project.brandName && (
+                  <p className="text-xs font-semibold text-zinc-500">{project.brandName}</p>
+                )}
+                <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {project.name}
+                </p>
+              </>
+            ) : (
+              <div className="h-4 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
             )}
-            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              {project.name}
-            </p>
           </div>
 
           <nav className="flex flex-1 flex-col gap-1 p-3">
             {PROJECT_MAIN_LINKS.map(({ segment, i18nKey, icon: Icon }) => {
-              const href = `/app/projects/${project.id}/${segment}`;
+              const href = `/app/projects/${projectId}/${segment}`;
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
                 <NavLink key={href} href={href} label={t(i18nKey)} icon={Icon} active={active} />
@@ -110,7 +138,7 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
 
           <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
             {PROJECT_BOTTOM_LINKS.map(({ segment, i18nKey, icon: Icon }) => {
-              const href = `/app/projects/${project.id}/${segment}`;
+              const href = `/app/projects/${projectId}/${segment}`;
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
                 <NavLink key={href} href={href} label={t(i18nKey)} icon={Icon} active={active} />
