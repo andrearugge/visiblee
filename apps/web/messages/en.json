@@ -241,7 +241,16 @@
   },
   "overview": {
     "convertedBannerTitle": "Your preview data has been imported",
-    "convertedBannerSubtitle": "We've created your project from your preview. Full analysis is queued and will start shortly."
+    "convertedBannerSubtitle": "We've created your project from your preview. Full analysis is queued and will start shortly.",
+    "emptyStateTitle": "Your AI Readiness Score will appear here",
+    "emptyStateSubtitle": "Once you confirm your content and run an analysis, you'll see your AI visibility score across 5 dimensions — and exactly what to improve.",
+    "emptyStateCta": "Run first analysis",
+    "runAnalysis": "Run analysis",
+    "runAnalysisQueued": "Analysis queued",
+    "runAnalysisError": "Failed to queue analysis",
+    "scoreBreakdown": "Score breakdown",
+    "lastUpdated": "Last updated",
+    "reRunAnalysis": "Re-run analysis"
   },
   "placeholder": {
     "pageTitle": "{page}",

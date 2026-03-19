@@ -241,7 +241,16 @@
   },
   "overview": {
     "convertedBannerTitle": "I dati del tuo preview sono stati importati",
-    "convertedBannerSubtitle": "Abbiamo creato il tuo progetto dal preview. L'analisi completa è in coda e partirà a breve."
+    "convertedBannerSubtitle": "Abbiamo creato il tuo progetto dal preview. L'analisi completa è in coda e partirà a breve.",
+    "emptyStateTitle": "Il tuo AI Readiness Score apparirà qui",
+    "emptyStateSubtitle": "Dopo aver confermato i tuoi contenuti e avviato un'analisi, vedrai il tuo punteggio di visibilità AI su 5 dimensioni — e cosa migliorare.",
+    "emptyStateCta": "Avvia prima analisi",
+    "runAnalysis": "Avvia analisi",
+    "runAnalysisQueued": "Analisi in coda",
+    "runAnalysisError": "Impossibile avviare l'analisi",
+    "scoreBreakdown": "Dettaglio punteggi",
+    "lastUpdated": "Aggiornato il",
+    "reRunAnalysis": "Riesegui analisi"
   },
   "placeholder": {
     "pageTitle": "{page}",
