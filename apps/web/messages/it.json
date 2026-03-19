@@ -239,6 +239,10 @@
     "ctaSubtitle": "Ci vogliono 60 secondi. Nessun account richiesto.",
     "ctaButton": "Ottieni il tuo punteggio gratuito"
   },
+  "overview": {
+    "convertedBannerTitle": "I dati del tuo preview sono stati importati",
+    "convertedBannerSubtitle": "Abbiamo creato il tuo progetto dal preview. L'analisi completa è in coda e partirà a breve."
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "Questa sezione è in costruzione. I contenuti appariranno qui una volta completata l'analisi."

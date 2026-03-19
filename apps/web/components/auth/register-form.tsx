@@ -13,12 +13,17 @@ import { buttonVariants } from "@/lib/button-variants";
 import { cn } from '@/lib/utils';
 import { register } from '@/lib/actions/auth';
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  previewId?: string;
+  defaultEmail?: string;
+}
+
+export function RegisterForm({ previewId, defaultEmail }: RegisterFormProps) {
   const t = useTranslations('auth');
   const router = useRouter();
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(defaultEmail ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,19 +40,24 @@ export function RegisterForm() {
         .find((row) => row.startsWith('NEXT_LOCALE='))
         ?.split('=')[1] ?? 'en';
 
-    const result = await register(name, email, password, locale);
+    const result = await register(name, email, password, locale, previewId);
     setLoading(false);
 
     if (result.error) {
       setError(result.error === 'Email already registered' ? t('emailTaken') : t('genericError'));
+    } else if (result.projectId) {
+      router.push(`/app/projects/${result.projectId}/overview?converted=true`);
     } else {
-      // Sign in after successful registration
       await signIn('credentials', { email, password, callbackUrl: '/app' });
     }
   }
 
+  const googleCallbackUrl = previewId
+    ? `/app?preview=${previewId}`
+    : '/app';
+
   async function handleGoogle() {
-    await signIn('google', { callbackUrl: '/app' });
+    await signIn('google', { callbackUrl: googleCallbackUrl });
   }
 
   return (

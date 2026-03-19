@@ -239,6 +239,10 @@
     "ctaSubtitle": "It takes 60 seconds. No account required.",
     "ctaButton": "Get your free score"
   },
+  "overview": {
+    "convertedBannerTitle": "Your preview data has been imported",
+    "convertedBannerSubtitle": "We've created your project from your preview. Full analysis is queued and will start shortly."
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "This section is under construction. Content will appear here once analysis is complete."
