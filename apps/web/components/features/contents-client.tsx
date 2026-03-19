@@ -294,37 +294,46 @@ function BulkBar({
   const t = useTranslations('contents');
 
   return (
-    <div className="sticky bottom-6 z-10 mx-auto flex w-fit items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 shadow-lg shadow-zinc-200/60">
-      <span className="text-sm font-medium text-zinc-700">
-        {t('bulkSelected', { n: count })}
-      </span>
-      <div className="h-4 w-px bg-zinc-200" />
-      {showConfirm && (
+    <div
+      className={cn(
+        'fixed bottom-8 left-1/2 z-50 -translate-x-1/2 transition-all duration-200',
+        count > 0
+          ? 'translate-y-0 opacity-100'
+          : 'pointer-events-none translate-y-4 opacity-0',
+      )}
+    >
+      <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 shadow-xl shadow-zinc-300/40">
+        <span className="text-sm font-medium text-zinc-700">
+          {t('bulkSelected', { n: count })}
+        </span>
+        <div className="h-4 w-px bg-zinc-200" />
+        {showConfirm && (
+          <Button
+            size="sm"
+            onClick={onConfirm}
+            className="h-7 gap-1.5 bg-green-600 text-xs hover:bg-green-700 text-white"
+          >
+            <Check className="size-3" />
+            {t('bulkConfirm', { n: count })}
+          </Button>
+        )}
         <Button
           size="sm"
-          onClick={onConfirm}
-          className="h-7 gap-1.5 bg-green-600 text-xs hover:bg-green-700 text-white"
+          variant="outline"
+          onClick={onDiscard}
+          className="h-7 gap-1.5 text-xs text-zinc-500 hover:border-red-200 hover:text-red-600"
         >
-          <Check className="size-3" />
-          {t('bulkConfirm', { n: count })}
+          <Trash2 className="size-3" />
+          {t('bulkDiscard', { n: count })}
         </Button>
-      )}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onDiscard}
-        className="h-7 gap-1.5 text-xs text-zinc-500 hover:border-red-200 hover:text-red-600"
-      >
-        <Trash2 className="size-3" />
-        {t('bulkDiscard', { n: count })}
-      </Button>
-      <button
-        onClick={onClear}
-        className="text-zinc-400 hover:text-zinc-600 transition-colors"
-        aria-label="Clear selection"
-      >
-        <X className="size-4" />
-      </button>
+        <button
+          onClick={onClear}
+          className="text-zinc-400 transition-colors hover:text-zinc-600"
+          aria-label="Clear selection"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -560,18 +569,13 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
             ))}
           </div>
 
-          {/* Bulk action bar */}
-          {selectedInTab.length > 0 && (
-            <div className="mt-6 flex justify-center">
-              <BulkBar
-                count={selectedInTab.length}
-                showConfirm={activeTab === 'toVerify'}
-                onConfirm={handleBulkConfirm}
-                onDiscard={handleBulkDiscard}
-                onClear={() => setSelectedIds(new Set())}
-              />
-            </div>
-          )}
+          <BulkBar
+            count={selectedInTab.length}
+            showConfirm={activeTab === 'toVerify'}
+            onConfirm={handleBulkConfirm}
+            onDiscard={handleBulkDiscard}
+            onClear={() => setSelectedIds(new Set())}
+          />
         </>
       )}
     </div>
