@@ -285,7 +285,12 @@
     "platformReddit": "Reddit",
     "platformYoutube": "YouTube",
     "platformNews": "News",
-    "platformOther": "Other"
+    "platformOther": "Other",
+    "selectAll": "Select all {n} items",
+    "selectAllActive": "All {n} items selected",
+    "bulkSelected": "{n} selected",
+    "bulkConfirm": "Confirm {n}",
+    "bulkDiscard": "Discard {n}"
   },
   "placeholder": {
     "pageTitle": "{page}",

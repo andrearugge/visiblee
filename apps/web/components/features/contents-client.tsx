@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileText,
   Globe,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,36 @@ interface ContentsClientProps {
 
 type Tab = 'toVerify' | 'own' | 'mentions';
 
+// ─── Checkbox ─────────────────────────────────────────────────────────────────
+
+function Checkbox({
+  checked,
+  indeterminate,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  label?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = !!indeterminate;
+  }, [indeterminate]);
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label={label}
+      className="size-4 cursor-pointer rounded border-zinc-300 text-zinc-900 accent-zinc-800"
+    />
+  );
+}
+
 // ─── Add URL form ─────────────────────────────────────────────────────────────
 
 function AddUrlForm({
@@ -60,14 +91,8 @@ function AddUrlForm({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
-    if (res.status === 409) {
-      setStatus('duplicate');
-      return;
-    }
-    if (!res.ok) {
-      setStatus('error');
-      return;
-    }
+    if (res.status === 409) { setStatus('duplicate'); return; }
+    if (!res.ok) { setStatus('error'); return; }
     const item = await res.json();
     onAdded(item);
     setUrl('');
@@ -113,6 +138,8 @@ function ContentRow({
   item,
   projectId,
   showActions,
+  isSelected,
+  onToggleSelect,
   onConfirm,
   onDiscard,
   onFetch,
@@ -120,6 +147,8 @@ function ContentRow({
   item: ContentItem;
   projectId: string;
   showActions: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
   onConfirm: (id: string) => void;
   onDiscard: (id: string) => void;
   onFetch: (id: string) => void;
@@ -133,10 +162,7 @@ function ContentRow({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'fetch_content', contentId: item.id }),
     });
-    if (res.ok) {
-      setFetchStatus('queued');
-      onFetch(item.id);
-    }
+    if (res.ok) { setFetchStatus('queued'); onFetch(item.id); }
   }
 
   const displayUrl = (() => {
@@ -149,7 +175,21 @@ function ContentRow({
   })();
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-white px-4 py-3 hover:border-zinc-200 transition-colors">
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-lg border bg-white px-4 py-3 transition-colors',
+        isSelected
+          ? 'border-zinc-400 bg-zinc-50'
+          : 'border-zinc-100 hover:border-zinc-200',
+      )}
+    >
+      {/* Checkbox */}
+      <Checkbox
+        checked={isSelected}
+        onChange={() => onToggleSelect(item.id)}
+        label={`Select ${item.title ?? displayUrl}`}
+      />
+
       {/* Platform icon */}
       <Globe className="size-4 shrink-0 text-zinc-300" />
 
@@ -169,9 +209,7 @@ function ContentRow({
         </p>
         <div className="mt-0.5 flex items-center gap-3 text-xs text-zinc-400">
           <span className="truncate max-w-xs">{displayUrl}</span>
-          {item.wordCount ? (
-            <span>{t('words', { n: item.wordCount })}</span>
-          ) : null}
+          {item.wordCount ? <span>{t('words', { n: item.wordCount })}</span> : null}
           {item.lastFetchedAt ? (
             <span>{t('passages', { n: item._count.passages })}</span>
           ) : (
@@ -238,6 +276,59 @@ function ContentRow({
   );
 }
 
+// ─── Bulk action bar ───────────────────────────────────────────────────────────
+
+function BulkBar({
+  count,
+  showConfirm,
+  onConfirm,
+  onDiscard,
+  onClear,
+}: {
+  count: number;
+  showConfirm: boolean;
+  onConfirm: () => void;
+  onDiscard: () => void;
+  onClear: () => void;
+}) {
+  const t = useTranslations('contents');
+
+  return (
+    <div className="sticky bottom-6 z-10 mx-auto flex w-fit items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 shadow-lg shadow-zinc-200/60">
+      <span className="text-sm font-medium text-zinc-700">
+        {t('bulkSelected', { n: count })}
+      </span>
+      <div className="h-4 w-px bg-zinc-200" />
+      {showConfirm && (
+        <Button
+          size="sm"
+          onClick={onConfirm}
+          className="h-7 gap-1.5 bg-green-600 text-xs hover:bg-green-700 text-white"
+        >
+          <Check className="size-3" />
+          {t('bulkConfirm', { n: count })}
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onDiscard}
+        className="h-7 gap-1.5 text-xs text-zinc-500 hover:border-red-200 hover:text-red-600"
+      >
+        <Trash2 className="size-3" />
+        {t('bulkDiscard', { n: count })}
+      </Button>
+      <button
+        onClick={onClear}
+        className="text-zinc-400 hover:text-zinc-600 transition-colors"
+        aria-label="Clear selection"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Main client component ────────────────────────────────────────────────────
 
 export function ContentsClient({ projectId, initialContents }: ContentsClientProps) {
@@ -245,6 +336,8 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [activeTab, setActiveTab] = useState<Tab>('toVerify');
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>('idle');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<'idle' | 'loading'>('idle');
 
   const toVerify = contents.filter((c) => !c.isConfirmed);
   const own = contents.filter((c) => c.isConfirmed && c.contentType === 'own');
@@ -258,14 +351,34 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
 
   const activeItems = activeTab === 'toVerify' ? toVerify : activeTab === 'own' ? own : mentions;
 
-  async function handleRunDiscovery() {
-    const res = await fetch(`/api/projects/${projectId}/jobs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'discovery' }),
-    });
-    setDiscoveryStatus(res.ok ? 'queued' : 'error');
+  // Clear selection when changing tab
+  function handleSetTab(tab: Tab) {
+    setActiveTab(tab);
+    setSelectedIds(new Set());
   }
+
+  // Selection helpers
+  const selectedInTab = activeItems.filter((i) => selectedIds.has(i.id));
+  const allSelected = activeItems.length > 0 && selectedInTab.length === activeItems.length;
+  const someSelected = selectedInTab.length > 0 && !allSelected;
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  function handleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(activeItems.map((i) => i.id)));
+    }
+  }
+
+  // ── Single-item actions ───────────────────────────────────────────────────
 
   async function handleConfirm(id: string) {
     const res = await fetch(`/api/projects/${projectId}/contents/${id}`, {
@@ -274,25 +387,61 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
       body: JSON.stringify({ isConfirmed: true }),
     });
     if (res.ok) {
-      setContents((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, isConfirmed: true } : c)),
-      );
+      setContents((prev) => prev.map((c) => (c.id === id ? { ...c, isConfirmed: true } : c)));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   }
 
   async function handleDiscard(id: string) {
-    const res = await fetch(`/api/projects/${projectId}/contents/${id}`, {
-      method: 'DELETE',
-    });
+    const res = await fetch(`/api/projects/${projectId}/contents/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setContents((prev) => prev.filter((c) => c.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
+  }
+
+  // ── Bulk actions ─────────────────────────────────────────────────────────
+
+  async function handleBulkConfirm() {
+    if (bulkStatus === 'loading') return;
+    setBulkStatus('loading');
+    const ids = [...selectedIds];
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/projects/${projectId}/contents/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isConfirmed: true }),
+        }),
+      ),
+    );
+    setContents((prev) =>
+      prev.map((c) => (ids.includes(c.id) ? { ...c, isConfirmed: true } : c)),
+    );
+    setSelectedIds(new Set());
+    setBulkStatus('idle');
+  }
+
+  async function handleBulkDiscard() {
+    if (bulkStatus === 'loading') return;
+    setBulkStatus('loading');
+    const ids = [...selectedIds];
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/projects/${projectId}/contents/${id}`, { method: 'DELETE' }),
+      ),
+    );
+    setContents((prev) => prev.filter((c) => !ids.includes(c.id)));
+    setSelectedIds(new Set());
+    setBulkStatus('idle');
   }
 
   function handleAdded(item: ContentItem) {
     setContents((prev) => [item, ...prev]);
     setActiveTab('own');
   }
+
+  // ── Empty state ───────────────────────────────────────────────────────────
 
   if (contents.length === 0) {
     return (
@@ -306,29 +455,38 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
           {discoveryStatus === 'queued' ? (
             <p className="text-sm text-green-600">{t('discoveryQueued')}</p>
           ) : (
-            <Button onClick={handleRunDiscovery} className="gap-2">
+            <Button onClick={() => fetch(`/api/projects/${projectId}/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'discovery' }) }).then((r) => setDiscoveryStatus(r.ok ? 'queued' : 'error'))} className="gap-2">
               <RefreshCw className="size-4" />
               {t('runDiscovery')}
             </Button>
           )}
-          {discoveryStatus === 'error' && (
-            <p className="text-sm text-red-500">{t('discoveryError')}</p>
-          )}
+          {discoveryStatus === 'error' && <p className="text-sm text-red-500">{t('discoveryError')}</p>}
           <AddUrlForm projectId={projectId} onAdded={handleAdded} />
         </div>
       </div>
     );
   }
 
+  // ── Main view ─────────────────────────────────────────────────────────────
+
+  async function handleRunDiscovery() {
+    const res = await fetch(`/api/projects/${projectId}/jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'discovery' }),
+    });
+    setDiscoveryStatus(res.ok ? 'queued' : 'error');
+  }
+
   return (
-    <div className="p-6">
+    <div className="relative p-6">
       {/* Toolbar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleSetTab(tab.key)}
               className={cn(
                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 activeTab === tab.key
@@ -358,9 +516,7 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
               {t('runDiscovery')}
             </Button>
           )}
-          {discoveryStatus === 'error' && (
-            <p className="text-xs text-red-500">{t('discoveryError')}</p>
-          )}
+          {discoveryStatus === 'error' && <p className="text-xs text-red-500">{t('discoveryError')}</p>}
           <AddUrlForm projectId={projectId} onAdded={handleAdded} />
         </div>
       </div>
@@ -368,26 +524,55 @@ export function ContentsClient({ projectId, initialContents }: ContentsClientPro
       {/* Content list */}
       {activeItems.length === 0 ? (
         <p className="py-12 text-center text-sm text-zinc-400">
-          {activeTab === 'toVerify'
-            ? t('emptyTabToVerify')
-            : activeTab === 'own'
-              ? t('emptyTabOwn')
-              : t('emptyTabMentions')}
+          {activeTab === 'toVerify' ? t('emptyTabToVerify') : activeTab === 'own' ? t('emptyTabOwn') : t('emptyTabMentions')}
         </p>
       ) : (
-        <div className="space-y-2">
-          {activeItems.map((item) => (
-            <ContentRow
-              key={item.id}
-              item={item}
-              projectId={projectId}
-              showActions={activeTab === 'toVerify'}
-              onConfirm={handleConfirm}
-              onDiscard={handleDiscard}
-              onFetch={() => {}}
+        <>
+          {/* Select-all row */}
+          <div className="mb-2 flex items-center gap-3 px-4 py-1.5">
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onChange={handleSelectAll}
+              label="Select all"
             />
-          ))}
-        </div>
+            <span className="text-xs text-zinc-400">
+              {allSelected
+                ? t('selectAllActive', { n: activeItems.length })
+                : t('selectAll', { n: activeItems.length })}
+            </span>
+          </div>
+
+          {/* Rows */}
+          <div className="space-y-2">
+            {activeItems.map((item) => (
+              <ContentRow
+                key={item.id}
+                item={item}
+                projectId={projectId}
+                showActions={activeTab === 'toVerify'}
+                isSelected={selectedIds.has(item.id)}
+                onToggleSelect={handleToggleSelect}
+                onConfirm={handleConfirm}
+                onDiscard={handleDiscard}
+                onFetch={() => {}}
+              />
+            ))}
+          </div>
+
+          {/* Bulk action bar */}
+          {selectedInTab.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <BulkBar
+                count={selectedInTab.length}
+                showConfirm={activeTab === 'toVerify'}
+                onConfirm={handleBulkConfirm}
+                onDiscard={handleBulkDiscard}
+                onClear={() => setSelectedIds(new Set())}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
