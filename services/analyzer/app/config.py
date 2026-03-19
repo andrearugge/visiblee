@@ -33,6 +33,9 @@ class Config:
     MAILERSEND_API_KEY: str = os.getenv("MAILERSEND_API_KEY", "")
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@visiblee.ai")
 
+    # App URL (used for links in emails)
+    APP_URL: str = os.getenv("APP_URL", "http://localhost:3000")
+
     # Internal
     ANALYZER_API_KEY: str = os.getenv("ANALYZER_API_KEY", "dev-internal-key")
 

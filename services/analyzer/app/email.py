@@ -5,7 +5,6 @@ Email sending via MailerSend — preview report emails.
 """
 
 import logging
-from typing import Optional
 
 from mailersend import Email, EmailBuilder, MailerSendClient
 
@@ -46,17 +45,19 @@ def _build_html(
     insights: list[str],
     preview_id: str,
     language: str,
+    app_url: str,
 ) -> str:
     ai_score = round(ai_readiness_score * 100)
 
+    subject_scores = [
+        ("Query Reach", fanout_coverage_score),
+        ("Answer Strength", passage_quality_score),
+        ("Extractability", chunkability_score),
+        ("Brand Trust", entity_coherence_score),
+        ("Source Authority", cross_platform_score),
+    ]
+
     if language == "it":
-        subject_scores = [
-            ("Query Reach", fanout_coverage_score),
-            ("Answer Strength", passage_quality_score),
-            ("Extractability", chunkability_score),
-            ("Brand Trust", entity_coherence_score),
-            ("Source Authority", cross_platform_score),
-        ]
         t = {
             "headline": f"Il tuo AI Readiness Report per {brand_name}",
             "intro": f"Abbiamo analizzato <strong>{website_url}</strong> e calcolato il tuo punteggio di visibilità AI.",
@@ -64,18 +65,12 @@ def _build_html(
             "score_desc": "Punteggio complessivo basato su 5 dimensioni",
             "breakdown_title": "Dettaglio punteggi",
             "insights_title": "Insight principali",
-            "cta_text": "Registrati per l'analisi completa →",
-            "cta_desc": "Accedi all'inventario completo dei contenuti, ai punteggi per pagina e a una roadmap di miglioramento prioritizzata.",
+            "view_report_text": "Visualizza il tuo report →",
+            "upgrade_text": "Registrati per l'analisi completa →",
+            "upgrade_desc": "Accedi all'inventario completo dei contenuti, ai punteggi per pagina e a una roadmap di miglioramento prioritizzata.",
             "footer": "Hai ricevuto questa email perché hai richiesto il report da Visiblee.",
         }
     else:
-        subject_scores = [
-            ("Query Reach", fanout_coverage_score),
-            ("Answer Strength", passage_quality_score),
-            ("Extractability", chunkability_score),
-            ("Brand Trust", entity_coherence_score),
-            ("Source Authority", cross_platform_score),
-        ]
         t = {
             "headline": f"Your AI Readiness Report for {brand_name}",
             "intro": f"We analyzed <strong>{website_url}</strong> and calculated your AI visibility score.",
@@ -83,8 +78,9 @@ def _build_html(
             "score_desc": "Overall score based on 5 dimensions",
             "breakdown_title": "Score breakdown",
             "insights_title": "Key insights",
-            "cta_text": "Sign up for the full analysis →",
-            "cta_desc": "Access your complete content inventory, per-page scores, and a prioritized improvement roadmap.",
+            "view_report_text": "View your full report →",
+            "upgrade_text": "Sign up for the full analysis →",
+            "upgrade_desc": "Access your complete content inventory, per-page scores, and a prioritized improvement roadmap.",
             "footer": "You received this email because you requested a report from Visiblee.",
         }
 
@@ -115,7 +111,8 @@ def _build_html(
         else ""
     )
 
-    register_url = f"http://localhost:3000/register?preview={preview_id}"
+    preview_url = f"{app_url}/preview/{preview_id}"
+    register_url = f"{app_url}/register?preview={preview_id}"
 
     return f"""
 <!DOCTYPE html>
@@ -171,18 +168,30 @@ def _build_html(
           </td>
         </tr>
 
-        <!-- CTA -->
+        <!-- View report CTA -->
+        <tr>
+          <td style="padding:0 40px 16px;text-align:center;">
+            <a href="{preview_url}"
+               style="display:inline-block;background:#09090b;color:#ffffff;
+                      text-decoration:none;font-size:14px;font-weight:600;
+                      padding:12px 28px;border-radius:8px;">
+              {t["view_report_text"]}
+            </a>
+          </td>
+        </tr>
+
+        <!-- Upgrade CTA -->
         <tr>
           <td style="padding:0 40px 32px;">
             <div style="background:#fafaf5;border:1px solid #fde68a;border-radius:12px;padding:20px;">
               <p style="margin:0 0 12px;font-size:13px;color:#52525b;line-height:1.5;">
-                {t["cta_desc"]}
+                {t["upgrade_desc"]}
               </p>
               <a href="{register_url}"
-                 style="display:inline-block;background:#09090b;color:#ffffff;
-                        text-decoration:none;font-size:14px;font-weight:600;
-                        padding:10px 20px;border-radius:8px;">
-                {t["cta_text"]}
+                 style="display:inline-block;background:#ffffff;color:#09090b;
+                        text-decoration:none;font-size:13px;font-weight:600;
+                        padding:8px 18px;border-radius:8px;border:1px solid #e4e4e7;">
+                {t["upgrade_text"]}
               </a>
             </div>
           </td>
@@ -240,6 +249,7 @@ def send_preview_report(
         insights=insights,
         preview_id=preview_id,
         language=language,
+        app_url=config.APP_URL,
     )
 
     client = MailerSendClient(api_key=config.MAILERSEND_API_KEY)
