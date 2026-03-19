@@ -128,7 +128,7 @@ async def _classify_with_gemini(
 
     try:
         response = await gemini.aio.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
         )
         text = response.text.strip()

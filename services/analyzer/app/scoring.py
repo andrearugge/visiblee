@@ -47,7 +47,7 @@ async def generate_fanout_queries(
         )
         try:
             response = await _gemini_client.aio.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt
+                model="gemini-2.5-flash", contents=prompt
             )
             lines = [l.strip() for l in response.text.strip().splitlines() if l.strip()]
             return lines[:n]
@@ -258,7 +258,7 @@ async def generate_insights(
     if _gemini_client:
         try:
             response = await _gemini_client.aio.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt
+                model="gemini-2.5-flash", contents=prompt
             )
             text = response.text.strip()
             bullets = [l.strip().lstrip("•").strip() for l in text.splitlines() if l.strip().startswith("•")]
