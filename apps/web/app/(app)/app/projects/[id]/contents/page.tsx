@@ -39,5 +39,16 @@ export default async function ContentsPage({ params }: { params: Promise<{ id: s
     lastFetchedAt: c.lastFetchedAt?.toISOString() ?? null,
   }));
 
-  return <ContentsClient projectId={id} initialContents={serialized} />;
+  const activeDiscovery = await db.job.findFirst({
+    where: { projectId: id, type: 'discovery', status: { in: ['pending', 'running'] } },
+    select: { id: true },
+  });
+
+  return (
+    <ContentsClient
+      projectId={id}
+      initialContents={serialized}
+      initialDiscoveryRunning={!!activeDiscovery}
+    />
+  );
 }

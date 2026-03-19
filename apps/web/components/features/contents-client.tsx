@@ -40,6 +40,7 @@ interface ContentItem {
 interface ContentsClientProps {
   projectId: string;
   initialContents: ContentItem[];
+  initialDiscoveryRunning?: boolean;
 }
 
 type Tab = 'toVerify' | 'own' | 'mentions';
@@ -400,11 +401,13 @@ function BulkBar({
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function ContentsClient({ projectId, initialContents }: ContentsClientProps) {
+export function ContentsClient({ projectId, initialContents, initialDiscoveryRunning = false }: ContentsClientProps) {
   const t = useTranslations('contents');
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [activeTab, setActiveTab] = useState<Tab>('toVerify');
-  const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>('idle');
+  const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>(
+    initialDiscoveryRunning ? 'queued' : 'idle',
+  );
   const [pendingContents, setPendingContents] = useState<ContentItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<'idle' | 'loading'>('idle');
