@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """
 Full content discovery pipeline.
-Brave Search (site: + brand mentions) → LLM classification → platform detection.
+Brave Search (multi-query: own + platform-specific + news + general) → LLM classification → platform detection.
 """
 
 import asyncio
@@ -24,14 +24,52 @@ _PLATFORM_MAP = {
     "substack.com": "substack",
     "reddit.com": "reddit",
     "youtube.com": "youtube",
+    "instagram.com": "other",
+    "tiktok.com": "other",
+    "facebook.com": "other",
+    "x.com": "other",
+    "twitter.com": "other",
 }
 
 # Substrings that suggest a news/press site
 _NEWS_HINTS = [
     "techcrunch", "forbes", "wired", "venturebeat", "businessinsider",
-    "wsj", "nytimes", "theguardian", "bloomberg", "reuters", "corriere",
-    "repubblica", "sole24ore", "ilsole24ore",
+    "wsj", "nytimes", "theguardian", "bloomberg", "reuters",
+    "corriere", "repubblica", "sole24ore", "ilsole24ore", "lastampa",
+    "ilfattoquotidiano", "huffingtonpost", "ansa", "adnkronos",
+    "lemonde", "lefigaro", "elpais", "spiegel", "handelsblatt",
 ]
+
+# Platform-specific targeted searches (always run)
+_PLATFORM_SEARCHES: list[tuple[str, int]] = [
+    ("site:linkedin.com", 10),
+    ("site:reddit.com", 10),
+    ("site:medium.com", 10),
+    ("site:youtube.com", 10),
+    ("site:substack.com", 10),
+]
+
+# News sites to search by language
+_NEWS_SITES_BY_LANG: dict[str, list[str]] = {
+    "it": [
+        "corriere.it", "repubblica.it", "sole24ore.it", "lastampa.it",
+        "ilfattoquotidiano.it", "ansa.it", "adnkronos.com",
+    ],
+    "en": [
+        "techcrunch.com", "forbes.com", "wired.com", "businessinsider.com",
+        "venturebeat.com", "theguardian.com", "reuters.com",
+    ],
+    "de": [
+        "spiegel.de", "handelsblatt.com", "faz.net", "welt.de",
+    ],
+    "fr": [
+        "lemonde.fr", "lefigaro.fr", "liberation.fr", "lesechos.fr",
+    ],
+    "es": [
+        "elpais.com", "elmundo.es", "expansion.com", "cincodias.elpais.com",
+    ],
+}
+_NEWS_SITES_FALLBACK = _NEWS_SITES_BY_LANG["en"]
 
 
 def detect_platform(url: str) -> str:
@@ -48,7 +86,7 @@ def detect_platform(url: str) -> str:
         return "other"
 
 
-async def _brave_search_with_details(query: str, count: int = 20) -> list[dict[str, str]]:
+async def _brave_search(query: str, count: int = 20) -> list[dict[str, str]]:
     """Run a Brave web search and return [{url, title, snippet}]."""
     if not config.BRAVE_SEARCH_API_KEY:
         return []
@@ -62,9 +100,10 @@ async def _brave_search_with_details(query: str, count: int = 20) -> list[dict[s
                     "X-Subscription-Token": config.BRAVE_SEARCH_API_KEY,
                 },
                 params={"q": query, "count": min(count, 20)},
-                timeout=10,
+                timeout=12,
             )
             if resp.status_code != 200:
+                log.warning(f"Brave returned {resp.status_code} for '{query}'")
                 return []
             data = resp.json()
             return [
@@ -81,11 +120,8 @@ async def _brave_search_with_details(query: str, count: int = 20) -> list[dict[s
             return []
 
 
-def _classify_by_domain(
-    results: list[dict],
-    domain: str,
-) -> list[dict]:
-    """Simple fallback classification: own if on brand domain, else mention."""
+def _classify_by_domain(results: list[dict], domain: str) -> list[dict]:
+    """Fallback classification: own if on brand domain, else mention."""
     classified = []
     for r in results:
         url_domain = urlparse(r["url"]).netloc.lstrip("www.")
@@ -99,7 +135,7 @@ async def _classify_with_gemini(
     brand_name: str,
     domain: str,
 ) -> list[dict]:
-    """Classify a batch of results via Gemini 2.0 Flash."""
+    """Classify a batch of results via Gemini Flash."""
     try:
         from google import genai as google_genai
         gemini = google_genai.Client(api_key=config.GOOGLE_AI_API_KEY) if config.GOOGLE_AI_API_KEY else None
@@ -132,7 +168,6 @@ async def _classify_with_gemini(
             contents=prompt,
         )
         text = response.text.strip()
-        # Strip markdown code fences if present
         if text.startswith("```"):
             parts = text.split("```")
             text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
@@ -162,41 +197,64 @@ async def discover_content(
     language: str = "en",
 ) -> list[dict[str, Any]]:
     """
-    Full content discovery pipeline.
+    Multi-signal content discovery pipeline.
 
-    Steps:
-    1. Brave Search site:{domain} → own content candidates
-    2. Brave Search "{brand_name}" -site:{domain} → mention candidates
-    3. Deduplicate by URL
-    4. Gemini classifies into own / mention / irrelevant
-    5. Add platform detection
+    Parallel searches:
+    1. site:{domain}                   — own content
+    2. "{brand}" site:linkedin.com     — LinkedIn presence
+    3. "{brand}" site:reddit.com       — Reddit threads
+    4. "{brand}" site:medium.com       — Medium articles
+    5. "{brand}" site:youtube.com      — YouTube videos
+    6. "{brand}" site:substack.com     — Substack posts
+    7. "{brand}" site:{news1} OR ...   — Country-aware news/press
+    8. "{brand}" -site:{domain}        — General web mentions (catch-all)
 
+    Results are deduplicated, classified by Gemini, and tagged with platform.
     Returns list of {url, title, snippet, platform, contentType, confidence}.
     """
     domain = urlparse(website_url).netloc.lstrip("www.")
+    lang = language[:2].lower()
 
-    # 1+2: Parallel searches
-    own_results, mention_results = await asyncio.gather(
-        _brave_search_with_details(f"site:{domain}", count=50),
-        _brave_search_with_details(f'"{brand_name}" -site:{domain}', count=20),
-    )
+    # Build news query: up to 5 country-relevant sites in a single search
+    news_sites = _NEWS_SITES_BY_LANG.get(lang, _NEWS_SITES_FALLBACK)
+    # Brave supports multi-site with space-separated site: operators
+    news_query = f'"{brand_name}" ' + " OR ".join(f"site:{s}" for s in news_sites[:5])
 
-    # 3: Deduplicate (preserve order: own first)
+    # All queries to run in parallel
+    queries: list[tuple[str, int]] = [
+        (f"site:{domain}", 20),                                    # 1. own
+        (f'"{brand_name}" site:linkedin.com', 10),                 # 2. LinkedIn
+        (f'"{brand_name}" site:reddit.com', 10),                   # 3. Reddit
+        (f'"{brand_name}" site:medium.com', 10),                   # 4. Medium
+        (f'"{brand_name}" site:youtube.com', 10),                  # 5. YouTube
+        (f'"{brand_name}" site:substack.com', 10),                 # 6. Substack
+        (news_query, 10),                                          # 7. News (country-aware)
+        (f'"{brand_name}" -site:{domain}', 20),                    # 8. General mentions
+    ]
+
+    log.info(f"Discovery: running {len(queries)} parallel searches for {domain} (lang={lang})")
+
+    all_batches = await asyncio.gather(*[_brave_search(q, c) for q, c in queries])
+
+    # Deduplicate across all batches (preserve order: own content first)
     seen: set[str] = set()
     all_results: list[dict] = []
-    for r in own_results + mention_results:
-        if r["url"] not in seen:
-            seen.add(r["url"])
-            all_results.append(r)
+    for batch in all_batches:
+        for r in batch:
+            if r["url"] and r["url"] not in seen:
+                seen.add(r["url"])
+                all_results.append(r)
 
     if not all_results:
         log.warning(f"No Brave results for {domain}")
         return []
 
-    # 4: Classify (cap at 40 to stay within token budget)
-    classified = await _classify_with_gemini(all_results[:40], brand_name, domain)
+    log.info(f"Discovery: {len(all_results)} unique URLs before classification")
 
-    # 5: Add platform
+    # Classify in one Gemini call (cap at 60 to stay within token budget)
+    classified = await _classify_with_gemini(all_results[:60], brand_name, domain)
+
+    # Add platform tag
     final: list[dict[str, Any]] = [
         {
             "url": r["url"],
@@ -211,6 +269,9 @@ async def discover_content(
 
     own_count = sum(1 for r in final if r["contentType"] == "own")
     mention_count = sum(1 for r in final if r["contentType"] == "mention")
-    log.info(f"Discovery for {domain}: {own_count} own + {mention_count} mentions")
+    log.info(
+        f"Discovery for {domain}: {own_count} own + {mention_count} mentions "
+        f"(from {len(all_results)} candidates)"
+    )
 
     return final
