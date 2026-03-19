@@ -59,3 +59,21 @@ class DiscoveredContent(BaseModel):
 class DiscoverResponse(BaseModel):
     results: list[DiscoveredContent]
     total: int
+
+
+class FetchContentRequest(BaseModel):
+    url: str
+
+
+class PassageResult(BaseModel):
+    passage_index: int
+    passage_text: str
+    word_count: int
+    heading: str | None = None
+
+
+class FetchContentResponse(BaseModel):
+    url: str
+    title: str | None
+    word_count: int
+    passages: list[PassageResult]

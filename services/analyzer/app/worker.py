@@ -21,7 +21,9 @@ import psycopg2.extras
 from .config import config
 from .discovery import discover_content
 from .email import send_preview_report
+from .fetcher import fetch_url
 from .pipeline import run_preview_pipeline
+from .segmenter import segment_html
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -83,7 +85,7 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'full_analysis')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                 ORDER BY "createdAt"
@@ -289,6 +291,118 @@ async def process_email_job(job: dict) -> None:
         conn.close()
 
 
+async def process_fetch_content_job(job: dict) -> None:
+    """Fetch a single content URL, segment into passages, persist to DB."""
+    job_id = job["id"]
+    payload = job.get("payload") or {}
+    content_id = payload.get("contentId") if isinstance(payload, dict) else None
+
+    if not content_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing contentId in fetch_content job payload")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Fetching content {content_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT id, url, title FROM contents WHERE id = %s',
+                (content_id,),
+            )
+            content = cur.fetchone()
+
+        if not content:
+            fail_job(conn, job_id, "Content record not found")
+            return
+
+        fetched = await asyncio.wait_for(fetch_url(content["url"]), timeout=20)
+
+        if not fetched:
+            # Mark as failed but don't fail the job permanently
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE contents
+                    SET "lastFetchedAt" = NOW(), "updatedAt" = NOW()
+                    WHERE id = %s
+                    """,
+                    (content_id,),
+                )
+            conn.commit()
+            complete_job(conn, job_id)
+            log.warning(f"Fetch {content['url']}: no content returned")
+            return
+
+        # Segment HTML into passages
+        passages = segment_html(fetched["html"])
+
+        # Update content record
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE contents SET
+                    title = COALESCE(title, %s),
+                    "rawText" = %s,
+                    "wordCount" = %s,
+                    "lastFetchedAt" = NOW(),
+                    "updatedAt" = NOW()
+                WHERE id = %s
+                """,
+                (
+                    fetched["title"],
+                    fetched["raw_text"],
+                    fetched["word_count"],
+                    content_id,
+                ),
+            )
+
+            # Insert passages (delete old ones first for idempotency)
+            cur.execute('DELETE FROM passages WHERE "contentId" = %s', (content_id,))
+            for p in passages:
+                cur.execute(
+                    """
+                    INSERT INTO passages (
+                        id, "contentId", "passageText", "passageIndex",
+                        "wordCount", heading, "createdAt"
+                    )
+                    VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, NOW())
+                    """,
+                    (
+                        content_id,
+                        p["passageText"],
+                        p["passageIndex"],
+                        p["wordCount"],
+                        p["heading"],
+                    ),
+                )
+        conn.commit()
+
+        complete_job(conn, job_id)
+        log.info(
+            f"Fetched {content['url']}: {fetched['word_count']} words, "
+            f"{len(passages)} passages (job {job_id})"
+        )
+
+    except asyncio.TimeoutError:
+        log.warning(f"Fetch job {job_id} timed out for {content_id}")
+        try:
+            complete_job(conn, job_id)  # don't retry on timeout
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Fetch job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e))
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def process_discovery_job(job: dict) -> None:
     """Run content discovery for a project and save results to the contents table."""
     job_id = job["id"]
@@ -411,6 +525,8 @@ async def run_worker() -> None:
                 await process_email_job(job)
             elif job_type == "discovery":
                 await process_discovery_job(job)
+            elif job_type == "fetch_content":
+                await process_fetch_content_job(job)
             elif job_type == "full_analysis":
                 log.info(f"full_analysis job {job['id']} received — engine not yet implemented (Task 3.5)")
                 conn = get_conn()

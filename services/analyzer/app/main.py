@@ -21,14 +21,19 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import config
 from .discovery import discover_content
+from .fetcher import fetch_url
 from .models import (
     DiscoverRequest,
     DiscoverResponse,
     DiscoveredContent,
+    FetchContentRequest,
+    FetchContentResponse,
+    PassageResult,
     PreviewAnalyzeRequest,
     PreviewAnalyzeResponse,
 )
 from .pipeline import run_preview_pipeline
+from .segmenter import segment_html
 from .worker import run_worker
 
 log = logging.getLogger(__name__)
@@ -139,3 +144,36 @@ async def discover(
         for r in results
     ]
     return DiscoverResponse(results=items, total=len(items))
+
+
+@app.post("/api/v1/fetch-content", response_model=FetchContentResponse)
+async def fetch_content_endpoint(
+    request: FetchContentRequest,
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+) -> FetchContentResponse:
+    """
+    Fetch a single URL and segment into passages.
+    Used for direct HTTP testing; in production the worker processes fetch_content jobs.
+    """
+    verify_api_key(credentials)
+
+    fetched = await fetch_url(request.url)
+    if not fetched:
+        raise HTTPException(status_code=422, detail="Could not fetch or parse the URL")
+
+    passages = segment_html(fetched["html"])
+
+    return FetchContentResponse(
+        url=request.url,
+        title=fetched["title"],
+        word_count=fetched["word_count"],
+        passages=[
+            PassageResult(
+                passage_index=p["passageIndex"],
+                passage_text=p["passageText"],
+                word_count=p["wordCount"],
+                heading=p["heading"],
+            )
+            for p in passages
+        ],
+    )
