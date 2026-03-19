@@ -100,9 +100,9 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 2 — Landing page & preview flow
+**Phase**: 3 — Content discovery & authenticated app
 **Status**: IN PROGRESS
-**Last completed task**: Task 1.10 — README.md
+**Last completed task**: Task 2.7 — Registration conversion from preview
 
 ---
 
@@ -433,14 +433,12 @@ Then update this file:
 
 ---
 
-## Phase 2 — Landing page & preview flow (atomic tasks)
-
-Complete in order. Each task = one commit. Verify before proceeding.
+## Phase 2 — Landing page & preview flow (atomic tasks) — COMPLETE
 
 ---
 
 ### Task 2.1 — Google Analytics setup
-**Status**: TODO
+**Status**: DONE
 **Goal**: Integrate GA4 on the marketing site only.
 
 **Steps**:
@@ -457,7 +455,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.2 — Landing page
-**Status**: TODO
+**Status**: DONE
 **Goal**: Build the full landing page with the analysis form.
 
 **Steps**:
@@ -482,7 +480,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.3 — Preview API routes
-**Status**: TODO
+**Status**: DONE
 **Goal**: Implement the three preview API endpoints.
 
 **Steps**:
@@ -516,7 +514,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.4 — Python microservice — preview pipeline
-**Status**: TODO
+**Status**: DONE
 **Goal**: Implement the full micro-analysis pipeline in FastAPI.
 
 **Steps**:
@@ -546,7 +544,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.5 — Preview result page UI
-**Status**: TODO
+**Status**: DONE
 **Goal**: Build the `/preview/[id]` result page with score display, radar chart, insights, and CTAs.
 
 **Steps**:
@@ -575,7 +573,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.6 — Email + PDF report
-**Status**: TODO
+**Status**: DONE
 **Goal**: Send a PDF report via MailerSend when user requests it.
 
 **Steps**:
@@ -600,7 +598,7 @@ Complete in order. Each task = one commit. Verify before proceeding.
 ---
 
 ### Task 2.7 — Registration conversion from preview
-**Status**: TODO
+**Status**: DONE
 **Goal**: When a user registers after viewing a preview, automatically create their first project from preview data.
 
 **Steps**:
@@ -654,6 +652,210 @@ ANALYZER_API_KEY=dev-internal-key
 # Analytics (not needed in Phase 1)
 # NEXT_PUBLIC_GA_MEASUREMENT_ID=
 ```
+
+---
+
+## Phase 3 — Content discovery & authenticated app (atomic tasks)
+
+Complete in order. Each task = one commit. Verify before proceeding.
+
+---
+
+### Task 3.1 — Project overview page (real UI)
+**Status**: TODO
+**Goal**: Replace the overview placeholder with the real dashboard: AI Readiness Score, radar chart, score explainer popovers. Shows empty state if no snapshot exists yet.
+
+**Steps**:
+1. API route `GET /api/projects/[id]/snapshot/latest` — returns the most recent `ProjectScoreSnapshot` (or `null`)
+2. Replace `(app)/app/projects/[id]/overview/page.tsx`:
+   - If no snapshot: educational empty state explaining what will appear and why it matters
+   - If snapshot exists: render `OverviewDashboard` client component
+3. `OverviewDashboard` component:
+   - Large central score: `aiReadinessScore` (e.g. `42 / 100`)
+   - Radar chart with 5 sub-scores (reuse `ScoreRadarChart` from preview)
+   - Sub-score rows: label + value + `?` icon that opens `ScoreExplainer` popover
+4. `ScoreExplainer` popover: what-is, improve-tip — content from `scores.*.description` i18n keys
+5. "Run analysis" button — for now just shows a toast "Analysis queued" (actual trigger in Task 3.5)
+
+**Verify**: Empty state shows when no snapshot. With a seeded snapshot, scores and radar chart display correctly. Score explainer popovers open.
+
+**Commit**: `feat: build project overview page with score dashboard and explainers`
+
+---
+
+### Task 3.2 — Python: full content discovery pipeline
+**Status**: TODO
+**Goal**: Crawl the domain via Brave Search, classify results with LLM into own/mention/verify groups, save to `contents` table.
+
+**Steps**:
+1. Create `services/analyzer/app/discovery.py`:
+   - `discover_content(website_url, brand_name, language)` async function
+   - Brave Search `site:{domain}` (up to 50 results) → "own content" candidates
+   - Brave Search `"{brand_name}"` excluding domain (up to 20 results) → "mentions" candidates
+   - Gemini 2.0 Flash classifies each result: `own` / `mention` / `irrelevant`
+   - Platform detection: linkedin, medium, substack, reddit, youtube, news, other
+   - Returns list of `{ url, title, snippet, platform, contentType, confidence }` objects
+2. Add job type `discovery` to the worker — calls `discover_content`, saves to `contents` table with `isConfirmed = false`, completes job
+3. `POST /api/v1/discover` endpoint (protected) for testing
+
+**Verify**: Worker processes a `discovery` job and populates the `contents` table with correctly classified URLs.
+
+**Commit**: `feat: implement full content discovery pipeline in Python`
+
+---
+
+### Task 3.3 — Python: content fetch and passage segmentation
+**Status**: TODO
+**Goal**: Fetch confirmed content URLs, extract clean text, segment into passages, save to DB.
+
+**Steps**:
+1. `services/analyzer/app/fetcher.py`:
+   - `fetch_content(url)`: httpx fetch → BeautifulSoup clean text (strip nav/footer/ads) → title, word count
+   - If fetch fails or word count < 50: mark content `fetch_failed`
+2. `services/analyzer/app/segmenter.py`:
+   - `segment_passages(text)`: split by paragraphs, filter 30–300 words, assign passageIndex/wordCount/heading
+3. Job type `fetch_content` in worker: fetches one `Content` record, calls fetch + segment, saves `Passage` records, updates `Content.lastFetchedAt` + status → `fetched`
+
+**Verify**: Worker processes a `fetch_content` job. `Content.rawText` populated. `Passage` records in DB.
+
+**Commit**: `feat: implement content fetching and passage segmentation`
+
+---
+
+### Task 3.4 — Contents page UI
+**Status**: TODO
+**Goal**: Build `/contents` showing discovered content with confirm/discard actions and manual add.
+
+**Steps**:
+1. API routes:
+   - `GET /api/projects/[id]/contents` — list with pagination, filter by status/platform/contentType
+   - `PATCH /api/projects/[id]/contents/[cId]` — update `isConfirmed`
+   - `POST /api/projects/[id]/contents` — manually add a URL
+2. Replace `(app)/app/projects/[id]/contents/page.tsx`:
+   - Three tabs: "Your content" / "Mentions" / "To verify"
+   - Each row: platform badge, URL, title, word count, confirm/discard buttons
+   - "Manually add URL" inline form
+   - "Run discovery" button → creates a `discovery` job → toast
+3. Platform badge component: icon + color per platform
+4. i18n under `contents` namespace
+
+**Verify**: List loads. Can confirm/discard. Tabs filter correctly. Can add URL manually.
+
+**Commit**: `feat: build contents page with discovery results and confirm/discard actions`
+
+---
+
+### Task 3.5 — Full scoring engine (Python)
+**Status**: TODO
+**Goal**: Implement all 5 score components for a full project analysis (not sampled).
+
+**Steps**:
+1. `services/analyzer/app/scoring/fanout.py` — 20 fan-out queries per target via Gemini; embed via Voyage AI; cosine similarity vs passages; threshold 0.75; save `FanoutQuery` + `FanoutCoverageMap`
+2. `services/analyzer/app/scoring/passage_quality.py` — Claude Sonnet evaluates each passage (5 criteria: self-containedness 25%, claim clarity 20%, info density 20%, completeness 20%, verifiability 15%); save `PassageScore`
+3. `services/analyzer/app/scoring/chunkability.py` — heuristic: length (134–167 words optimal), heading coverage, no self-refs, schema presence, answer-first; weights 25/25/20/15/15
+4. `services/analyzer/app/scoring/entity_coherence.py` — term consistency, semantic cohesion (avg cosine sim), co-occurrence, platform diversity; weights 30/25/20/25
+5. `services/analyzer/app/scoring/cross_platform.py` — platform weight × presence × freshness decay (365-day)
+6. `services/analyzer/app/scoring/composite.py` — weighted average → `ai_readiness_score`
+7. `services/analyzer/app/full_pipeline.py` — orchestrates all scorers, saves `ProjectScoreSnapshot` + scores
+8. Job type `full_analysis` in worker (already queued by `convert-preview`)
+
+**Verify**: Worker processes `full_analysis` job. `ProjectScoreSnapshot` created with all 6 scores. `PassageScore` records with sub-criteria values.
+
+**Commit**: `feat: implement full 5-score analysis engine in Python`
+
+---
+
+### Task 3.6 — Content detail page
+**Status**: TODO
+**Goal**: `/contents/[cId]` showing all passages with individual scores and Claude reasoning.
+
+**Steps**:
+1. API route `GET /api/projects/[id]/contents/[cId]` — content + passages + latest passage scores
+2. Replace `(app)/app/projects/[id]/contents/[cId]/page.tsx`:
+   - Content header: URL, title, platform badge, word count, last fetched
+   - Passage list: `passageText` truncated, overall score, expandable with 5 sub-criteria + `llmReasoning`
+   - Sub-criteria: label + score bar + tooltip
+3. i18n under `contentDetail` namespace (keys: `selfContainedness`, `claimClarity`, `informationDensity`, `completeness`, `verifiability`)
+
+**Verify**: Page loads with passages and scores. Sub-criteria expand with reasoning text.
+
+**Commit**: `feat: build content detail page with passage scores`
+
+---
+
+### Task 3.7 — Opportunity Map page
+**Status**: TODO
+**Goal**: Visual map of fan-out query coverage — covered/partial/gap per target query.
+
+**Steps**:
+1. API route `GET /api/projects/[id]/opportunities` — fan-out queries grouped by target query, each with `isCovered` + `similarityScore`
+2. Replace `(app)/app/projects/[id]/opportunities/page.tsx`:
+   - Per target query: expandable section with all fan-out queries
+   - Green chip (≥ 0.75), yellow (0.5–0.74), red (< 0.5)
+   - Summary: X covered / Y total
+3. i18n under `opportunities` namespace
+
+**Verify**: Opportunity map loads with fan-out queries color-coded by coverage.
+
+**Commit**: `feat: build opportunity map page with fan-out coverage visualization`
+
+---
+
+### Task 3.8 — Recommendations and Optimization page
+**Status**: TODO
+**Goal**: LLM-generated prioritized recommendations and optimization page.
+
+**Steps**:
+1. `services/analyzer/app/recommendations.py` — Claude Sonnet generates 5–10 recommendations at end of `full_analysis` job (title, description, suggestedAction, priority, effort, targetScore) in user's `preferredLocale`; save to `Recommendation` table
+2. API routes:
+   - `GET /api/projects/[id]/recommendations` — sorted by priority + estimatedImpact
+   - `PATCH /api/projects/[id]/recommendations/[rId]` — update status
+3. Replace `(app)/app/projects/[id]/optimization/page.tsx`:
+   - High / Medium / Low priority sections
+   - Each card: type badge, title, description, effort chip, status actions
+4. i18n under `optimization` namespace
+
+**Verify**: After `full_analysis`, recommendations appear. Can change status.
+
+**Commit**: `feat: implement recommendations generation and optimization page`
+
+---
+
+### Task 3.9 — Notifications system
+**Status**: TODO
+**Goal**: In-app notification center with unread count badge.
+
+**Steps**:
+1. API routes: `GET /api/notifications`, `PATCH /api/notifications/[id]`, `POST /api/notifications/mark-all-read`
+2. Create notifications on job completion: `analysis_complete`, `score_change` (if score delta > 5 pts vs previous snapshot)
+3. App navbar: bell icon with unread badge
+4. Notification panel (Sheet): slides in from right, marks as read on click
+5. Replace `(app)/app/notifications/page.tsx` with full history list
+6. i18n under `notifications` namespace
+
+**Verify**: After `full_analysis` completes, notification appears. Badge shows. Panel marks read.
+
+**Commit**: `feat: implement in-app notification system`
+
+---
+
+### Task 3.10 — Onboarding wizard
+**Status**: TODO
+**Goal**: 4-step illustrated tour shown on first project view.
+
+**Steps**:
+1. `components/onboarding/onboarding-wizard.tsx` — dialog with 4 steps:
+   - Step 1: How AI decides who to cite
+   - Step 2: Your AI Readiness Score (5 dimensions)
+   - Step 3: Content discovery (why confirming matters)
+   - Step 4: Your roadmap (recommendations + weekly tracking)
+2. Show on first visit (track with `localStorage` key `onboarding_completed_{projectId}`)
+3. "Skip" and "Next / Let's go" buttons; celebration on final step
+4. i18n under `onboarding` namespace
+
+**Verify**: Wizard appears on first project visit, not on subsequent visits. Works in both languages.
+
+**Commit**: `feat: implement onboarding wizard for new projects`
 
 ---
 
