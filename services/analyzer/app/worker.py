@@ -19,6 +19,7 @@ import psycopg2
 import psycopg2.extras
 
 from .config import config
+from .discovery import discover_content
 from .email import send_preview_report
 from .pipeline import run_preview_pipeline
 
@@ -82,14 +83,14 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'full_analysis')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                 ORDER BY "createdAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
-            RETURNING id, type, "previewId", payload
+            RETURNING id, type, "previewId", "projectId", payload
             """,
         )
         row = cur.fetchone()
@@ -288,6 +289,102 @@ async def process_email_job(job: dict) -> None:
         conn.close()
 
 
+async def process_discovery_job(job: dict) -> None:
+    """Run content discovery for a project and save results to the contents table."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+
+    if not project_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing projectId in discovery job")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running discovery for project {project_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        # Fetch project data
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT "websiteUrl", "brandName" FROM projects WHERE id = %s',
+                (project_id,),
+            )
+            project = cur.fetchone()
+
+        if not project:
+            fail_job(conn, job_id, "Project not found")
+            return
+
+        # Get user locale for language-aware classification
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT "preferredLocale" FROM users WHERE id = (SELECT "userId" FROM projects WHERE id = %s)',
+                (project_id,),
+            )
+            user = cur.fetchone()
+        language = (user or {}).get("preferredLocale", "en")
+
+        results = await asyncio.wait_for(
+            discover_content(
+                website_url=project["websiteUrl"],
+                brand_name=project["brandName"],
+                language=language,
+            ),
+            timeout=90,
+        )
+
+        # Upsert into contents table (skip duplicates by url + projectId)
+        inserted = 0
+        with conn.cursor() as cur:
+            for r in results:
+                cur.execute(
+                    """
+                    INSERT INTO contents (
+                        id, "projectId", url, title, platform,
+                        "contentType", source, "isIndexed", "isConfirmed",
+                        "discoveryConfidence", "createdAt", "updatedAt"
+                    )
+                    VALUES (
+                        gen_random_uuid(), %s, %s, %s, %s,
+                        %s, 'discovery', true, false,
+                        %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (url, "projectId") DO NOTHING
+                    """,
+                    (
+                        project_id,
+                        r["url"],
+                        r["title"] or None,
+                        r["platform"],
+                        r["contentType"],
+                        r["confidence"],
+                    ),
+                )
+                if cur.rowcount:
+                    inserted += 1
+        conn.commit()
+
+        complete_job(conn, job_id)
+        log.info(f"Discovery job {job_id} done: {inserted} new content items for project {project_id}")
+
+    except asyncio.TimeoutError:
+        log.error(f"Discovery job {job_id} timed out")
+        try:
+            fail_job(conn, job_id, "Discovery timed out after 90s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Discovery job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e))
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -309,8 +406,18 @@ async def run_worker() -> None:
             conn.close()
 
         if job:
-            if job["type"] == "send_preview_report":
+            job_type = job["type"]
+            if job_type == "send_preview_report":
                 await process_email_job(job)
+            elif job_type == "discovery":
+                await process_discovery_job(job)
+            elif job_type == "full_analysis":
+                log.info(f"full_analysis job {job['id']} received — engine not yet implemented (Task 3.5)")
+                conn = get_conn()
+                try:
+                    complete_job(conn, job["id"])
+                finally:
+                    conn.close()
             else:
                 await process_job(job)
         else:

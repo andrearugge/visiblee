@@ -20,7 +20,14 @@ from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import config
-from .models import PreviewAnalyzeRequest, PreviewAnalyzeResponse
+from .discovery import discover_content
+from .models import (
+    DiscoverRequest,
+    DiscoverResponse,
+    DiscoveredContent,
+    PreviewAnalyzeRequest,
+    PreviewAnalyzeResponse,
+)
 from .pipeline import run_preview_pipeline
 from .worker import run_worker
 
@@ -96,3 +103,39 @@ async def preview_analyze(
         contents_found=result["contents_found"],
         analysis_data=result["analysis_data"],
     )
+
+
+@app.post("/api/v1/discover", response_model=DiscoverResponse)
+async def discover(
+    request: DiscoverRequest,
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+) -> DiscoverResponse:
+    """
+    Run the content discovery pipeline for a website.
+    Returns classified URLs (own / mention) with platform detection.
+    Used for direct HTTP testing; in production the worker processes discovery jobs.
+    """
+    verify_api_key(credentials)
+
+    try:
+        results = await discover_content(
+            website_url=request.website_url,
+            brand_name=request.brand_name,
+            language=request.language,
+        )
+    except Exception as e:
+        log.error(f"Discovery error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    items = [
+        DiscoveredContent(
+            url=r["url"],
+            title=r["title"],
+            snippet=r["snippet"],
+            platform=r["platform"],
+            content_type=r["contentType"],
+            confidence=r["confidence"],
+        )
+        for r in results
+    ]
+    return DiscoverResponse(results=items, total=len(items))

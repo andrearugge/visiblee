@@ -39,3 +39,23 @@ class PreviewAnalyzeResponse(BaseModel):
     insights: list[str]
     contents_found: int
     analysis_data: dict[str, Any]
+
+
+class DiscoverRequest(BaseModel):
+    website_url: str
+    brand_name: str
+    language: str = "en"
+
+
+class DiscoveredContent(BaseModel):
+    url: str
+    title: str
+    snippet: str
+    platform: str
+    content_type: str
+    confidence: float
+
+
+class DiscoverResponse(BaseModel):
+    results: list[DiscoveredContent]
+    total: int
