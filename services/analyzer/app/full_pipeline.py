@@ -37,6 +37,7 @@ from .scoring import (
     compute_ai_readiness,
     generate_insights,
 )
+from .recommendations import generate_recommendations, save_recommendations
 
 log = logging.getLogger(__name__)
 
@@ -446,8 +447,11 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     ai_readiness = compute_ai_readiness(sub_scores)
     all_scores = {"ai_readiness_score": ai_readiness, **sub_scores}
 
-    # 9. Insights
-    insights = await generate_insights(brand_name, all_scores, language)
+    # 9. Insights + recommendations (parallel)
+    insights, recommendations = await asyncio.gather(
+        generate_insights(brand_name, all_scores, language),
+        generate_recommendations(brand_name, all_scores, language),
+    )
 
     elapsed = round(time.monotonic() - start, 2)
     log.info(f"[{project_id}] Scoring done in {elapsed}s — AI Readiness: {ai_readiness:.1%}")
@@ -464,6 +468,7 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     snapshot_id = _save_snapshot(conn, project_id, all_scores, metadata)
     passage_score_ids = _save_passage_scores(conn, snapshot_id, scored_passages)
     _save_content_scores(conn, snapshot_id, contents, scored_passages, passage_score_ids)
+    save_recommendations(conn, project_id, snapshot_id, recommendations)
 
     # Persist fanout queries and coverage map (only for real target queries with IDs)
     real_targets = [t for t in fallback_targets if t["id"]]
