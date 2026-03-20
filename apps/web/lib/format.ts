@@ -5,33 +5,46 @@
  * English convention:           comma for thousands, dot for decimals → 1,234.56
  *
  * Pass the next-intl locale string ('it' | 'en') to get locale-appropriate formatting.
+ * Uses a regex-based implementation to avoid ICU data availability issues in Node.js.
  */
 
-const LOCALE_MAP: Record<string, string> = {
-  it: 'it-IT',
-  en: 'en-US',
-};
-
-function resolveLocale(locale?: string): string {
-  if (!locale) return 'it-IT';
-  return LOCALE_MAP[locale] ?? locale;
+function isItalian(locale?: string): boolean {
+  if (!locale) return true; // default to Italian
+  return locale === 'it' || locale.startsWith('it-');
 }
 
 /**
  * Format a number with thousands separators.
- * Decimal places are shown only when the value is not a whole number (max 2 digits).
+ * Decimal places are shown only when the value is not a whole number (max 2 significant decimal digits).
  *
  * @example
  * formatNumber(1000)        → "1.000"  (it) / "1,000"  (en)
+ * formatNumber(2249)        → "2.249"  (it) / "2,249"  (en)
  * formatNumber(1234.5)      → "1.234,5" (it) / "1,234.5" (en)
  * formatNumber(0.75, 'en')  → "0.75"
  */
 export function formatNumber(value: number, locale?: string): string {
+  const it = isItalian(locale);
+  const thousandsSep = it ? '.' : ',';
+  const decimalSep = it ? ',' : '.';
+
   const isInteger = Number.isInteger(value);
-  return new Intl.NumberFormat(resolveLocale(locale), {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: isInteger ? 0 : 2,
-  }).format(value);
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+
+  if (isInteger) {
+    const intStr = Math.round(abs).toString();
+    return sign + intStr.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+  }
+
+  // Non-integer: show up to 2 decimal places, strip trailing zeros
+  const fixed = abs.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const trimmedDec = decPart.replace(/0+$/, '');
+  const groupedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+
+  if (!trimmedDec) return sign + groupedInt;
+  return sign + groupedInt + decimalSep + trimmedDec;
 }
 
 /**

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
-import { formatNumber } from '@/lib/format';
+import { useFormatNumber } from '@/hooks/use-format-number';
 import { sendGAEvent } from '@/lib/analytics';
 import { ScoreRadarChart } from './score-radar-chart';
 import {
@@ -42,6 +42,7 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
   const pct = Math.round(value * 100);
   const color =
     pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400';
+  const { format } = useFormatNumber();
 
   return (
     <div className="flex items-center gap-3">
@@ -55,7 +56,7 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
         </div>
       </div>
       <div className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-800">
-        {formatNumber(pct)}
+        {format(pct)}
       </div>
       <TooltipProvider delay={200}>
         <Tooltip>
@@ -152,6 +153,7 @@ interface PreviewResultsProps {
 
 export function PreviewResults({ data }: PreviewResultsProps) {
   const t = useTranslations('preview');
+  const { format } = useFormatNumber();
 
   useEffect(() => {
     sendGAEvent('preview_viewed', { preview_id: data.id });
@@ -186,7 +188,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
               <p className="mb-1 text-sm font-medium text-zinc-500">{t('aiReadinessScore')}</p>
               <div className="my-4 flex items-end justify-center gap-1">
                 <span className="text-7xl font-bold leading-none tracking-tight text-zinc-900">
-                  {formatNumber(aiScore)}
+                  {format(aiScore)}
                 </span>
                 <span className="mb-2 text-2xl font-medium text-zinc-300">{t('outOf100')}</span>
               </div>

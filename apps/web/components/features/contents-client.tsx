@@ -21,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { formatNumber } from '@/lib/format';
+import { useFormatNumber } from '@/hooks/use-format-number';
 import { StepLoader } from '@/components/ui/step-loader';
 import { useJobPolling } from '@/hooks/use-job-polling';
 import { PlatformBadge } from './platform-badge';
@@ -185,6 +185,7 @@ function ContentRow({
   onFetch: (id: string) => void;
 }) {
   const t = useTranslations('contents');
+  const { format } = useFormatNumber();
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'queued'>('idle');
 
   async function handleFetch() {
@@ -230,13 +231,13 @@ function ContentRow({
         {item.wordCount ? (
           <>
             <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-400">{t('words', { n: formatNumber(item.wordCount) })}</span>
+            <span className="shrink-0 text-xs text-zinc-400">{format(item.wordCount)} {t('wordsUnit')}</span>
           </>
         ) : null}
         {item.lastFetchedAt ? (
           <>
             <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-400">{t('passages', { n: formatNumber(item._count.passages) })}</span>
+            <span className="shrink-0 text-xs text-zinc-400">{format(item._count.passages)} {t('passagesUnit')}</span>
           </>
         ) : (
           <>

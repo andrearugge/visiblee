@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { formatNumber } from '@/lib/format';
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,11 @@ interface Props {
 }
 
 export default async function AdminUserDetailPage({ params }: Props) {
-  const [{ id }, t, tProjects] = await Promise.all([
+  const [{ id }, t, tProjects, locale] = await Promise.all([
     params,
     getTranslations('admin'),
     getTranslations('projects'),
+    getLocale(),
   ]);
 
   const user = await db.user.findUnique({
@@ -76,7 +77,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {tProjects('myProjects')} ({formatNumber(user._count.projects)})
+            {tProjects('myProjects')} ({formatNumber(user._count.projects, locale)})
           </CardTitle>
         </CardHeader>
         <CardContent>

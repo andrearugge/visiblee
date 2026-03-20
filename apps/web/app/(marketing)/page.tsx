@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { formatNumber } from '@/lib/format';
 import { ChevronsDown } from 'lucide-react';
 import Link from 'next/link';
@@ -41,7 +41,7 @@ const ANTI_CORNER_B_L = 'radial-gradient(circle at 0% 0%, transparent 32px, #faf
 const ANTI_CORNER_B_R = 'radial-gradient(circle at 100% 0%, transparent 32px, #fafafa 32.5px)';
 
 export default async function LandingPage() {
-  const t = await getTranslations('landing');
+  const [t, locale] = await Promise.all([getTranslations('landing'), getLocale()]);
 
   return (
     <div className="bg-white">
@@ -212,7 +212,7 @@ export default async function LandingPage() {
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
                       </div>
                       <span className="w-7 shrink-0 text-right text-xs font-semibold tabular-nums text-zinc-800">
-                        {formatNumber(pct)}
+                        {formatNumber(pct, locale)}
                       </span>
                     </div>
                   );

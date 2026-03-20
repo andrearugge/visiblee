@@ -7,7 +7,7 @@ import { HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useJobPolling } from '@/hooks/use-job-polling';
-import { formatNumber } from '@/lib/format';
+import { useFormatNumber } from '@/hooks/use-format-number';
 import { ScoreRadarChart } from './score-radar-chart';
 import {
   Tooltip,
@@ -35,13 +35,14 @@ interface OverviewDashboardProps {
 function ScoreBar({ value, className }: { value: number; className?: string }) {
   const pct = Math.round(value * 100);
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400';
+  const { format } = useFormatNumber();
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
         <div className={cn('h-full rounded-full', color)} style={{ width: `${pct}%` }} />
       </div>
       <span className="w-8 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-800">
-        {formatNumber(pct)}
+        {format(pct)}
       </span>
     </div>
   );
@@ -151,6 +152,7 @@ function RunAnalysisButton({
 export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot }: OverviewDashboardProps) {
   const t = useTranslations('overview');
   const ts = useTranslations('scores');
+  const { format } = useFormatNumber();
 
   const aiScore = Math.round(snapshot.aiReadinessScore * 100);
 
@@ -216,7 +218,7 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
             </p>
             <div className="my-4 flex items-end justify-center gap-1">
               <span className="text-7xl font-bold leading-none tracking-tight text-zinc-900">
-                {formatNumber(aiScore)}
+                {format(aiScore)}
               </span>
               <span className="mb-2 text-2xl font-medium text-zinc-300">/ 100</span>
             </div>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { formatNumber } from '@/lib/format';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { buttonVariants } from "@/lib/button-variants";
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Globe, BarChart3 } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const [session, t] = await Promise.all([auth(), getTranslations('projects')]);
+  const [session, t, locale] = await Promise.all([auth(), getTranslations('projects'), getLocale()]);
 
   const projects = await db.project.findMany({
     where: { userId: session!.user.id, status: { not: 'archived' } },
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="text-xs text-zinc-400">
-                  {formatNumber(project._count.targetQueries)} {t('queries')} · {formatNumber(project._count.contents)} {t('contents')}
+                  {formatNumber(project._count.targetQueries, locale)} {t('queries')} · {formatNumber(project._count.contents, locale)} {t('contents')}
                 </CardFooter>
               </Card>
             </Link>
