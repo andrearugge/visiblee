@@ -334,6 +334,23 @@
     "expand": "Espandi",
     "collapse": "Comprimi"
   },
+  "opportunities": {
+    "emptyStateTitle": "Nessun dato di opportunità",
+    "emptyStateSubtitle": "Esegui un'analisi per vedere quanto il tuo contenuto copre le domande del tuo pubblico.",
+    "emptyStateCta": "Vai all'Overview",
+    "noFanoutTitle": "Dati di copertura non disponibili",
+    "noFanoutSubtitle": "Riesegui l'analisi per generare la mappa delle opportunità per questo snapshot.",
+    "covered": "Coperta",
+    "notCovered": "Gap",
+    "partial": "Parziale",
+    "totalCoverage": "Copertura",
+    "queriesCovered": "{covered} / {total} coperte",
+    "targetQueryLabel": "Query target",
+    "fanoutQueriesLabel": "Query correlate",
+    "noFanoutForTarget": "Nessuna query correlata generata per questo target.",
+    "similarityScore": "Punteggio match",
+    "lastAnalysis": "Ultima analisi"
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "Questa sezione è in costruzione. I contenuti appariranno qui una volta completata l'analisi."

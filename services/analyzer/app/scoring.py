@@ -31,12 +31,24 @@ async def generate_fanout_queries(
     language: str,
 ) -> list[str]:
     """Generate N fanout queries per target query using Gemini Flash."""
+    grouped = await generate_fanout_queries_grouped(target_queries, brand_name, language)
+    all_queries: list[str] = list(target_queries)
+    for expanded in grouped:
+        all_queries.extend(expanded)
+    return all_queries
+
+
+async def generate_fanout_queries_grouped(
+    target_queries: list[str],
+    brand_name: str,
+    language: str,
+) -> list[list[str]]:
+    """Generate N fanout queries per target. Returns list[list[str]] grouped by target."""
     if not _gemini_client:
-        return target_queries
+        return [[] for _ in target_queries]
 
     n = config.FANOUT_PER_QUERY
     lang_instruction = "in Italian" if language == "it" else "in English"
-    all_queries: list[str] = list(target_queries)
 
     async def expand_query(query: str) -> list[str]:
         prompt = (
@@ -56,10 +68,7 @@ async def generate_fanout_queries(
 
     tasks = [expand_query(q) for q in target_queries]
     results = await asyncio.gather(*tasks)
-    for expanded in results:
-        all_queries.extend(expanded)
-
-    return all_queries
+    return list(results)
 
 
 # ── Passage quality scoring ────────────────────────────────────────────────

@@ -30,7 +30,7 @@ from .embeddings import embed_texts, compute_coverage
 from .fetcher import fetch_url
 from .segmenter import segment_html
 from .scoring import (
-    generate_fanout_queries,
+    generate_fanout_queries_grouped,
     score_passage_quality,
     score_chunkability,
     score_entity_coherence,
@@ -60,13 +60,13 @@ def _load_project(conn, project_id: str) -> dict | None:
         return cur.fetchone()
 
 
-def _load_target_queries(conn, project_id: str) -> list[str]:
+def _load_target_queries(conn, project_id: str) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
-            'SELECT "queryText" FROM target_queries WHERE "projectId" = %s AND "isActive" = true',
+            'SELECT id, "queryText" FROM target_queries WHERE "projectId" = %s AND "isActive" = true',
             (project_id,),
         )
-        return [r["queryText"] for r in cur.fetchall()]
+        return [{"id": r["id"], "queryText": r["queryText"]} for r in cur.fetchall()]
 
 
 def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
@@ -191,6 +191,54 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
 
 
 # ── Save results ──────────────────────────────────────────────────────────────
+
+def _save_fanout_queries(
+    conn,
+    target_queries: list[dict],
+    fanout_grouped: list[list[str]],
+    batch_id: str,
+) -> list[str]:
+    """
+    Save FanoutQuery records for each generated fanout query.
+    Returns flat list of fanout_query UUIDs in the same order as the flat fanout list.
+    """
+    fanout_query_ids: list[str] = []
+    with conn.cursor() as cur:
+        for target, fanout_texts in zip(target_queries, fanout_grouped):
+            for text in fanout_texts:
+                cur.execute(
+                    """
+                    INSERT INTO fanout_queries (id, "targetQueryId", "queryText", "queryType", "batchId", "generatedAt")
+                    VALUES (gen_random_uuid(), %s, %s, 'generated', %s, NOW())
+                    RETURNING id
+                    """,
+                    (target["id"], text, batch_id),
+                )
+                fanout_query_ids.append(cur.fetchone()["id"])
+    return fanout_query_ids
+
+
+def _save_fanout_coverage_map(
+    conn,
+    fanout_query_ids: list[str],
+    coverage_entries: list[dict],
+    all_passages: list[dict],
+) -> None:
+    """Save FanoutCoverageMap records linking each fanout query to its best-matching passage."""
+    with conn.cursor() as cur:
+        for fq_id, entry in zip(fanout_query_ids, coverage_entries):
+            p_idx = entry["best_passage_index"]
+            if p_idx < 0 or p_idx >= len(all_passages):
+                continue
+            passage_id = all_passages[p_idx]["id"]
+            cur.execute(
+                """
+                INSERT INTO fanout_coverage_map (id, "fanoutQueryId", "passageId", "similarityScore", "isCovered", "createdAt")
+                VALUES (gen_random_uuid(), %s, %s, %s, %s, NOW())
+                """,
+                (fq_id, passage_id, entry["similarity_score"], entry["is_covered"]),
+            )
+
 
 def _save_snapshot(conn, project_id: str, scores: dict[str, float], metadata: dict) -> str:
     with conn.cursor() as cur:
@@ -345,9 +393,11 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
         for c in contents
     ]
 
-    # 2. Fanout queries (parallel with heuristic scoring)
+    # 2. Fanout queries — generate per target to track which fanout belongs to which target
+    fallback_targets = target_queries or [{"id": None, "queryText": "what is " + brand_name}]
+    target_texts = [t["queryText"] for t in fallback_targets]
     fanout_task = asyncio.create_task(
-        generate_fanout_queries(target_queries or ["what is " + brand_name], brand_name, language)
+        generate_fanout_queries_grouped(target_texts, brand_name, language)
     )
 
     # 5–7. Heuristic scores (synchronous)
@@ -355,10 +405,13 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     entity_coherence = score_entity_coherence(pages, brand_name)
     cross_platform = _compute_cross_platform_from_db(platform_results)
 
-    all_queries = await fanout_task
-    log.info(f"[{project_id}] Generated {len(all_queries)} fanout queries")
+    fanout_grouped = await fanout_task  # list[list[str]] — one list per target
+    fanout_flat = [text for group in fanout_grouped for text in group]
+    all_queries = target_texts + fanout_flat
+    log.info(f"[{project_id}] Generated {len(fanout_flat)} fanout queries across {len(fallback_targets)} targets")
 
     # 3. Embed + coverage
+    coverage_map: list[dict] = []
     passage_texts = [p["passage_text"][:500] for p in all_passages]
     if passage_texts and all_queries:
         q_embs, p_embs = await asyncio.gather(
@@ -404,13 +457,26 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
         "elapsed_seconds": elapsed,
         "contents_count": len(contents),
         "passages_count": len(all_passages),
-        "fanout_queries_count": len(all_queries),
+        "fanout_queries_count": len(fanout_flat),
         "insights": insights,
     }
 
     snapshot_id = _save_snapshot(conn, project_id, all_scores, metadata)
     passage_score_ids = _save_passage_scores(conn, snapshot_id, scored_passages)
     _save_content_scores(conn, snapshot_id, contents, scored_passages, passage_score_ids)
+
+    # Persist fanout queries and coverage map (only for real target queries with IDs)
+    real_targets = [t for t in fallback_targets if t["id"]]
+    if real_targets and fanout_flat:
+        real_grouped = fanout_grouped[:len(real_targets)]
+        fanout_query_ids = _save_fanout_queries(conn, real_targets, real_grouped, snapshot_id)
+        # coverage_map entries 0..len(target_texts)-1 are for target queries (skip)
+        # entries len(target_texts).. are for fanout queries
+        n_targets = len(target_texts)
+        fanout_coverage_entries = coverage_map[n_targets:] if len(coverage_map) > n_targets else []
+        if fanout_query_ids and fanout_coverage_entries:
+            _save_fanout_coverage_map(conn, fanout_query_ids, fanout_coverage_entries, all_passages)
+
     conn.commit()
 
     log.info(f"[{project_id}] Saved snapshot {snapshot_id}")

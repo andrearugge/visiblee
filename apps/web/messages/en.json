@@ -334,6 +334,23 @@
     "expand": "Expand",
     "collapse": "Collapse"
   },
+  "opportunities": {
+    "emptyStateTitle": "No opportunity data yet",
+    "emptyStateSubtitle": "Run an analysis to see how well your content covers the questions your audience is asking.",
+    "emptyStateCta": "Go to Overview",
+    "noFanoutTitle": "Coverage data not available",
+    "noFanoutSubtitle": "Re-run your analysis to generate the opportunity map for this snapshot.",
+    "covered": "Covered",
+    "notCovered": "Gap",
+    "partial": "Partial",
+    "totalCoverage": "Coverage",
+    "queriesCovered": "{covered} / {total} covered",
+    "targetQueryLabel": "Target query",
+    "fanoutQueriesLabel": "Related queries",
+    "noFanoutForTarget": "No related queries generated for this target.",
+    "similarityScore": "Match score",
+    "lastAnalysis": "Last analysis"
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "This section is under construction. Content will appear here once analysis is complete."
