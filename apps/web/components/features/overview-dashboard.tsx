@@ -96,6 +96,10 @@ function RunAnalysisButton({
       const d = data as Record<string, unknown>;
       return !!d?.createdAt && d.createdAt !== snapshotCreatedAt;
     },
+    onDone: () => {
+      setStatus('idle');
+      router.refresh();
+    },
   });
 
   async function handleClick() {

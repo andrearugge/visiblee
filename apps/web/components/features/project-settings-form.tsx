@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -133,35 +132,42 @@ export function ProjectSettingsForm({ project }: Props) {
         </Button>
       </form>
 
-      <Separator />
-
-      <div className="space-y-3">
-        <h2 className="text-base font-medium text-red-600">{t('deleteProject')}</h2>
-        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <DialogTrigger
-            className="inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600"
-          >
-            {t('deleteProject')}
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('deleteConfirmTitle')}</DialogTitle>
-              <DialogDescription>{t('deleteConfirmDescription')}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-                {tCommon('cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? t('deleting') : t('deleteConfirm')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Danger zone */}
+      <div className="rounded-lg border border-red-200 bg-red-50/50">
+        <div className="border-b border-red-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-red-700">Danger zone</h2>
+        </div>
+        <div className="flex items-center justify-between gap-4 px-4 py-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">{t('deleteProject')}</p>
+            <p className="mt-0.5 text-xs text-zinc-500">{t('deleteConfirmDescription')}</p>
+          </div>
+          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <DialogTrigger
+              className="shrink-0 inline-flex h-8 items-center justify-center rounded-md border border-red-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              {t('deleteProject')}
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('deleteConfirmTitle')}</DialogTitle>
+                <DialogDescription>{t('deleteConfirmDescription')}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                  {tCommon('cancel')}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? t('deleting') : t('deleteConfirm')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );

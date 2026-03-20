@@ -108,6 +108,16 @@ export function OnboardingWizard({ projectId }: OnboardingWizardProps) {
     }
   }, [projectId]);
 
+  // Listen for the sidebar "how it works" button
+  useEffect(() => {
+    function handleOpen() {
+      setStep(0);
+      setOpen(true);
+    }
+    window.addEventListener('show-onboarding', handleOpen);
+    return () => window.removeEventListener('show-onboarding', handleOpen);
+  }, []);
+
   function dismiss() {
     localStorage.setItem(`onboarding_completed_${projectId}`, '1');
     setOpen(false);

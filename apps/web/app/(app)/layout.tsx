@@ -11,14 +11,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isSuperadmin = session.user?.role === 'superadmin';
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <AppNavbar
         userName={session.user?.name ?? undefined}
         userEmail={session.user?.email ?? undefined}
       />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <AppSidebar isSuperadmin={isSuperadmin} />
-        <main className="flex-1 overflow-auto bg-white dark:bg-zinc-950">
+        <main className="flex-1 overflow-y-auto bg-white dark:bg-zinc-950">
           {children}
         </main>
       </div>
