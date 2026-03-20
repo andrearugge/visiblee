@@ -500,6 +500,48 @@ async def process_discovery_job(job: dict) -> None:
         conn.close()
 
 
+def _create_notification(conn, user_id: str, project_id: str, notif_type: str, title: str, message: str | None = None) -> None:
+    """Insert a notification for the user."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO notifications (id, "userId", "projectId", type, title, message, "isRead", "createdAt")
+            VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, false, NOW())
+            """,
+            (user_id, project_id, notif_type, title[:200], message),
+        )
+    conn.commit()
+
+
+def _get_project_user(conn, project_id: str) -> tuple[str | None, str | None]:
+    """Return (userId, brandName) for a project."""
+    with conn.cursor() as cur:
+        cur.execute(
+            'SELECT "userId", "brandName" FROM projects WHERE id = %s',
+            (project_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None, None
+    return row["userId"], row["brandName"]
+
+
+def _get_previous_ai_score(conn, project_id: str) -> float | None:
+    """Return the second-latest aiReadinessScore for a project (the one before the current)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT "aiReadinessScore" FROM project_score_snapshots
+            WHERE "projectId" = %s
+            ORDER BY "createdAt" DESC
+            OFFSET 1 LIMIT 1
+            """,
+            (project_id,),
+        )
+        row = cur.fetchone()
+    return float(row["aiReadinessScore"]) if row else None
+
+
 async def process_full_analysis_job(job: dict) -> None:
     """Run the full scoring pipeline for a project."""
     job_id = job["id"]
@@ -516,12 +558,38 @@ async def process_full_analysis_job(job: dict) -> None:
     log.info(f"Running full analysis for project {project_id} (job {job_id})")
     conn = get_conn()
     try:
-        await asyncio.wait_for(
+        result = await asyncio.wait_for(
             run_full_pipeline(conn, project_id),
             timeout=300,
         )
         complete_job(conn, job_id)
         log.info(f"Full analysis job {job_id} completed for project {project_id}")
+
+        # Create notifications
+        user_id, brand_name = _get_project_user(conn, project_id)
+        if user_id:
+            new_score = result["scores"].get("ai_readiness_score", 0)
+            prev_score = _get_previous_ai_score(conn, project_id)
+
+            # Always notify analysis complete
+            _create_notification(
+                conn, user_id, project_id,
+                "analysis_complete",
+                f"Analysis complete — {brand_name or 'your project'}",
+                f"AI Readiness Score: {round(new_score * 100)}/100",
+            )
+
+            # Notify score change if delta > 5 pts
+            if prev_score is not None:
+                delta = round((new_score - prev_score) * 100)
+                if abs(delta) >= 5:
+                    direction = "improved" if delta > 0 else "dropped"
+                    _create_notification(
+                        conn, user_id, project_id,
+                        "score_change",
+                        f"Score {direction} by {abs(delta)} pts — {brand_name or 'your project'}",
+                        f"New score: {round(new_score * 100)}/100 (was {round(prev_score * 100)}/100)",
+                    )
     except asyncio.TimeoutError:
         log.error(f"Full analysis job {job_id} timed out after 300s")
         try:

@@ -334,6 +334,17 @@
     "expand": "Expand",
     "collapse": "Collapse"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "emptySubtitle": "You'll be notified when analyses complete or your score changes.",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all",
+    "typeAnalysisComplete": "Analysis complete",
+    "typeScoreChange": "Score change",
+    "typeNewRecommendations": "New recommendations",
+    "typeSystem": "System"
+  },
   "optimization": {
     "emptyStateTitle": "No recommendations yet",
     "emptyStateSubtitle": "Run an analysis to get personalized recommendations for improving your AI visibility.",

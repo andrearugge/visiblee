@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { signOut } from 'next-auth/react';
-import { Bell, ChevronDown, User } from 'lucide-react';
+import { ChevronDown, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/features/notification-bell';
 
 interface AppNavbarProps {
   userName?: string;
@@ -35,13 +36,7 @@ export function AppNavbar({ userName, userEmail }: AppNavbarProps) {
 
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Link
-          href="/app/notifications"
-          aria-label={t('notifications')}
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
-        >
-          <Bell className="size-4" />
-        </Link>
+        <NotificationBell />
 
         {/* User menu */}
         <DropdownMenu>

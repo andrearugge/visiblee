@@ -334,6 +334,17 @@
     "expand": "Espandi",
     "collapse": "Comprimi"
   },
+  "notifications": {
+    "title": "Notifiche",
+    "empty": "Nessuna notifica ancora",
+    "emptySubtitle": "Riceverai notifiche quando le analisi sono completate o il punteggio cambia.",
+    "markAllRead": "Segna tutte come lette",
+    "viewAll": "Vedi tutte",
+    "typeAnalysisComplete": "Analisi completata",
+    "typeScoreChange": "Cambio punteggio",
+    "typeNewRecommendations": "Nuove raccomandazioni",
+    "typeSystem": "Sistema"
+  },
   "optimization": {
     "emptyStateTitle": "Nessuna raccomandazione ancora",
     "emptyStateSubtitle": "Esegui un'analisi per ricevere raccomandazioni personalizzate per migliorare la tua visibilità AI.",
