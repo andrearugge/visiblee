@@ -45,7 +45,7 @@ interface ContentsClientProps {
   initialDiscoveryRunning?: boolean;
 }
 
-type Tab = 'toVerify' | 'own' | 'mentions';
+type Tab = 'all' | 'toVerify' | 'own' | 'mentions';
 
 const POLL_INTERVAL = 4000;
 
@@ -323,7 +323,7 @@ function BulkBar({
 export function ContentsClient({ projectId, initialContents, initialDiscoveryRunning = false }: ContentsClientProps) {
   const t = useTranslations('contents');
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
-  const [activeTab, setActiveTab] = useState<Tab>('toVerify');
+  const [activeTab, setActiveTab] = useState<Tab>('all');
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>(
     initialDiscoveryRunning ? 'queued' : 'idle',
   );
@@ -349,13 +349,18 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
   const own = contents.filter((c) => c.isConfirmed && c.contentType === 'own');
   const mentions = contents.filter((c) => c.isConfirmed && c.contentType === 'mention');
 
-  const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'toVerify', label: t('tabToVerify'), count: toVerify.length },
+  const tabs: { key: Tab; label: string; count: number; alert?: boolean }[] = [
+    { key: 'all', label: t('tabAll'), count: contents.length },
+    { key: 'toVerify', label: t('tabToVerify'), count: toVerify.length, alert: toVerify.length > 0 },
     { key: 'own', label: t('tabOwn'), count: own.length },
     { key: 'mentions', label: t('tabMentions'), count: mentions.length },
   ];
 
-  const activeItems = activeTab === 'toVerify' ? toVerify : activeTab === 'own' ? own : mentions;
+  const activeItems =
+    activeTab === 'all' ? contents :
+    activeTab === 'toVerify' ? toVerify :
+    activeTab === 'own' ? own :
+    mentions;
   const selectedInTab = activeItems.filter((i) => selectedIds.has(i.id));
   const allSelected = activeItems.length > 0 && selectedInTab.length === activeItems.length;
   const someSelected = selectedInTab.length > 0 && !allSelected;
@@ -513,8 +518,10 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
             >
               {tab.label}
               <span className={cn(
-                'rounded-full px-1.5 py-0.5 text-xs tabular-nums',
-                activeTab === tab.key ? 'bg-zinc-100 text-zinc-600' : 'bg-zinc-200/60 text-zinc-400',
+                'rounded-full px-1.5 py-0.5 text-xs tabular-nums font-semibold',
+                activeTab === tab.key
+                  ? tab.alert ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'
+                  : tab.alert ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200/60 text-zinc-400',
               )}>
                 {tab.count}
               </span>
@@ -542,7 +549,7 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
       {/* Content list */}
       {activeItems.length === 0 ? (
         <p className="py-12 text-center text-sm text-zinc-400">
-          {activeTab === 'toVerify' ? t('emptyTabToVerify') : activeTab === 'own' ? t('emptyTabOwn') : t('emptyTabMentions')}
+          {activeTab === 'all' ? t('emptyStateSubtitle') : activeTab === 'toVerify' ? t('emptyTabToVerify') : activeTab === 'own' ? t('emptyTabOwn') : t('emptyTabMentions')}
         </p>
       ) : (
         <>
@@ -566,7 +573,7 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
                 key={item.id}
                 item={item}
                 projectId={projectId}
-                showActions={activeTab === 'toVerify'}
+                showActions={activeTab === 'toVerify' || (activeTab === 'all' && !item.isConfirmed)}
                 isSelected={selectedIds.has(item.id)}
                 onToggleSelect={handleToggleSelect}
                 onConfirm={handleConfirm}
@@ -578,7 +585,7 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
 
           <BulkBar
             count={selectedInTab.length}
-            showConfirm={activeTab === 'toVerify'}
+            showConfirm={activeTab === 'toVerify' || activeTab === 'all'}
             onConfirm={handleBulkConfirm}
             onDiscard={handleBulkDiscard}
             onClear={() => setSelectedIds(new Set())}

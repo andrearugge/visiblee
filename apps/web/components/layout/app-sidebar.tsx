@@ -39,8 +39,8 @@ const ADMIN_LINKS = [
 
 const PROJECT_MAIN_LINKS = [
   { segment: 'overview', i18nKey: 'overview' as const, icon: BarChart2 },
-  { segment: 'queries', i18nKey: 'queries' as const, icon: Search },
   { segment: 'contents', i18nKey: 'contents' as const, icon: FileText },
+  { segment: 'queries', i18nKey: 'queries' as const, icon: Search },
   { segment: 'opportunities', i18nKey: 'opportunityMap' as const, icon: Map },
   { segment: 'competitors', i18nKey: 'competitors' as const, icon: Users },
   { segment: 'optimization', i18nKey: 'optimizationTips' as const, icon: Lightbulb },
@@ -104,26 +104,22 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
       {projectId ? (
         // ── Project nav ──────────────────────────────────────────────
         <>
-          <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
+          <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
             <Link
               href="/app"
               className="mb-2 flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
             >
               <ChevronLeft className="size-3.5" />
-              {t('projects')}
+              {project ? (
+                <>
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    {project.name}
+                  </p>
+                </>
+              ) : (
+                <div className="h-4 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+              )}
             </Link>
-            {project ? (
-              <>
-                {project.brandName && (
-                  <p className="text-xs font-semibold text-zinc-500">{project.brandName}</p>
-                )}
-                <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {project.name}
-                </p>
-              </>
-            ) : (
-              <div className="h-4 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
-            )}
           </div>
 
           <nav className="flex flex-1 flex-col gap-1 p-3">

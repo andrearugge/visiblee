@@ -283,6 +283,7 @@
     "addUrlAdding": "Adding...",
     "addUrlError": "Failed to add URL",
     "addUrlDuplicate": "This URL is already in your project",
+    "tabAll": "All",
     "tabOwn": "Your content",
     "tabMentions": "Mentions",
     "tabToVerify": "To verify",
