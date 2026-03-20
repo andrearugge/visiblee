@@ -50,7 +50,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type = 'preview_analysis'
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"

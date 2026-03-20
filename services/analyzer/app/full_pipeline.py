@@ -435,6 +435,7 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
 
     # 4. Passage quality (returns per-passage scores with criteria)
     passage_quality, scored_passages = await score_passage_quality(all_passages)
+    log.info(f"[{project_id}] Passage quality: {passage_quality:.2f} ({len(scored_passages)} passages scored)")
 
     # 8. Composite
     sub_scores = {
@@ -465,24 +466,37 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
         "insights": insights,
     }
 
+    # ── Core persist (always committed first) ─────────────────────────────
     snapshot_id = _save_snapshot(conn, project_id, all_scores, metadata)
     passage_score_ids = _save_passage_scores(conn, snapshot_id, scored_passages)
     _save_content_scores(conn, snapshot_id, contents, scored_passages, passage_score_ids)
-    save_recommendations(conn, project_id, snapshot_id, recommendations)
+    conn.commit()
+    log.info(f"[{project_id}] Core snapshot + passage scores committed")
 
-    # Persist fanout queries and coverage map (only for real target queries with IDs)
+    # ── Recommendations (non-critical — failure does not block the analysis) ──
+    try:
+        save_recommendations(conn, project_id, snapshot_id, recommendations)
+        conn.commit()
+        log.info(f"[{project_id}] Recommendations saved")
+    except Exception as exc:
+        log.warning(f"[{project_id}] Failed to save recommendations: {exc}")
+        conn.rollback()
+
+    # ── Fanout queries + coverage map (non-critical) ───────────────────────
     real_targets = [t for t in fallback_targets if t["id"]]
     if real_targets and fanout_flat:
-        real_grouped = fanout_grouped[:len(real_targets)]
-        fanout_query_ids = _save_fanout_queries(conn, real_targets, real_grouped, snapshot_id)
-        # coverage_map entries 0..len(target_texts)-1 are for target queries (skip)
-        # entries len(target_texts).. are for fanout queries
-        n_targets = len(target_texts)
-        fanout_coverage_entries = coverage_map[n_targets:] if len(coverage_map) > n_targets else []
-        if fanout_query_ids and fanout_coverage_entries:
-            _save_fanout_coverage_map(conn, fanout_query_ids, fanout_coverage_entries, all_passages)
-
-    conn.commit()
+        try:
+            real_grouped = fanout_grouped[:len(real_targets)]
+            fanout_query_ids = _save_fanout_queries(conn, real_targets, real_grouped, snapshot_id)
+            n_targets = len(target_texts)
+            fanout_coverage_entries = coverage_map[n_targets:] if len(coverage_map) > n_targets else []
+            if fanout_query_ids and fanout_coverage_entries:
+                _save_fanout_coverage_map(conn, fanout_query_ids, fanout_coverage_entries, all_passages)
+            conn.commit()
+            log.info(f"[{project_id}] Fanout queries + coverage map saved ({len(fanout_query_ids)} queries)")
+        except Exception as exc:
+            log.warning(f"[{project_id}] Failed to save fanout data: {exc}")
+            conn.rollback()
 
     log.info(f"[{project_id}] Saved snapshot {snapshot_id}")
     return {"snapshot_id": snapshot_id, "scores": all_scores, "insights": insights}
