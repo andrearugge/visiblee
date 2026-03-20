@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -153,6 +153,7 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
   const t = useTranslations('overview');
   const ts = useTranslations('scores');
   const { format } = useFormatNumber();
+  const locale = useLocale();
 
   const aiScore = Math.round(snapshot.aiReadinessScore * 100);
 
@@ -190,11 +191,11 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
   ];
 
   const snapshotDate = new Date(snapshot.createdAt);
-  const formattedDateTime = snapshotDate.toLocaleDateString(undefined, {
+  const formattedDateTime = snapshotDate.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }) + ', ' + snapshotDate.toLocaleTimeString(undefined, {
+  }) + ', ' + snapshotDate.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
