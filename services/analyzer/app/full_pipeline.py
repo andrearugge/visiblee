@@ -365,9 +365,19 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
             embed_texts(all_queries, input_type="query"),
             embed_texts(passage_texts, input_type="document"),
         )
-        fanout_coverage, _ = compute_coverage(q_embs, p_embs, config.COVERAGE_THRESHOLD)
+        fanout_coverage, coverage_map = compute_coverage(q_embs, p_embs, config.COVERAGE_THRESHOLD)
+        if coverage_map:
+            max_sim = max(e["similarity_score"] for e in coverage_map)
+            avg_sim = sum(e["similarity_score"] for e in coverage_map) / len(coverage_map)
+            covered_n = sum(1 for e in coverage_map if e["is_covered"])
+            log.info(
+                f"[{project_id}] Coverage: {covered_n}/{len(coverage_map)} queries covered "
+                f"(threshold={config.COVERAGE_THRESHOLD}) — "
+                f"max_sim={max_sim:.3f}, avg_sim={avg_sim:.3f}"
+            )
     else:
         fanout_coverage = 0.0
+        log.warning(f"[{project_id}] Skipping fanout coverage: passage_texts={len(passage_texts)}, all_queries={len(all_queries)}")
 
     # 4. Passage quality (returns per-passage scores with criteria)
     passage_quality, scored_passages = await score_passage_quality(all_passages)

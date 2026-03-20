@@ -5,11 +5,14 @@ Voyage AI embeddings + cosine similarity utilities.
 """
 
 import asyncio
+import logging
 from typing import Any
 
 import numpy as np
 
 from .config import config
+
+log = logging.getLogger(__name__)
 
 try:
     import voyageai
@@ -17,11 +20,16 @@ try:
 except ImportError:
     _voyage_client = None
 
+if not _voyage_client:
+    log.warning(
+        "VOYAGE_API_KEY not set or voyageai not installed — "
+        "embed_texts will return zero vectors, fanout_coverage_score will be 0.0"
+    )
+
 
 async def embed_texts(texts: list[str], input_type: str = "document") -> list[list[float]]:
     """Embed a list of texts using Voyage AI voyage-3-large."""
     if not _voyage_client or not texts:
-        # Return zero vectors as fallback
         return [[0.0] * 1024 for _ in texts]
 
     # Batch in chunks of 128 (Voyage limit)

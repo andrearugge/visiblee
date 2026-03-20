@@ -189,23 +189,27 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
     },
   ];
 
-  const formattedDate = new Date(snapshot.createdAt).toLocaleDateString(undefined, {
+  const snapshotDate = new Date(snapshot.createdAt);
+  const formattedDateTime = snapshotDate.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+  }) + ', ' + snapshotDate.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-zinc-400">
-          {t('lastUpdated')}: <span className="font-medium text-zinc-600">{formattedDate}</span>
-        </p>
-        <RunAnalysisButton
-          projectId={projectId}
-          initialRunning={initialAnalysisRunning}
-          snapshotCreatedAt={snapshot.createdAt}
-        />
+        <p className="text-sm text-zinc-400">{t('lastUpdated')}: <span className="font-medium text-zinc-600">{formattedDateTime}</span></p>
+        <div className="flex items-center gap-3">
+          <RunAnalysisButton
+            projectId={projectId}
+            initialRunning={initialAnalysisRunning}
+            snapshotCreatedAt={snapshot.createdAt}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -41,7 +41,7 @@ class Config:
 
     # Tuning
     MAX_PAGES_TO_FETCH: int = int(os.getenv("MAX_PAGES_TO_FETCH", "8"))
-    COVERAGE_THRESHOLD: float = float(os.getenv("COVERAGE_THRESHOLD", "0.75"))
+    COVERAGE_THRESHOLD: float = float(os.getenv("COVERAGE_THRESHOLD", "0.60"))
     FANOUT_PER_QUERY: int = int(os.getenv("FANOUT_PER_QUERY", "10"))
     WORKER_POLL_INTERVAL: int = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
 
