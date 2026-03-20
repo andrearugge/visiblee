@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { ConvertedBanner } from '@/components/features/converted-banner';
 import { OverviewDashboard } from '@/components/features/overview-dashboard';
 import { OverviewEmpty } from '@/components/features/overview-empty';
+import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard';
 
 interface OverviewPageProps {
   params: Promise<{ id: string }>;
@@ -41,6 +42,8 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
 
   return (
     <div>
+      <OnboardingWizard projectId={id} />
+
       {converted === 'true' && (
         <div className="px-6 pt-6">
           <ConvertedBanner
