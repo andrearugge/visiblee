@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { BarChart3, RefreshCw, FileText, Loader2 } from 'lucide-react';
+import {
+  BarChart3,
+  RefreshCw,
+  FileText,
+  Loader2,
+  Zap,
+  Brain,
+  Calculator,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface OverviewEmptyProps {
   projectId: string;
@@ -14,6 +23,93 @@ interface OverviewEmptyProps {
 }
 
 const POLL_INTERVAL = 5000;
+
+// ─── Analysis step icons ───────────────────────────────────────────────────────
+
+const ANALYSIS_STEPS = [
+  { icon: FileText, labelKey: 'analysisStep1' as const },
+  { icon: Zap, labelKey: 'analysisStep2' as const },
+  { icon: Brain, labelKey: 'analysisStep3' as const },
+  { icon: Calculator, labelKey: 'analysisStep4' as const },
+];
+
+// ─── Analysis loader ───────────────────────────────────────────────────────────
+
+function AnalysisLoader() {
+  const t = useTranslations('overview');
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setStepIndex((i) => (i + 1) % ANALYSIS_STEPS.length), 2500);
+    return () => clearInterval(id);
+  }, []);
+
+  const ActiveIcon = ANALYSIS_STEPS[stepIndex].icon;
+
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+      {/* Animated icon ring */}
+      <div className="relative mb-8 flex size-20 items-center justify-center">
+        <div className="absolute inset-2 animate-pulse rounded-full bg-zinc-100" />
+        <div className="relative flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <ActiveIcon className="size-6 text-zinc-500 transition-all duration-300" />
+        </div>
+      </div>
+
+      <h2 className="mb-2 text-lg font-semibold text-zinc-900">{t('analysisRunningTitle')}</h2>
+      <p className="mb-8 max-w-sm text-sm text-zinc-500">{t('analysisRunningSubtitle')}</p>
+
+      {/* Step indicators */}
+      <div className="mb-10 flex items-center gap-2">
+        {ANALYSIS_STEPS.map((step, i) => {
+          const Icon = step.icon;
+          const isActive = i === stepIndex;
+          const isPast = i < stepIndex;
+          return (
+            <div
+              key={i}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300',
+                isActive
+                  ? 'animate-pulse bg-zinc-900 text-white shadow-sm'
+                  : isPast
+                    ? 'bg-zinc-100 text-zinc-400'
+                    : 'bg-zinc-50 text-zinc-300',
+              )}
+            >
+              <Icon className="size-3" />
+              <span className={cn('transition-all duration-300', !isActive && 'hidden sm:inline')}>
+                {t(step.labelKey)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Skeleton score cards */}
+      <div className="w-full max-w-2xl space-y-2">
+        {[0.95, 0.8, 0.65].map((opacity, i) => (
+          <div
+            key={i}
+            className="flex animate-pulse items-center gap-3 rounded-lg border border-zinc-100 bg-white px-4 py-3"
+            style={{ opacity }}
+          >
+            <div className="h-4 w-28 rounded-full bg-zinc-100" />
+            <div className="flex-1 h-2 rounded-full bg-zinc-100" />
+            <div className="h-4 w-8 rounded bg-zinc-100" />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 flex items-center gap-2 text-sm text-zinc-400">
+        <Loader2 className="size-4 animate-spin" />
+        {t('analysisPolling')}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 
 export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }: OverviewEmptyProps) {
   const t = useTranslations('overview');
@@ -32,7 +128,6 @@ export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }:
         if (!res.ok) return;
         const data = await res.json();
         if (data?.aiReadinessScore !== undefined) {
-          // Snapshot ready — refresh the server component
           router.refresh();
         }
       } catch {
@@ -58,28 +153,12 @@ export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }:
     }
   }
 
-  // ── Analysis in progress ──────────────────────────────────────────────────
+  // ── Analysis in progress ───────────────────────────────────────────────────
   if (status === 'queued') {
-    return (
-      <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <div className="relative mb-8 flex size-20 items-center justify-center">
-          <div className="absolute inset-0 animate-ping rounded-full bg-zinc-100" />
-          <div className="absolute inset-2 animate-pulse rounded-full bg-zinc-100" />
-          <div className="relative flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            <BarChart3 className="size-6 text-zinc-400" />
-          </div>
-        </div>
-        <h2 className="mb-2 text-lg font-semibold text-zinc-900">{t('analysisRunningTitle')}</h2>
-        <p className="mb-4 max-w-sm text-sm text-zinc-500">{t('analysisRunningSubtitle')}</p>
-        <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="size-4 animate-spin" />
-          {t('analysisPolling')}
-        </div>
-      </div>
-    );
+    return <AnalysisLoader />;
   }
 
-  // ── No confirmed+fetched content yet ─────────────────────────────────────
+  // ── No confirmed content yet ───────────────────────────────────────────────
   if (!hasContent) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
@@ -90,7 +169,7 @@ export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }:
         <p className="mb-8 max-w-sm text-sm text-zinc-500">{t('emptyStateSubtitle')}</p>
         <Link
           href={`/app/projects/${projectId}/contents`}
-          className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
         >
           <FileText className="size-4" />
           {t('emptyStateCta')}
@@ -99,7 +178,7 @@ export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }:
     );
   }
 
-  // ── Has content, ready to run first analysis ──────────────────────────────
+  // ── Has content, ready to run first analysis ───────────────────────────────
   return (
     <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
       <div className="mb-4 flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50">
