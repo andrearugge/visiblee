@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/lib/format';
 import { StepLoader } from '@/components/ui/step-loader';
 import { useJobPolling } from '@/hooks/use-job-polling';
 import { PlatformBadge } from './platform-badge';
@@ -49,7 +50,7 @@ type Tab = 'all' | 'toVerify' | 'own' | 'mentions';
 
 const POLL_INTERVAL = 4000;
 
-const DISCOVERY_STEP_ICONS = [Search, Globe, Brain, Filter];
+const DISCOVERY_STEP_ICONS = [Search, Brain, Filter];
 
 // ─── Results ready banner ─────────────────────────────────────────────────────
 
@@ -203,7 +204,7 @@ function ContentRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border bg-white px-4 py-3 transition-colors',
+        'flex items-center gap-3 rounded-lg border bg-white px-4 py-2.5 transition-colors',
         isSelected ? 'border-zinc-400 bg-zinc-50' : 'border-zinc-100 hover:border-zinc-200',
       )}
     >
@@ -212,25 +213,37 @@ function ContentRow({
         onChange={() => onToggleSelect(item.id)}
         label={`Select ${item.title ?? displayUrl}`}
       />
-      <Globe className="size-4 shrink-0 text-zinc-300" />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <PlatformBadge platform={item.platform} />
-          {item.isConfirmed && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
-              <Check className="size-3" />{t('confirmed')}
-            </span>
-          )}
-        </div>
-        <p className="mt-1 truncate text-sm font-medium text-zinc-800">{item.title ?? displayUrl}</p>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-zinc-400">
-          <span className="truncate max-w-xs">{displayUrl}</span>
-          {item.wordCount ? <span>{t('words', { n: item.wordCount })}</span> : null}
-          {item.lastFetchedAt
-            ? <span>{t('passages', { n: item._count.passages })}</span>
-            : <span>{t('notFetched')}</span>}
-        </div>
+      {/* Badge + title + metadata all in one row */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <PlatformBadge platform={item.platform} />
+        {item.isConfirmed && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
+            <Check className="size-3" />{t('confirmed')}
+          </span>
+        )}
+        <span className="truncate text-sm font-medium text-zinc-800">
+          {item.title ?? displayUrl}
+        </span>
+        <span className="shrink-0 text-zinc-200">·</span>
+        <span className="shrink-0 truncate text-xs text-zinc-400 max-w-[200px]">{displayUrl}</span>
+        {item.wordCount ? (
+          <>
+            <span className="shrink-0 text-zinc-200">·</span>
+            <span className="shrink-0 text-xs text-zinc-400">{t('words', { n: formatNumber(item.wordCount) })}</span>
+          </>
+        ) : null}
+        {item.lastFetchedAt ? (
+          <>
+            <span className="shrink-0 text-zinc-200">·</span>
+            <span className="shrink-0 text-xs text-zinc-400">{t('passages', { n: item._count.passages })}</span>
+          </>
+        ) : (
+          <>
+            <span className="shrink-0 text-zinc-200">·</span>
+            <span className="shrink-0 text-xs text-zinc-300">{t('notFetched')}</span>
+          </>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
@@ -358,9 +371,9 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
 
   const activeItems =
     activeTab === 'all' ? contents :
-    activeTab === 'toVerify' ? toVerify :
-    activeTab === 'own' ? own :
-    mentions;
+      activeTab === 'toVerify' ? toVerify :
+        activeTab === 'own' ? own :
+          mentions;
   const selectedInTab = activeItems.filter((i) => selectedIds.has(i.id));
   const allSelected = activeItems.length > 0 && selectedInTab.length === activeItems.length;
   const someSelected = selectedInTab.length > 0 && !allSelected;
