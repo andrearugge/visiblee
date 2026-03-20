@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 async function verifyProject(projectId: string, userId: string) {
   return db.project.findFirst({
     where: { id: projectId, userId },

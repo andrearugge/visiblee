@@ -40,7 +40,7 @@ export function useJobPolling({
 
     const poll = async () => {
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         if (isDone(data)) {

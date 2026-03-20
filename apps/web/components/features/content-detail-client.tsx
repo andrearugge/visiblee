@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, ChevronUp, ExternalLink, FileText, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, ExternalLink, FileText, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFormatNumber } from '@/hooks/use-format-number';
 import { PlatformBadge } from './platform-badge';
@@ -197,12 +197,15 @@ export function ContentDetailClient({ data, projectId }: { data: ContentData; pr
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6">
       {/* Back link */}
-      <Link
-        href={`/app/projects/${projectId}/contents`}
-        className="text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
-      >
-        {t('backToContents')}
-      </Link>
+      <div className="mb-2">
+        <Link
+          href={`/app/projects/${projectId}/contents`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+        >
+          <ArrowLeft className="size-3.5" />
+          {t('backToContents')}
+        </Link>
+      </div>
 
       {/* Content header card */}
       <div className="rounded-xl border border-zinc-200/80 bg-white p-5 shadow-sm space-y-3">
@@ -250,9 +253,15 @@ export function ContentDetailClient({ data, projectId }: { data: ContentData; pr
       ) : (
         <div className="space-y-3">
           {!hasScores && (
-            <p className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              {t('noScores')}
-            </p>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-700">{t('noScores')}</p>
+              <Link
+                href={`/app/projects/${projectId}/overview`}
+                className="shrink-0 rounded-md border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors"
+              >
+                {t('goToOverview')}
+              </Link>
+            </div>
           )}
           {data.passages.map((passage, i) => (
             <PassageCard key={passage.id} passage={passage} index={i} hasScores={hasScores} />

@@ -313,13 +313,14 @@
     "bulkDiscard": "Scarta {n}"
   },
   "contentDetail": {
-    "backToContents": "← Contenuti",
+    "backToContents": "Contenuti",
     "words": "parole",
     "passages": "passaggi",
     "lastFetched": "Ultimo aggiornamento",
     "notFetched": "Non ancora scaricato",
     "noPassages": "Nessun passaggio estratto. Scarica questo contenuto per estrarre e valutare i passaggi.",
-    "noScores": "Punteggi non disponibili. Esegui un'analisi per valutare tutti i passaggi.",
+    "noScores": "Punteggi non ancora disponibili — esegui un'analisi dalla pagina Overview.",
+    "goToOverview": "Vai all'Overview",
     "passageN": "Passaggio {n}",
     "overallScore": "Punteggio complessivo",
     "selfContainedness": "Autosufficienza",

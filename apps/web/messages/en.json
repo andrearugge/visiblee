@@ -313,13 +313,14 @@
     "bulkDiscard": "Discard {n}"
   },
   "contentDetail": {
-    "backToContents": "← Contents",
+    "backToContents": "Contents",
     "words": "words",
     "passages": "passages",
     "lastFetched": "Last fetched",
     "notFetched": "Not fetched yet",
     "noPassages": "No passages extracted yet. Fetch this content to extract and score its passages.",
-    "noScores": "Scores not available. Run an analysis to score all passages.",
+    "noScores": "Scores not available yet — run an analysis from the Overview page.",
+    "goToOverview": "Go to Overview",
     "passageN": "Passage {n}",
     "overallScore": "Overall score",
     "selfContainedness": "Self-containedness",
