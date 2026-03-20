@@ -21,6 +21,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { StepLoader } from '@/components/ui/step-loader';
+import { useJobPolling } from '@/hooks/use-job-polling';
 import { PlatformBadge } from './platform-badge';
 
 interface ContentItem {
@@ -47,90 +49,7 @@ type Tab = 'toVerify' | 'own' | 'mentions';
 
 const POLL_INTERVAL = 4000;
 
-// ─── Discovery loader ──────────────────────────────────────────────────────────
-
-const DISCOVERY_STEPS = [
-  { icon: Search, labelKey: 'discoveryStep1' as const },
-  { icon: Globe,  labelKey: 'discoveryStep2' as const },
-  { icon: Brain,  labelKey: 'discoveryStep3' as const },
-  { icon: Filter, labelKey: 'discoveryStep4' as const },
-];
-
-function DiscoveryLoader() {
-  const t = useTranslations('contents');
-  const [stepIndex, setStepIndex] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setStepIndex((i) => (i + 1) % DISCOVERY_STEPS.length), 2500);
-    return () => clearInterval(id);
-  }, []);
-
-  const ActiveIcon = DISCOVERY_STEPS[stepIndex].icon;
-
-  return (
-    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-      {/* Animated icon ring */}
-      <div className="relative mb-8 flex size-20 items-center justify-center">
-        <div className="absolute inset-0 animate-ping rounded-full bg-zinc-100" />
-        <div className="absolute inset-2 animate-pulse rounded-full bg-zinc-100" />
-        <div className="relative flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <ActiveIcon className="size-6 text-zinc-500 transition-all duration-300" />
-        </div>
-      </div>
-
-      <h2 className="mb-2 text-lg font-semibold text-zinc-900">{t('discoveryLoadingTitle')}</h2>
-      <p className="mb-8 max-w-sm text-sm text-zinc-500">{t('discoveryLoadingSubtitle')}</p>
-
-      {/* Step indicators */}
-      <div className="mb-10 flex items-center gap-2">
-        {DISCOVERY_STEPS.map((step, i) => {
-          const Icon = step.icon;
-          const isActive = i === stepIndex;
-          const isPast = i < stepIndex;
-          return (
-            <div
-              key={i}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300',
-                isActive
-                  ? 'bg-zinc-900 text-white shadow-sm'
-                  : isPast
-                  ? 'bg-zinc-100 text-zinc-400'
-                  : 'bg-zinc-50 text-zinc-300',
-              )}
-            >
-              <Icon className="size-3" />
-              <span className={cn('transition-all duration-300', !isActive && 'hidden sm:inline')}>
-                {t(step.labelKey)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Skeleton cards */}
-      <div className="w-full max-w-2xl space-y-2">
-        {[0.95, 0.8, 0.65].map((opacity, i) => (
-          <div
-            key={i}
-            className="flex animate-pulse items-center gap-3 rounded-lg border border-zinc-100 bg-white px-4 py-3"
-            style={{ opacity }}
-          >
-            <div className="size-4 rounded-full bg-zinc-100" />
-            <div className="size-4 rounded-full bg-zinc-100" />
-            <div className="flex-1 space-y-2">
-              <div className="flex gap-2">
-                <div className="h-4 w-16 rounded-full bg-zinc-100" />
-              </div>
-              <div className="h-3.5 w-3/4 rounded bg-zinc-100" />
-              <div className="h-3 w-1/2 rounded bg-zinc-50" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const DISCOVERY_STEP_ICONS = [Search, Globe, Brain, Filter];
 
 // ─── Results ready banner ─────────────────────────────────────────────────────
 
@@ -413,26 +332,17 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
   const [bulkStatus, setBulkStatus] = useState<'idle' | 'loading'>('idle');
 
   // ── Polling ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (discoveryStatus !== 'queued') return;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/contents`);
-        if (!res.ok) return;
-        const items: ContentItem[] = await res.json();
-        if (items.length > contents.length) {
-          setPendingContents(items);
-          setDiscoveryStatus('idle');
-        }
-      } catch {
-        // network error — keep polling
-      }
-    };
-
-    const id = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [discoveryStatus, projectId, contents.length]);
+  useJobPolling({
+    active: discoveryStatus === 'queued',
+    url: `/api/projects/${projectId}/contents`,
+    interval: POLL_INTERVAL,
+    isDone: (data) => (data as ContentItem[]).length > contents.length,
+    onDone: (data) => {
+      setPendingContents(data as ContentItem[]);
+      setDiscoveryStatus('idle');
+      // No router.refresh() — we show a "results ready" banner instead
+    },
+  });
 
   // ── Derived state ────────────────────────────────────────────────────────────
   const toVerify = contents.filter((c) => !c.isConfirmed);
@@ -546,7 +456,18 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
 
   // ── Render: discovery loading (empty + queued) ────────────────────────────
   if (contents.length === 0 && discoveryStatus === 'queued') {
-    return <DiscoveryLoader />;
+    const discoverySteps = DISCOVERY_STEP_ICONS.map((icon, i) => ({
+      icon,
+      label: t(`discoveryStep${i + 1}` as 'discoveryStep1'),
+    }));
+    return (
+      <StepLoader
+        title={t('discoveryLoadingTitle')}
+        subtitle={t('discoveryLoadingSubtitle')}
+        steps={discoverySteps}
+        skeleton="content-rows"
+      />
+    );
   }
 
   // ── Render: empty state ───────────────────────────────────────────────────
@@ -650,7 +571,7 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
                 onToggleSelect={handleToggleSelect}
                 onConfirm={handleConfirm}
                 onDiscard={handleDiscard}
-                onFetch={() => {}}
+                onFetch={() => { }}
               />
             ))}
           </div>

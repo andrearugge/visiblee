@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { HelpCircle, RefreshCw, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useJobPolling } from '@/hooks/use-job-polling';
 import { ScoreRadarChart } from './score-radar-chart';
 import {
   Tooltip,
@@ -29,8 +30,6 @@ interface OverviewDashboardProps {
   initialAnalysisRunning: boolean;
   snapshot: Snapshot;
 }
-
-const POLL_INTERVAL = 5000;
 
 function ScoreBar({ value, className }: { value: number; className?: string }) {
   const pct = Math.round(value * 100);
@@ -75,35 +74,27 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
 function RunAnalysisButton({
   projectId,
   initialRunning,
+  snapshotCreatedAt,
 }: {
   projectId: string;
   initialRunning: boolean;
+  snapshotCreatedAt: string;
 }) {
   const t = useTranslations('overview');
   const router = useRouter();
   const [status, setStatus] = useState<'idle' | 'loading' | 'queued' | 'error'>(
     initialRunning ? 'queued' : 'idle',
   );
-  const snapshotCreatedAt = useState<string | null>(null)[0];
 
-  // Poll for a newer snapshot while analysis is running
-  useEffect(() => {
-    if (status !== 'queued') return;
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/snapshot/latest`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data?.aiReadinessScore !== undefined) {
-          router.refresh();
-        }
-      } catch {
-        // keep polling
-      }
-    };
-    const id = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [status, projectId, router, snapshotCreatedAt]);
+  // Poll for a snapshot newer than the current one
+  useJobPolling({
+    active: status === 'queued',
+    url: `/api/projects/${projectId}/snapshot/latest`,
+    isDone: (data) => {
+      const d = data as Record<string, unknown>;
+      return !!d?.createdAt && d.createdAt !== snapshotCreatedAt;
+    },
+  });
 
   async function handleClick() {
     setStatus('loading');
@@ -207,7 +198,11 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
         <p className="text-sm text-zinc-400">
           {t('lastUpdated')}: <span className="font-medium text-zinc-600">{formattedDate}</span>
         </p>
-        <RunAnalysisButton projectId={projectId} initialRunning={initialAnalysisRunning} />
+        <RunAnalysisButton
+          projectId={projectId}
+          initialRunning={initialAnalysisRunning}
+          snapshotCreatedAt={snapshot.createdAt}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
