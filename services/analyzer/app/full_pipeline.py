@@ -27,6 +27,8 @@ from typing import Any
 
 from .config import config
 from .embeddings import embed_texts, compute_coverage
+from .fetcher import fetch_url
+from .segmenter import segment_html
 from .scoring import (
     generate_fanout_queries,
     score_passage_quality,
@@ -120,6 +122,72 @@ def _load_confirmed_platforms(conn, project_id: str) -> dict[str, list[str]]:
             if plat in result:
                 result[plat].append(r["url"])
         return result
+
+
+# ── Auto-fetch unfetched content ──────────────────────────────────────────────
+
+async def _auto_fetch_unfetched(conn, project_id: str) -> None:
+    """
+    Fetch and segment any confirmed content that hasn't been fetched yet.
+    Saves rawText, wordCount, title, lastFetchedAt, and passage records.
+    Skips silently on fetch failure (content will be excluded from scoring).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, url FROM contents
+            WHERE "projectId" = %s
+              AND "isConfirmed" = true
+              AND "lastFetchedAt" IS NULL
+            """,
+            (project_id,),
+        )
+        unfetched = [dict(r) for r in cur.fetchall()]
+
+    if not unfetched:
+        return
+
+    log.info(f"[{project_id}] Auto-fetching {len(unfetched)} unfetched contents")
+
+    for content in unfetched:
+        cid = content["id"]
+        url = content["url"]
+        result = await fetch_url(url)
+        if not result:
+            log.warning(f"[{project_id}] Fetch failed for {url} — skipping")
+            continue
+
+        passages = segment_html(result["html"])
+        if not passages:
+            log.warning(f"[{project_id}] No passages extracted from {url} — skipping")
+            continue
+
+        with conn.cursor() as cur:
+            # Update content record
+            cur.execute(
+                """
+                UPDATE contents
+                SET title = COALESCE(title, %s),
+                    "wordCount" = %s,
+                    "rawText" = %s,
+                    "lastFetchedAt" = NOW()
+                WHERE id = %s
+                """,
+                (result["title"], result["word_count"], result["raw_text"], cid),
+            )
+            # Insert passages (delete existing first to avoid duplicates)
+            cur.execute('DELETE FROM passages WHERE "contentId" = %s', (cid,))
+            for p in passages:
+                cur.execute(
+                    """
+                    INSERT INTO passages (id, "contentId", "passageText", "passageIndex", "wordCount", heading, "createdAt")
+                    VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, NOW())
+                    """,
+                    (cid, p["passageText"], p["passageIndex"], p["wordCount"], p.get("heading")),
+                )
+
+        conn.commit()
+        log.info(f"[{project_id}] Fetched {url}: {len(passages)} passages")
 
 
 # ── Save results ──────────────────────────────────────────────────────────────
@@ -242,6 +310,9 @@ def _save_content_scores(
 
 async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     start = time.monotonic()
+
+    # 0. Auto-fetch any confirmed content that hasn't been fetched yet
+    await _auto_fetch_unfetched(conn, project_id)
 
     # 1. Load data
     project = _load_project(conn, project_id)
