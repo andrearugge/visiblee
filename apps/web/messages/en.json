@@ -312,6 +312,27 @@
     "bulkConfirm": "Confirm {n}",
     "bulkDiscard": "Discard {n}"
   },
+  "contentDetail": {
+    "backToContents": "← Contents",
+    "words": "words",
+    "passages": "passages",
+    "lastFetched": "Last fetched",
+    "notFetched": "Not fetched yet",
+    "noPassages": "No passages extracted yet. Fetch this content to extract and score its passages.",
+    "noScores": "Scores not available. Run an analysis to score all passages.",
+    "passageN": "Passage {n}",
+    "overallScore": "Overall score",
+    "selfContainedness": "Self-containedness",
+    "claimClarity": "Claim clarity",
+    "informationDensity": "Information density",
+    "completeness": "Completeness",
+    "verifiability": "Verifiability",
+    "reasoning": "Reasoning",
+    "showReasoning": "Show reasoning",
+    "hideReasoning": "Hide reasoning",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "This section is under construction. Content will appear here once analysis is complete."

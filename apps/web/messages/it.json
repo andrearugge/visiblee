@@ -312,6 +312,27 @@
     "bulkConfirm": "Conferma {n}",
     "bulkDiscard": "Scarta {n}"
   },
+  "contentDetail": {
+    "backToContents": "← Contenuti",
+    "words": "parole",
+    "passages": "passaggi",
+    "lastFetched": "Ultimo aggiornamento",
+    "notFetched": "Non ancora scaricato",
+    "noPassages": "Nessun passaggio estratto. Scarica questo contenuto per estrarre e valutare i passaggi.",
+    "noScores": "Punteggi non disponibili. Esegui un'analisi per valutare tutti i passaggi.",
+    "passageN": "Passaggio {n}",
+    "overallScore": "Punteggio complessivo",
+    "selfContainedness": "Autosufficienza",
+    "claimClarity": "Chiarezza delle affermazioni",
+    "informationDensity": "Densità informativa",
+    "completeness": "Completezza",
+    "verifiability": "Verificabilità",
+    "reasoning": "Motivazione",
+    "showReasoning": "Mostra motivazione",
+    "hideReasoning": "Nascondi motivazione",
+    "expand": "Espandi",
+    "collapse": "Comprimi"
+  },
   "placeholder": {
     "pageTitle": "{page}",
     "emptyState": "Questa sezione è in costruzione. I contenuti appariranno qui una volta completata l'analisi."

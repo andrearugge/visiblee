@@ -13,6 +13,66 @@ async function verifyContent(contentId: string, projectId: string, userId: strin
   });
 }
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string; cId: string }> },
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id, cId } = await params;
+  const content = await verifyContent(cId, id, session.user.id);
+  if (!content) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // Find the latest snapshot for this project to get scores
+  const latestSnapshot = await db.projectScoreSnapshot.findFirst({
+    where: { projectId: id },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  });
+
+  const full = await db.content.findUnique({
+    where: { id: cId },
+    select: {
+      id: true,
+      url: true,
+      title: true,
+      platform: true,
+      contentType: true,
+      wordCount: true,
+      lastFetchedAt: true,
+      createdAt: true,
+      passages: {
+        orderBy: { passageIndex: 'asc' },
+        select: {
+          id: true,
+          passageText: true,
+          passageIndex: true,
+          wordCount: true,
+          heading: true,
+          passageScores: latestSnapshot
+            ? {
+                where: { snapshotId: latestSnapshot.id },
+                select: {
+                  overallScore: true,
+                  selfContainedness: true,
+                  claimClarity: true,
+                  informationDensity: true,
+                  completeness: true,
+                  verifiability: true,
+                  llmReasoning: true,
+                },
+                take: 1,
+              }
+            : false,
+        },
+      },
+    },
+  });
+
+  return NextResponse.json(full);
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; cId: string }> },
