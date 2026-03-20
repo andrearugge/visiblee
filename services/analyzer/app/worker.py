@@ -22,6 +22,7 @@ from .config import config
 from .discovery import discover_content
 from .email import send_preview_report
 from .fetcher import fetch_url
+from .full_pipeline import run_full_pipeline
 from .pipeline import run_preview_pipeline
 from .segmenter import segment_html
 
@@ -499,6 +500,44 @@ async def process_discovery_job(job: dict) -> None:
         conn.close()
 
 
+async def process_full_analysis_job(job: dict) -> None:
+    """Run the full scoring pipeline for a project."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+
+    if not project_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing projectId in full_analysis job")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running full analysis for project {project_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        await asyncio.wait_for(
+            run_full_pipeline(conn, project_id),
+            timeout=300,
+        )
+        complete_job(conn, job_id)
+        log.info(f"Full analysis job {job_id} completed for project {project_id}")
+    except asyncio.TimeoutError:
+        log.error(f"Full analysis job {job_id} timed out after 300s")
+        try:
+            fail_job(conn, job_id, "Full analysis timed out after 300s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Full analysis job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -528,12 +567,7 @@ async def run_worker() -> None:
             elif job_type == "fetch_content":
                 await process_fetch_content_job(job)
             elif job_type == "full_analysis":
-                log.info(f"full_analysis job {job['id']} received — engine not yet implemented (Task 3.5)")
-                conn = get_conn()
-                try:
-                    complete_job(conn, job["id"])
-                finally:
-                    conn.close()
+                await process_full_analysis_job(job)
             else:
                 await process_job(job)
         else:
