@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatNumber } from '@/lib/format';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="text-xs text-zinc-400">
-                  {project._count.targetQueries} {t('queries')} · {project._count.contents} {t('contents')}
+                  {formatNumber(project._count.targetQueries)} {t('queries')} · {formatNumber(project._count.contents)} {t('contents')}
                 </CardFooter>
               </Card>
             </Link>

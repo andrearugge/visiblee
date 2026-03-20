@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatNumber } from '@/lib/format';
 import { getTranslations } from 'next-intl/server';
 import { db } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
@@ -93,7 +94,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                   <td className="px-4 py-3">
                     <Badge variant={ROLE_COLORS[user.role] ?? 'secondary'}>{user.role}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{user._count.projects}</td>
+                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{formatNumber(user._count.projects)}</td>
                   <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
                     {user.accounts[0]?.provider ?? 'credentials'}
                   </td>

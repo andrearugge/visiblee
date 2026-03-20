@@ -7,6 +7,7 @@ import { HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useJobPolling } from '@/hooks/use-job-polling';
+import { formatNumber } from '@/lib/format';
 import { ScoreRadarChart } from './score-radar-chart';
 import {
   Tooltip,
@@ -40,7 +41,7 @@ function ScoreBar({ value, className }: { value: number; className?: string }) {
         <div className={cn('h-full rounded-full', color)} style={{ width: `${pct}%` }} />
       </div>
       <span className="w-8 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-800">
-        {pct}
+        {formatNumber(pct)}
       </span>
     </div>
   );
@@ -215,7 +216,7 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
             </p>
             <div className="my-4 flex items-end justify-center gap-1">
               <span className="text-7xl font-bold leading-none tracking-tight text-zinc-900">
-                {aiScore}
+                {formatNumber(aiScore)}
               </span>
               <span className="mb-2 text-2xl font-medium text-zinc-300">/ 100</span>
             </div>

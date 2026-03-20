@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { formatNumber } from '@/lib/format';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { db } from '@/lib/db';
@@ -75,7 +76,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {tProjects('myProjects')} ({user._count.projects})
+            {tProjects('myProjects')} ({formatNumber(user._count.projects)})
           </CardTitle>
         </CardHeader>
         <CardContent>

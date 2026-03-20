@@ -236,7 +236,7 @@ function ContentRow({
         {item.lastFetchedAt ? (
           <>
             <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-400">{t('passages', { n: item._count.passages })}</span>
+            <span className="shrink-0 text-xs text-zinc-400">{t('passages', { n: formatNumber(item._count.passages) })}</span>
           </>
         ) : (
           <>

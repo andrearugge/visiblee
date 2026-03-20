@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server';
+import { formatNumber } from '@/lib/format';
 import { ChevronsDown } from 'lucide-react';
 import Link from 'next/link';
 import { PreviewForm } from '@/components/features/preview-form';
@@ -211,7 +212,7 @@ export default async function LandingPage() {
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
                       </div>
                       <span className="w-7 shrink-0 text-right text-xs font-semibold tabular-nums text-zinc-800">
-                        {pct}
+                        {formatNumber(pct)}
                       </span>
                     </div>
                   );

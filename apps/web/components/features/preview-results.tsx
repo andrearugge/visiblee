@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/lib/format';
 import { sendGAEvent } from '@/lib/analytics';
 import { ScoreRadarChart } from './score-radar-chart';
 import {
@@ -54,7 +55,7 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
         </div>
       </div>
       <div className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-800">
-        {pct}
+        {formatNumber(pct)}
       </div>
       <TooltipProvider delay={200}>
         <Tooltip>
@@ -185,7 +186,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
               <p className="mb-1 text-sm font-medium text-zinc-500">{t('aiReadinessScore')}</p>
               <div className="my-4 flex items-end justify-center gap-1">
                 <span className="text-7xl font-bold leading-none tracking-tight text-zinc-900">
-                  {aiScore}
+                  {formatNumber(aiScore)}
                 </span>
                 <span className="mb-2 text-2xl font-medium text-zinc-300">{t('outOf100')}</span>
               </div>
