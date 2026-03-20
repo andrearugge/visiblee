@@ -35,7 +35,7 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
       select: { id: true },
     }),
     db.content.count({
-      where: { projectId: id, isConfirmed: true, lastFetchedAt: { not: null } },
+      where: { projectId: id, isConfirmed: true },
     }),
   ]);
 
