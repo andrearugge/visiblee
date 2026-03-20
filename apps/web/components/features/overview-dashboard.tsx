@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { HelpCircle, RefreshCw, Check, AlertCircle } from 'lucide-react';
+import { HelpCircle, RefreshCw, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ScoreRadarChart } from './score-radar-chart';
@@ -25,8 +26,11 @@ interface Snapshot {
 
 interface OverviewDashboardProps {
   projectId: string;
+  initialAnalysisRunning: boolean;
   snapshot: Snapshot;
 }
+
+const POLL_INTERVAL = 5000;
 
 function ScoreBar({ value, className }: { value: number; className?: string }) {
   const pct = Math.round(value * 100);
@@ -68,9 +72,38 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
   );
 }
 
-function RunAnalysisButton({ projectId }: { projectId: string }) {
+function RunAnalysisButton({
+  projectId,
+  initialRunning,
+}: {
+  projectId: string;
+  initialRunning: boolean;
+}) {
   const t = useTranslations('overview');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'queued' | 'error'>('idle');
+  const router = useRouter();
+  const [status, setStatus] = useState<'idle' | 'loading' | 'queued' | 'error'>(
+    initialRunning ? 'queued' : 'idle',
+  );
+  const snapshotCreatedAt = useState<string | null>(null)[0];
+
+  // Poll for a newer snapshot while analysis is running
+  useEffect(() => {
+    if (status !== 'queued') return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/snapshot/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.aiReadinessScore !== undefined) {
+          router.refresh();
+        }
+      } catch {
+        // keep polling
+      }
+    };
+    const id = setInterval(poll, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [status, projectId, router, snapshotCreatedAt]);
 
   async function handleClick() {
     setStatus('loading');
@@ -88,9 +121,9 @@ function RunAnalysisButton({ projectId }: { projectId: string }) {
 
   if (status === 'queued') {
     return (
-      <div className="flex items-center gap-2 text-sm text-green-600">
-        <Check className="size-4" />
-        {t('runAnalysisQueued')}
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <Loader2 className="size-4 animate-spin" />
+        {t('analysisPolling')}
       </div>
     );
   }
@@ -118,7 +151,7 @@ function RunAnalysisButton({ projectId }: { projectId: string }) {
   );
 }
 
-export function OverviewDashboard({ projectId, snapshot }: OverviewDashboardProps) {
+export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot }: OverviewDashboardProps) {
   const t = useTranslations('overview');
   const ts = useTranslations('scores');
 
@@ -169,7 +202,7 @@ export function OverviewDashboard({ projectId, snapshot }: OverviewDashboardProp
         <p className="text-sm text-zinc-400">
           {t('lastUpdated')}: <span className="font-medium text-zinc-600">{formattedDate}</span>
         </p>
-        <RunAnalysisButton projectId={projectId} />
+        <RunAnalysisButton projectId={projectId} initialRunning={initialAnalysisRunning} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

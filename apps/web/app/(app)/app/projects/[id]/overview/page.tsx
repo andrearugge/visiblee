@@ -1,13 +1,10 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { BarChart3 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { buttonVariants } from '@/lib/button-variants';
-import { cn } from '@/lib/utils';
 import { ConvertedBanner } from '@/components/features/converted-banner';
 import { OverviewDashboard } from '@/components/features/overview-dashboard';
+import { OverviewEmpty } from '@/components/features/overview-empty';
 
 interface OverviewPageProps {
   params: Promise<{ id: string }>;
@@ -28,10 +25,19 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
   });
   if (!project) notFound();
 
-  const snapshot = await db.projectScoreSnapshot.findFirst({
-    where: { projectId: id },
-    orderBy: { createdAt: 'desc' },
-  });
+  const [snapshot, activeJob, confirmedContentCount] = await Promise.all([
+    db.projectScoreSnapshot.findFirst({
+      where: { projectId: id },
+      orderBy: { createdAt: 'desc' },
+    }),
+    db.job.findFirst({
+      where: { projectId: id, type: 'full_analysis', status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    }),
+    db.content.count({
+      where: { projectId: id, isConfirmed: true, lastFetchedAt: { not: null } },
+    }),
+  ]);
 
   return (
     <div>
@@ -47,6 +53,7 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
       {snapshot ? (
         <OverviewDashboard
           projectId={id}
+          initialAnalysisRunning={!!activeJob}
           snapshot={{
             aiReadinessScore: snapshot.aiReadinessScore,
             fanoutCoverageScore: snapshot.fanoutCoverageScore,
@@ -58,19 +65,11 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
           }}
         />
       ) : (
-        <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
-          <div className="mb-4 flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50">
-            <BarChart3 className="size-6 text-zinc-400" />
-          </div>
-          <h2 className="mb-2 text-lg font-semibold text-zinc-900">{t('emptyStateTitle')}</h2>
-          <p className="mb-8 max-w-sm text-sm text-zinc-500">{t('emptyStateSubtitle')}</p>
-          <Link
-            href={`/app/projects/${id}/contents`}
-            className={cn(buttonVariants(), 'gap-2')}
-          >
-            {t('emptyStateCta')}
-          </Link>
-        </div>
+        <OverviewEmpty
+          projectId={id}
+          hasContent={confirmedContentCount > 0}
+          initialAnalysisRunning={!!activeJob}
+        />
       )}
     </div>
   );
