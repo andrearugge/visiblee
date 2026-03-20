@@ -50,7 +50,6 @@ function AnalysisLoader() {
     <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
       {/* Animated icon ring */}
       <div className="relative mb-8 flex size-20 items-center justify-center">
-        <div className="absolute inset-2 animate-pulse rounded-full bg-zinc-100" />
         <div className="relative flex size-14 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <ActiveIcon className="size-6 text-zinc-500 transition-all duration-300" />
         </div>
@@ -58,33 +57,6 @@ function AnalysisLoader() {
 
       <h2 className="mb-2 text-lg font-semibold text-zinc-900">{t('analysisRunningTitle')}</h2>
       <p className="mb-8 max-w-sm text-sm text-zinc-500">{t('analysisRunningSubtitle')}</p>
-
-      {/* Step indicators */}
-      <div className="mb-10 flex items-center gap-2">
-        {ANALYSIS_STEPS.map((step, i) => {
-          const Icon = step.icon;
-          const isActive = i === stepIndex;
-          const isPast = i < stepIndex;
-          return (
-            <div
-              key={i}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300',
-                isActive
-                  ? 'animate-pulse bg-zinc-900 text-white shadow-sm'
-                  : isPast
-                    ? 'bg-zinc-100 text-zinc-400'
-                    : 'bg-zinc-50 text-zinc-300',
-              )}
-            >
-              <Icon className="size-3" />
-              <span className={cn('transition-all duration-300', !isActive && 'hidden sm:inline')}>
-                {t(step.labelKey)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
 
       {/* Skeleton score cards */}
       <div className="w-full max-w-2xl space-y-2">
@@ -99,11 +71,6 @@ function AnalysisLoader() {
             <div className="h-4 w-8 rounded bg-zinc-100" />
           </div>
         ))}
-      </div>
-
-      <div className="mt-8 flex items-center gap-2 text-sm text-zinc-400">
-        <Loader2 className="size-4 animate-spin" />
-        {t('analysisPolling')}
       </div>
     </div>
   );
@@ -147,7 +114,13 @@ export function OverviewEmpty({ projectId, hasContent, initialAnalysisRunning }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'full_analysis' }),
       });
-      setStatus(res.ok ? 'queued' : 'error');
+      if (res.ok) {
+        setStatus('queued');
+        // Bust the Router Cache so navigating away and back still shows the loader
+        router.refresh();
+      } else {
+        setStatus('error');
+      }
     } catch {
       setStatus('error');
     }

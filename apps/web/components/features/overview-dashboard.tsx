@@ -113,7 +113,12 @@ function RunAnalysisButton({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'full_analysis' }),
       });
-      setStatus(res.ok ? 'queued' : 'error');
+      if (res.ok) {
+        setStatus('queued');
+        router.refresh();
+      } else {
+        setStatus('error');
+      }
     } catch {
       setStatus('error');
     }
