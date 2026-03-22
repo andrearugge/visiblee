@@ -256,13 +256,14 @@ model Passage {
 // ─────────────────────────────────────────────
 
 model Competitor {
-  id          String  @id @default(uuid())
-  projectId   String
-  name        String
-  websiteUrl  String?
-  source      String  @default("auto") // 'auto' | 'manual'
-  isConfirmed Boolean @default(false)
-  createdAt   DateTime @default(now())
+  id               String  @id @default(uuid())
+  projectId        String
+  name             String
+  websiteUrl       String?
+  source           String  @default("auto") // 'auto' | 'manual'
+  isConfirmed      Boolean @default(false)
+  avgPassageScore  Float?
+  createdAt        DateTime @default(now())
 
   project  Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   contents CompetitorContent[]
@@ -293,6 +294,7 @@ model CompetitorPassage {
   passageText         String
   passageIndex        Int
   wordCount           Int?
+  overallScore        Float?
   embedding           Unsupported("vector(1024)")?
   createdAt           DateTime @default(now())
 

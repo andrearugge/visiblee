@@ -19,6 +19,7 @@ import psycopg2
 import psycopg2.extras
 
 from .config import config
+from .competitor_pipeline import run_competitor_pipeline
 from .discovery import discover_content
 from .email import send_preview_report
 from .fetcher import fetch_url
@@ -50,7 +51,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -86,7 +87,7 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                 ORDER BY "createdAt"
@@ -636,6 +637,46 @@ async def process_full_analysis_job(job: dict) -> None:
             notif_conn.close()
 
 
+async def process_competitor_analysis_job(job: dict) -> None:
+    """Run the competitor crawl + scoring pipeline."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+    payload = job.get("payload") or {}
+    competitor_id = payload.get("competitorId") if isinstance(payload, dict) else None
+
+    if not competitor_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing competitorId in competitor_analysis job payload")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running competitor analysis for {competitor_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        await asyncio.wait_for(
+            run_competitor_pipeline(conn, project_id, competitor_id),
+            timeout=120,
+        )
+        complete_job(conn, job_id)
+        log.info(f"Competitor analysis job {job_id} completed")
+    except asyncio.TimeoutError:
+        log.error(f"Competitor analysis job {job_id} timed out")
+        try:
+            fail_job(conn, job_id, "Competitor analysis timed out after 120s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Competitor analysis job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -666,6 +707,8 @@ async def run_worker() -> None:
                 await process_fetch_content_job(job)
             elif job_type == "full_analysis":
                 await process_full_analysis_job(job)
+            elif job_type == "competitor_analysis":
+                await process_competitor_analysis_job(job)
             else:
                 await process_job(job)
         else:
