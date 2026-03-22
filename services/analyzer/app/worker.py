@@ -557,6 +557,7 @@ async def process_full_analysis_job(job: dict) -> None:
 
     log.info(f"Running full analysis for project {project_id} (job {job_id})")
     conn = get_conn()
+    result = None
     try:
         result = await asyncio.wait_for(
             run_full_pipeline(conn, project_id),
@@ -564,32 +565,6 @@ async def process_full_analysis_job(job: dict) -> None:
         )
         complete_job(conn, job_id)
         log.info(f"Full analysis job {job_id} completed for project {project_id}")
-
-        # Create notifications
-        user_id, brand_name = _get_project_user(conn, project_id)
-        if user_id:
-            new_score = result["scores"].get("ai_readiness_score", 0)
-            prev_score = _get_previous_ai_score(conn, project_id)
-
-            # Always notify analysis complete
-            _create_notification(
-                conn, user_id, project_id,
-                "analysis_complete",
-                f"Analysis complete — {brand_name or 'your project'}",
-                f"AI Readiness Score: {round(new_score * 100)}/100",
-            )
-
-            # Notify score change if delta > 5 pts
-            if prev_score is not None:
-                delta = round((new_score - prev_score) * 100)
-                if abs(delta) >= 5:
-                    direction = "improved" if delta > 0 else "dropped"
-                    _create_notification(
-                        conn, user_id, project_id,
-                        "score_change",
-                        f"Score {direction} by {abs(delta)} pts — {brand_name or 'your project'}",
-                        f"New score: {round(new_score * 100)}/100 (was {round(prev_score * 100)}/100)",
-                    )
     except asyncio.TimeoutError:
         log.error(f"Full analysis job {job_id} timed out after 300s")
         try:
@@ -604,6 +579,40 @@ async def process_full_analysis_job(job: dict) -> None:
             pass
     finally:
         conn.close()
+
+    # Create notifications (separate connection, non-critical — never fails the job)
+    if result is not None:
+        notif_conn = get_conn()
+        try:
+            user_id, brand_name = _get_project_user(notif_conn, project_id)
+            if user_id:
+                new_score = result["scores"].get("ai_readiness_score", 0)
+                prev_score = _get_previous_ai_score(notif_conn, project_id)
+
+                # Always notify analysis complete
+                _create_notification(
+                    notif_conn, user_id, project_id,
+                    "analysis_complete",
+                    f"Analysis complete — {brand_name or 'your project'}",
+                    f"AI Readiness Score: {round(new_score * 100)}/100",
+                )
+                log.info(f"[{project_id}] Notification created for user {user_id}")
+
+                # Notify score change if delta > 5 pts
+                if prev_score is not None:
+                    delta = round((new_score - prev_score) * 100)
+                    if abs(delta) >= 5:
+                        direction = "improved" if delta > 0 else "dropped"
+                        _create_notification(
+                            notif_conn, user_id, project_id,
+                            "score_change",
+                            f"Score {direction} by {abs(delta)} pts — {brand_name or 'your project'}",
+                            f"New score: {round(new_score * 100)}/100 (was {round(prev_score * 100)}/100)",
+                        )
+        except Exception as e:
+            log.warning(f"[{project_id}] Failed to create notification: {e}", exc_info=True)
+        finally:
+            notif_conn.close()
 
 
 async def run_worker() -> None:
