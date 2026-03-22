@@ -241,6 +241,16 @@
     "ctaButton": "Ottieni il tuo punteggio gratuito"
   },
   "overview": {
+    "history": {
+      "title": "Storico Punteggi",
+      "noData": "Esegui almeno 2 analisi per vedere l'andamento del punteggio.",
+      "aiReadiness": "AI Readiness",
+      "queryReach": "Query Reach",
+      "answerStrength": "Answer Strength",
+      "extractability": "Extractability",
+      "brandTrust": "Brand Trust",
+      "sourceAuthority": "Source Authority"
+    },
     "convertedBannerTitle": "I dati del tuo preview sono stati importati",
     "convertedBannerSubtitle": "Abbiamo creato il tuo progetto dal preview. L'analisi completa è in coda e partirà a breve.",
     "emptyStateTitle": "Il tuo AI Readiness Score apparirà qui",
@@ -410,6 +420,45 @@
     "noFanoutForTarget": "Nessuna query correlata generata per questo target.",
     "similarityScore": "Punteggio match",
     "lastAnalysis": "Ultima analisi"
+  },
+  "queries": {
+    "title": "Query Target",
+    "subtitle": "Le domande che il tuo pubblico fa nelle ricerche AI. Ogni query genera un'analisi di copertura.",
+    "addPlaceholder": "es. come migliorare la SEO per le ricerche AI",
+    "add": "Aggiungi",
+    "limitBadge": "{count} / {limit} query",
+    "limitReached": "Limite raggiunto. Rimuovi una query per aggiungerne una nuova.",
+    "duplicateError": "Questa query esiste già.",
+    "emptyTitle": "Nessuna query target ancora",
+    "emptySubtitle": "Le query target sono le domande che il tuo pubblico digita nelle ricerche AI. Aggiungine almeno una per avviare la prima analisi.",
+    "deleteAriaLabel": "Rimuovi query",
+    "runAnalysis": "Avvia analisi",
+    "runAnalysisHint": "Le modifiche hanno effetto nella prossima analisi.",
+    "analysisPolling": "Analisi in corso…",
+    "analysisError": "Impossibile avviare l'analisi. Riprova.",
+    "inactive": "Rimossa"
+  },
+  "competitors": {
+    "title": "Competitor",
+    "addName": "Nome competitor",
+    "addUrl": "URL sito web",
+    "add": "Aggiungi competitor",
+    "adding": "Aggiunta...",
+    "emptyTitle": "Nessun competitor monitorato",
+    "emptySubtitle": "Aggiungi i tuoi principali competitor per confrontare la qualità dei tuoi contenuti con i loro.",
+    "runAnalysis": "Analizza",
+    "analyzing": "Analisi in corso…",
+    "notAnalyzed": "Non ancora analizzato",
+    "avgPassageScore": "Punteggio medio passaggi",
+    "comparisonTitle": "Confronto qualità contenuti",
+    "yours": "Il tuo",
+    "deleteAriaLabel": "Rimuovi competitor",
+    "addUrlError": "Inserisci un URL valido (es. https://competitor.com)",
+    "addNameError": "Inserisci il nome del competitor",
+    "addError": "Impossibile aggiungere il competitor. Riprova.",
+    "analysisError": "Impossibile avviare l'analisi. Riprova.",
+    "analysisQueued": "Analisi in coda",
+    "deleteError": "Impossibile rimuovere il competitor"
   },
   "placeholder": {
     "pageTitle": "{page}",
