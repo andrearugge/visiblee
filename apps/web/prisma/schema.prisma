@@ -172,6 +172,7 @@ model TargetQuery {
   queryText String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fanoutQueries    FanoutQuery[]

@@ -34,6 +34,7 @@ interface QueriesClientProps {
   initialActiveCount: number;
   snapshotCreatedAt: string | null;
   initialAnalysisRunning: boolean;
+  initialPendingChanges: boolean;
 }
 
 export function QueriesClient({
@@ -42,6 +43,7 @@ export function QueriesClient({
   initialActiveCount,
   snapshotCreatedAt,
   initialAnalysisRunning,
+  initialPendingChanges,
 }: QueriesClientProps) {
   const t = useTranslations('queries');
   const router = useRouter();
@@ -55,7 +57,7 @@ export function QueriesClient({
     initialAnalysisRunning ? 'queued' : 'idle',
   );
   const [currentSnapshotCreatedAt, setCurrentSnapshotCreatedAt] = useState(snapshotCreatedAt);
-  const [pendingChanges, setPendingChanges] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(initialPendingChanges);
 
   // Poll for new snapshot after analysis is queued
   useJobPolling({

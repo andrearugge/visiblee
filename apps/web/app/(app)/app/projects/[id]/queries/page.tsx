@@ -20,7 +20,7 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
     db.targetQuery.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, queryText: true, isActive: true, createdAt: true },
+      select: { id: true, queryText: true, isActive: true, createdAt: true, updatedAt: true },
     }),
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
@@ -35,8 +35,17 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
 
   const activeCount = queries.filter((q) => q.isActive).length;
 
+  // A query was changed (added or removed) after the last analysis snapshot.
+  // If there's no snapshot at all and there are queries, prompt to run the first analysis.
+  const lastSnapshotAt = latestSnapshot?.createdAt ?? null;
+  const initialPendingChanges = queries.some((q) =>
+    lastSnapshotAt === null || q.updatedAt > lastSnapshotAt,
+  );
+
   const serialized = queries.map((q) => ({
-    ...q,
+    id: q.id,
+    queryText: q.queryText,
+    isActive: q.isActive,
     createdAt: q.createdAt.toISOString(),
   }));
 
@@ -45,8 +54,9 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
       projectId={id}
       initialQueries={serialized}
       initialActiveCount={activeCount}
-      snapshotCreatedAt={latestSnapshot?.createdAt.toISOString() ?? null}
+      snapshotCreatedAt={lastSnapshotAt?.toISOString() ?? null}
       initialAnalysisRunning={!!activeJob}
+      initialPendingChanges={initialPendingChanges}
     />
   );
 }
