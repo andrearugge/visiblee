@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Bell, CheckCheck, BellRing, BarChart2, Lightbulb, Info } from 'lucide-react';
+import { Bell, CheckCheck, BellRing, BarChart2, Lightbulb, Info, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
@@ -140,18 +140,27 @@ export function NotificationBell() {
           </span>
         )}
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-sm">
+      <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-sm" showCloseButton={false}>
         <SheetHeader className="flex flex-row items-center justify-between border-b border-zinc-100 px-4 py-3">
           <SheetTitle className="text-base">{t('title')}</SheetTitle>
-          {unreadCount > 0 && (
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 transition-colors"
+              >
+                <CheckCheck className="size-3.5" />
+                {t('markAllRead')}
+              </button>
+            )}
             <button
-              onClick={markAllRead}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 transition-colors"
+              onClick={() => setOpen(false)}
+              className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+              aria-label="Close"
             >
-              <CheckCheck className="size-3.5" />
-              {t('markAllRead')}
+              <X className="size-4" />
             </button>
-          )}
+          </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
