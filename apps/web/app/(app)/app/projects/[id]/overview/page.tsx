@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { ConvertedBanner } from '@/components/features/converted-banner';
 import { OverviewDashboard } from '@/components/features/overview-dashboard';
 import { OverviewEmpty } from '@/components/features/overview-empty';
+import { ScoreHistoryChart } from '@/components/features/score-history-chart';
 
 interface OverviewPageProps {
   params: Promise<{ id: string }>;
@@ -25,7 +26,7 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
   });
   if (!project) notFound();
 
-  const [snapshot, activeJob, confirmedContentCount] = await Promise.all([
+  const [snapshot, activeJob, confirmedContentCount, allSnapshots] = await Promise.all([
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
@@ -37,7 +38,27 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
     db.content.count({
       where: { projectId: id, isConfirmed: true },
     }),
+    db.projectScoreSnapshot.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+      select: {
+        id: true,
+        createdAt: true,
+        aiReadinessScore: true,
+        fanoutCoverageScore: true,
+        passageQualityScore: true,
+        chunkabilityScore: true,
+        entityCoherenceScore: true,
+        crossPlatformScore: true,
+      },
+    }),
   ]);
+
+  const serializedSnapshots = allSnapshots.map((s) => ({
+    ...s,
+    createdAt: s.createdAt.toISOString(),
+  }));
 
   return (
     <div>
@@ -51,19 +72,26 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
       )}
 
       {snapshot ? (
-        <OverviewDashboard
-          projectId={id}
-          initialAnalysisRunning={!!activeJob}
-          snapshot={{
-            aiReadinessScore: snapshot.aiReadinessScore,
-            fanoutCoverageScore: snapshot.fanoutCoverageScore,
-            passageQualityScore: snapshot.passageQualityScore,
-            chunkabilityScore: snapshot.chunkabilityScore,
-            entityCoherenceScore: snapshot.entityCoherenceScore,
-            crossPlatformScore: snapshot.crossPlatformScore,
-            createdAt: snapshot.createdAt.toISOString(),
-          }}
-        />
+        <>
+          <OverviewDashboard
+            projectId={id}
+            initialAnalysisRunning={!!activeJob}
+            snapshot={{
+              aiReadinessScore: snapshot.aiReadinessScore,
+              fanoutCoverageScore: snapshot.fanoutCoverageScore,
+              passageQualityScore: snapshot.passageQualityScore,
+              chunkabilityScore: snapshot.chunkabilityScore,
+              entityCoherenceScore: snapshot.entityCoherenceScore,
+              crossPlatformScore: snapshot.crossPlatformScore,
+              createdAt: snapshot.createdAt.toISOString(),
+            }}
+          />
+          {serializedSnapshots.length >= 2 && (
+            <div className="px-6 pb-6">
+              <ScoreHistoryChart snapshots={serializedSnapshots} />
+            </div>
+          )}
+        </>
       ) : (
         <OverviewEmpty
           projectId={id}
