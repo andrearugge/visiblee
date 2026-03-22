@@ -108,9 +108,8 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 3 — Content discovery & authenticated app
-**Status**: IN PROGRESS
-**Last completed**: Tasks 3.1–3.5 (overview dashboard, discovery pipeline, content UI, scoring engine)
+**Phase**: 3 — Content discovery & authenticated app — **COMPLETE**
+**Status**: All tasks done. Ready for Phase 4.
 
 ---
 
@@ -147,7 +146,7 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Phase 3 — Content discovery & authenticated app
 
-### Tasks 3.1–3.5 — DONE
+## Phase 3 — Content discovery & authenticated app — COMPLETE
 
 | Task | Summary |
 |---|---|
@@ -156,104 +155,17 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 | 3.3 | Content fetch + passage segmentation (fetcher.py, segmenter.py); auto-fetch in full pipeline |
 | 3.4 | Contents page: tabs, confirm/discard, bulk selection, discovery loader, results-ready banner |
 | 3.5 | Full scoring engine: fanout coverage, passage quality, chunkability, entity coherence, cross-platform, composite |
+| 3.6 | Content detail page: passages + per-passage scores (5 sub-criteria) + reasoning, i18n `contentDetail` |
+| 3.7 | Opportunity Map: per-target fanout queries saved to DB, coverage chips (green/amber/red), i18n `opportunities` |
+| 3.8 | Recommendations + Optimization page: LLM-generated recs via Claude/Gemini, priority sections, status controls |
+| 3.9 | Notifications: bell badge + Sheet panel + history page + Python worker creates analysis_complete/score_change |
+| 3.10 | Onboarding wizard: 4-step dialog on first project visit, re-openable from sidebar "How it works" button |
 
-**Key shared primitives built:**
-- `components/ui/step-loader.tsx` — `StepLoader` component (used by overview + contents)
-- `hooks/use-job-polling.ts` — `useJobPolling` hook (used by overview + contents)
-
----
-
-### Task 3.6 — Content detail page
-**Status**: TODO
-**Goal**: `/contents/[cId]` showing all passages with individual scores and Claude reasoning.
-
-**Steps**:
-1. API route `GET /api/projects/[id]/contents/[cId]` — content + passages + latest passage scores
-2. Replace `(app)/app/projects/[id]/contents/[cId]/page.tsx`:
-   - Content header: URL, title, platform badge, word count, last fetched
-   - Passage list: `passageText` truncated, overall score, expandable with 5 sub-criteria + `llmReasoning`
-   - Sub-criteria: label + score bar + tooltip
-3. i18n under `contentDetail` namespace (keys: `selfContainedness`, `claimClarity`, `informationDensity`, `completeness`, `verifiability`)
-
-**Verify**: Page loads with passages and scores. Sub-criteria expand with reasoning text.
-
-**Commit**: `feat: build content detail page with passage scores`
-
----
-
-### Task 3.7 — Opportunity Map page
-**Status**: TODO
-**Goal**: Visual map of fan-out query coverage — covered/partial/gap per target query.
-
-**Steps**:
-1. API route `GET /api/projects/[id]/opportunities` — fan-out queries grouped by target query, each with `isCovered` + `similarityScore`
-2. Replace `(app)/app/projects/[id]/opportunities/page.tsx`:
-   - Per target query: expandable section with all fan-out queries
-   - Green chip (≥ 0.75), yellow (0.5–0.74), red (< 0.5)
-   - Summary: X covered / Y total
-3. i18n under `opportunities` namespace
-
-**Verify**: Opportunity map loads with fan-out queries color-coded by coverage.
-
-**Commit**: `feat: build opportunity map page with fan-out coverage visualization`
-
----
-
-### Task 3.8 — Recommendations and Optimization page
-**Status**: TODO
-**Goal**: LLM-generated prioritized recommendations and optimization page.
-
-**Steps**:
-1. `services/analyzer/app/recommendations.py` — Claude Sonnet generates 5–10 recommendations at end of `full_analysis` job (title, description, suggestedAction, priority, effort, targetScore) in user's `preferredLocale`; save to `Recommendation` table
-2. API routes:
-   - `GET /api/projects/[id]/recommendations` — sorted by priority + estimatedImpact
-   - `PATCH /api/projects/[id]/recommendations/[rId]` — update status
-3. Replace `(app)/app/projects/[id]/optimization/page.tsx`:
-   - High / Medium / Low priority sections
-   - Each card: type badge, title, description, effort chip, status actions
-4. i18n under `optimization` namespace
-
-**Verify**: After `full_analysis`, recommendations appear. Can change status.
-
-**Commit**: `feat: implement recommendations generation and optimization page`
-
----
-
-### Task 3.9 — Notifications system
-**Status**: TODO
-**Goal**: In-app notification center with unread count badge.
-
-**Steps**:
-1. API routes: `GET /api/notifications`, `PATCH /api/notifications/[id]`, `POST /api/notifications/mark-all-read`
-2. Create notifications on job completion: `analysis_complete`, `score_change` (if score delta > 5 pts vs previous snapshot)
-3. App navbar: bell icon with unread badge
-4. Notification panel (Sheet): slides in from right, marks as read on click
-5. Replace `(app)/app/notifications/page.tsx` with full history list
-6. i18n under `notifications` namespace
-
-**Verify**: After `full_analysis` completes, notification appears. Badge shows. Panel marks read.
-
-**Commit**: `feat: implement in-app notification system`
-
----
-
-### Task 3.10 — Onboarding wizard
-**Status**: TODO
-**Goal**: 4-step illustrated tour shown on first project view.
-
-**Steps**:
-1. `components/onboarding/onboarding-wizard.tsx` — dialog with 4 steps:
-   - Step 1: How AI decides who to cite
-   - Step 2: Your AI Readiness Score (5 dimensions)
-   - Step 3: Content discovery (why confirming matters)
-   - Step 4: Your roadmap (recommendations + weekly tracking)
-2. Show on first visit (track with `localStorage` key `onboarding_completed_{projectId}`)
-3. "Skip" and "Next / Let's go" buttons; celebration on final step
-4. i18n under `onboarding` namespace
-
-**Verify**: Wizard appears on first project visit, not on subsequent visits. Works in both languages.
-
-**Commit**: `feat: implement onboarding wizard for new projects`
+**Key shared primitives:**
+- `components/ui/step-loader.tsx` — `StepLoader` for all background-job loading states
+- `hooks/use-job-polling.ts` — `useJobPolling` for all polling loops
+- `components/features/notification-bell.tsx` — notification bell with Sheet panel
+- `components/onboarding/onboarding-wizard.tsx` — 4-step wizard, event-driven re-open
 
 ---
 
