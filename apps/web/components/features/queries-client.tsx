@@ -11,6 +11,7 @@ import {
   Loader2,
   RefreshCw,
   MessageSquare,
+  TriangleAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,7 @@ export function QueriesClient({
     initialAnalysisRunning ? 'queued' : 'idle',
   );
   const [currentSnapshotCreatedAt, setCurrentSnapshotCreatedAt] = useState(snapshotCreatedAt);
+  const [pendingChanges, setPendingChanges] = useState(false);
 
   // Poll for new snapshot after analysis is queued
   useJobPolling({
@@ -67,6 +69,7 @@ export function QueriesClient({
       const d = data as Record<string, unknown>;
       setCurrentSnapshotCreatedAt(d.createdAt as string);
       setAnalysisStatus('idle');
+      setPendingChanges(false);
       router.refresh();
     },
   });
@@ -90,6 +93,7 @@ export function QueriesClient({
       setQueries((prev) => [...prev, newQuery]);
       setActiveCount((n) => n + 1);
       setInput('');
+      setPendingChanges(true);
     } else {
       const body = await res.json().catch(() => ({}));
       if (body.error === 'duplicate') setAddError('duplicate');
@@ -109,6 +113,7 @@ export function QueriesClient({
         prev.map((q) => (q.id === id ? { ...q, isActive: false } : q)),
       );
       setActiveCount((n) => n - 1);
+      setPendingChanges(true);
     }
   }
 
@@ -153,6 +158,28 @@ export function QueriesClient({
 
   return (
     <div className="p-6">
+      {/* Pending changes banner */}
+      {pendingChanges && (
+        <div className="mb-5 flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">{t('pendingChangesTitle')}</p>
+              <p className="mt-0.5 text-xs text-amber-600">{t('pendingChangesSubtitle')}</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleRunAnalysis}
+            disabled={analysisStatus === 'loading'}
+            className="shrink-0 gap-2 bg-amber-500 text-white hover:bg-amber-600"
+          >
+            <RefreshCw className={cn('size-3.5', analysisStatus === 'loading' && 'animate-spin')} />
+            {t('runAnalysisNow')}
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-zinc-200/80 bg-white shadow-sm">
         {/* Card header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">

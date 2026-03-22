@@ -436,7 +436,10 @@
     "runAnalysisHint": "Changes take effect on the next analysis run.",
     "analysisPolling": "Analysis in progress…",
     "analysisError": "Could not start analysis. Try again.",
-    "inactive": "Removed"
+    "inactive": "Removed",
+    "pendingChangesTitle": "Your queries have changed",
+    "pendingChangesSubtitle": "Run a new analysis to update your scores and coverage data.",
+    "runAnalysisNow": "Run analysis now"
   },
   "competitors": {
     "title": "Competitors",

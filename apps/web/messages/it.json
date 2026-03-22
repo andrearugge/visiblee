@@ -436,7 +436,10 @@
     "runAnalysisHint": "Le modifiche hanno effetto nella prossima analisi.",
     "analysisPolling": "Analisi in corso…",
     "analysisError": "Impossibile avviare l'analisi. Riprova.",
-    "inactive": "Rimossa"
+    "inactive": "Rimossa",
+    "pendingChangesTitle": "Le query sono cambiate",
+    "pendingChangesSubtitle": "Avvia una nuova analisi per aggiornare i punteggi e i dati di copertura.",
+    "runAnalysisNow": "Avvia analisi ora"
   },
   "competitors": {
     "title": "Competitor",
