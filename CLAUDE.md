@@ -1,5 +1,15 @@
 # CLAUDE.md — Visiblee
 
+## ⚠️ IMPORTANT: Scoring Engine v2 Refactoring in progress
+
+The scoring engine is being rewritten. Before doing ANY work:
+1. Read `/docs/visiblee-methodology-v2.md` — the new algorithmic rationale (source of truth)
+2. Read `/docs/refactoring-plan-v2.md` — the task sequence to execute
+3. The old docs in `/docs/archive/` are SUPERSEDED — do not use them for decisions
+
+The score names, weights, sub-criteria, and pipeline steps have ALL changed. 
+See refactoring-plan-v2.md for the complete mapping old→new.
+
 ## What is this project?
 Visiblee is a SaaS web app that helps brands, creators, and professionals improve their visibility in AI-powered search (Google AI Mode, AI Overviews, ChatGPT, Perplexity, Gemini). It analyzes indexed content, builds an "AI Readiness" profile based on documented Google patents, and guides users to optimize their content for AI citation.
 
