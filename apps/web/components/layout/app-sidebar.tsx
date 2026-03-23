@@ -45,7 +45,6 @@ const PROJECT_MAIN_LINKS = [
   { segment: 'opportunities', i18nKey: 'opportunityMap' as const, icon: Map },
   { segment: 'competitors', i18nKey: 'competitors' as const, icon: Users },
   { segment: 'optimization', i18nKey: 'optimizationTips' as const, icon: Lightbulb },
-  { segment: 'agent', i18nKey: 'geoExpert' as const, icon: Bot },
 ];
 
 const PROJECT_BOTTOM_LINKS = [

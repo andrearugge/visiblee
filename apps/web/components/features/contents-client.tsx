@@ -215,36 +215,37 @@ function ContentRow({
         label={`Select ${item.title ?? displayUrl}`}
       />
 
-      {/* Badge + title + metadata all in one row */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <PlatformBadge platform={item.platform} />
-        {item.isConfirmed && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
-            <Check className="size-3" />{t('confirmed')}
-          </span>
-        )}
+      {/* Title + metadata: two-line layout */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium text-zinc-800">
           {item.title ?? displayUrl}
         </span>
-        <span className="shrink-0 text-zinc-200">·</span>
-        <span className="shrink-0 truncate text-xs text-zinc-400 max-w-[200px]">{displayUrl}</span>
-        {item.wordCount ? (
-          <>
-            <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-400">{format(item.wordCount)} {t('wordsUnit')}</span>
-          </>
-        ) : null}
-        {item.lastFetchedAt ? (
-          <>
-            <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-400">{format(item._count.passages)} {t('passagesUnit')}</span>
-          </>
-        ) : (
-          <>
-            <span className="shrink-0 text-zinc-200">·</span>
-            <span className="shrink-0 text-xs text-zinc-300">{t('notFetched')}</span>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <PlatformBadge platform={item.platform} />
+          {item.isConfirmed && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
+              <Check className="size-3" />{t('confirmed')}
+            </span>
+          )}
+          <span className="shrink-0 truncate text-xs text-zinc-400 max-w-[220px]">{displayUrl}</span>
+          {item.wordCount ? (
+            <>
+              <span className="shrink-0 text-zinc-200">·</span>
+              <span className="shrink-0 text-xs text-zinc-400">{format(item.wordCount)} {t('wordsUnit')}</span>
+            </>
+          ) : null}
+          {item.lastFetchedAt ? (
+            <>
+              <span className="shrink-0 text-zinc-200">·</span>
+              <span className="shrink-0 text-xs text-zinc-400">{format(item._count.passages)} {t('passagesUnit')}</span>
+            </>
+          ) : (
+            <>
+              <span className="shrink-0 text-zinc-200">·</span>
+              <span className="shrink-0 text-xs text-zinc-300">{t('notFetched')}</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">

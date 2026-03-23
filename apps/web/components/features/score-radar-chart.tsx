@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   Radar,
   RadarChart,
@@ -20,12 +21,13 @@ interface ScoreRadarChartProps {
 }
 
 export function ScoreRadarChart({ scores }: ScoreRadarChartProps) {
+  const t = useTranslations('scores');
   const data = [
-    { subject: 'Query Reach', value: Math.round(scores.queryReach * 100) },
-    { subject: 'Citation Power', value: Math.round(scores.citationPower * 100) },
-    { subject: 'Extractability', value: Math.round(scores.extractability * 100) },
-    { subject: 'Brand Authority', value: Math.round(scores.brandAuthority * 100) },
-    { subject: 'Source Authority', value: Math.round(scores.sourceAuthority * 100) },
+    { subject: t('queryReach.label'), value: Math.round(scores.queryReach * 100) },
+    { subject: t('citationPower.label'), value: Math.round(scores.citationPower * 100) },
+    { subject: t('extractability.label'), value: Math.round(scores.extractability * 100) },
+    { subject: t('brandAuthority.label'), value: Math.round(scores.brandAuthority * 100) },
+    { subject: t('sourceAuthority.label'), value: Math.round(scores.sourceAuthority * 100) },
   ];
 
   return (

@@ -143,8 +143,8 @@ export function OnboardingWizard({ projectId }: OnboardingWizardProps) {
         onClick={dismiss}
       />
 
-      {/* Dialog */}
-      <div className="relative z-10 mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      {/* Dialog — fixed size so content changes don't resize the modal */}
+      <div className="relative z-10 mx-4 flex w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-2xl" style={{ height: '520px' }}>
         {/* Close */}
         <button
           onClick={dismiss}
@@ -169,8 +169,8 @@ export function OnboardingWizard({ projectId }: OnboardingWizardProps) {
           ))}
         </div>
 
-        {/* Step content */}
-        <div className="min-h-[320px]">
+        {/* Step content — scrollable, fills remaining space */}
+        <div className="flex-1 overflow-y-auto">
           {step === 0 && <Step1 t={t} />}
           {step === 1 && <Step2 t={t} />}
           {step === 2 && <Step3 t={t} />}
@@ -178,7 +178,7 @@ export function OnboardingWizard({ projectId }: OnboardingWizardProps) {
         </div>
 
         {/* Navigation */}
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-4 flex shrink-0 items-center justify-between border-t border-zinc-100 pt-4">
           <div>
             {step > 0 ? (
               <button
