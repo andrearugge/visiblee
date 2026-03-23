@@ -10,11 +10,12 @@ import { PlatformBadge } from './platform-badge';
 
 interface PassageScore {
   overallScore: number | null;
-  selfContainedness: number | null;
-  claimClarity: number | null;
-  informationDensity: number | null;
-  completeness: number | null;
-  verifiability: number | null;
+  positionScore: number | null;
+  entityDensity: number | null;
+  statisticalSpecificity: number | null;
+  definiteness: number | null;
+  answerFirst: number | null;
+  sourceCitation: number | null;
   llmReasoning: string | null;
 }
 
@@ -59,11 +60,12 @@ function ScoreBar({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' })
 // ─── Sub-criterion row ─────────────────────────────────────────────────────────
 
 const CRITERIA: { key: keyof PassageScore; weight: string }[] = [
-  { key: 'selfContainedness', weight: '25%' },
-  { key: 'claimClarity', weight: '20%' },
-  { key: 'informationDensity', weight: '20%' },
-  { key: 'completeness', weight: '20%' },
-  { key: 'verifiability', weight: '15%' },
+  { key: 'positionScore', weight: '25%' },
+  { key: 'entityDensity', weight: '20%' },
+  { key: 'statisticalSpecificity', weight: '20%' },
+  { key: 'definiteness', weight: '15%' },
+  { key: 'answerFirst', weight: '10%' },
+  { key: 'sourceCitation', weight: '15%' },
 ];
 
 function CriteriaRow({ criterionKey, value, weight }: { criterionKey: string; value: number | null; weight: string }) {
@@ -71,7 +73,7 @@ function CriteriaRow({ criterionKey, value, weight }: { criterionKey: string; va
   return (
     <div className="flex items-center gap-3">
       <span className="w-44 shrink-0 text-xs text-zinc-500">
-        {t(criterionKey as 'selfContainedness')}
+        {t(criterionKey as 'positionScore')}
         <span className="ml-1 text-zinc-300">({weight})</span>
       </span>
       {value !== null ? (

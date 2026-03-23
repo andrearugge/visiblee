@@ -38,16 +38,16 @@
       "label": "Query Reach",
       "description": "Quante domande correlate riesce a rispondere il tuo contenuto"
     },
-    "answerStrength": {
-      "label": "Answer Strength",
+    "citationPower": {
+      "label": "Citation Power",
       "description": "Quanto è forte ogni paragrafo rispetto alla concorrenza"
     },
     "extractability": {
       "label": "Extractability",
       "description": "Con quale facilità l'AI riesce a estrarre informazioni dal tuo contenuto"
     },
-    "brandTrust": {
-      "label": "Brand Trust",
+    "brandAuthority": {
+      "label": "Brand Authority",
       "description": "Quanto è riconoscibile e coerente il tuo brand"
     },
     "sourceAuthority": {
@@ -177,12 +177,12 @@
     "scoreBreakdown": "Dettaglio punteggi",
     "queryReach": "Query Reach",
     "queryReachDescription": "Quante domande correlate riesce a rispondere il tuo contenuto. Migliora creando contenuti su topic più diversificati.",
-    "answerStrength": "Answer Strength",
-    "answerStrengthDescription": "Quanto i tuoi paragrafi sono autonomi come risposte AI. Migliora scrivendo paragrafi autoconclusivi e ricchi di fatti.",
+    "citationPower": "Citation Power",
+    "citationPowerDescription": "Quanto il tuo contenuto è posizionato per essere citato dall'AI. Migliora con statistiche, fonti nominate e passaggi con definizione in apertura.",
     "extractability": "Extractability",
     "extractabilityDescription": "Con quale facilità l'AI può estrarre i tuoi contenuti. Migliora con titoletti chiari e paragrafi da 130–170 parole.",
-    "brandTrust": "Brand Trust",
-    "brandTrustDescription": "Quanto il nome del tuo brand e la terminologia appaiono in modo consistente nei tuoi contenuti.",
+    "brandAuthority": "Brand Authority",
+    "brandAuthorityDescription": "Quanto chiaramente il tuo brand è riconosciuto come entità autorevole nelle basi di conoscenza AI.",
     "sourceAuthority": "Source Authority",
     "sourceAuthorityDescription": "La tua presenza su piattaforme autorevoli (LinkedIn, Reddit, YouTube, ecc.).",
     "insights": "Insight principali",
@@ -246,9 +246,9 @@
       "noData": "Esegui almeno 2 analisi per vedere l'andamento del punteggio.",
       "aiReadiness": "AI Readiness",
       "queryReach": "Query Reach",
-      "answerStrength": "Answer Strength",
+      "citationPower": "Citation Power",
       "extractability": "Extractability",
-      "brandTrust": "Brand Trust",
+      "brandAuthority": "Brand Authority",
       "sourceAuthority": "Source Authority"
     },
     "convertedBannerTitle": "I dati del tuo preview sono stati importati",
@@ -334,11 +334,11 @@
     "goToOverview": "Vai all'Overview",
     "passageN": "Passaggio {n}",
     "overallScore": "Punteggio complessivo",
-    "selfContainedness": "Autosufficienza",
-    "claimClarity": "Chiarezza delle affermazioni",
-    "informationDensity": "Densità informativa",
-    "completeness": "Completezza",
-    "verifiability": "Verificabilità",
+    "positionScore": "Autosufficienza",
+    "entityDensity": "Chiarezza delle affermazioni",
+    "statisticalSpecificity": "Densità informativa",
+    "definiteness": "Completezza",
+    "sourceCitation": "Verificabilità",
     "reasoning": "Motivazione",
     "showReasoning": "Mostra motivazione",
     "hideReasoning": "Nascondi motivazione",
@@ -357,9 +357,9 @@
     "step2Title": "Il tuo AI Readiness Score",
     "step2Description": "Cinque dimensioni si combinano nel punteggio complessivo. Ognuna corrisponde a un segnale documentato usato dai motori di ricerca AI.",
     "step2Dim1": "Query Reach — quante domande correlate il tuo contenuto può rispondere",
-    "step2Dim2": "Answer Strength — quanto i tuoi passaggi possono stare da soli come risposte AI",
+    "step2Dim2": "Citation Power — quanto il tuo contenuto è posizionato per le citazioni AI",
     "step2Dim3": "Extractability — quanto facilmente l'AI può estrarre le informazioni",
-    "step2Dim4": "Brand Trust — quanto coerentemente il tuo brand appare nei contenuti",
+    "step2Dim4": "Brand Authority — quanto chiaramente il tuo brand è riconosciuto come entità autorevole",
     "step2Dim5": "Source Authority — la tua presenza su piattaforme autorevoli",
     "step3Title": "Scoperta dei contenuti",
     "step3Description": "Troviamo automaticamente i contenuti pubblicati dal tuo brand e le menzioni su tutto il web. Revisioni ogni elemento e confermi quelli rilevanti.",

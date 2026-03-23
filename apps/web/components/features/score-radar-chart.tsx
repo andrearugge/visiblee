@@ -12,9 +12,9 @@ import {
 interface ScoreRadarChartProps {
   scores: {
     queryReach: number;
-    answerStrength: number;
+    citationPower: number;
     extractability: number;
-    brandTrust: number;
+    brandAuthority: number;
     sourceAuthority: number;
   };
 }
@@ -22,9 +22,9 @@ interface ScoreRadarChartProps {
 export function ScoreRadarChart({ scores }: ScoreRadarChartProps) {
   const data = [
     { subject: 'Query Reach', value: Math.round(scores.queryReach * 100) },
-    { subject: 'Answer Strength', value: Math.round(scores.answerStrength * 100) },
+    { subject: 'Citation Power', value: Math.round(scores.citationPower * 100) },
     { subject: 'Extractability', value: Math.round(scores.extractability * 100) },
-    { subject: 'Brand Trust', value: Math.round(scores.brandTrust * 100) },
+    { subject: 'Brand Authority', value: Math.round(scores.brandAuthority * 100) },
     { subject: 'Source Authority', value: Math.round(scores.sourceAuthority * 100) },
   ];
 

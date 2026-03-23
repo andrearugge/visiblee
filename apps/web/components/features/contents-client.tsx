@@ -513,6 +513,13 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
   // ── Render: main list ─────────────────────────────────────────────────────
   return (
     <div className="relative p-6">
+      {/* Discovery in-progress banner (shown when contents already exist) */}
+      {discoveryStatus === 'queued' && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <RefreshCw className="size-4 shrink-0 animate-spin text-amber-600" />
+          <p className="text-sm font-medium text-amber-800">{t('discoveryRunning')}</p>
+        </div>
+      )}
       {/* Results ready banner */}
       {pendingContents && (
         <ResultsReadyBanner count={pendingContents.length} onLoad={handleLoadResults} />

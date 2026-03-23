@@ -60,9 +60,8 @@ def compute_coverage(
     threshold: float,
 ) -> tuple[float, list[dict[str, Any]]]:
     """
-    For each query, find the best-matching passage.
+    Legacy binary coverage — kept for backward compatibility with preview pipeline.
     Returns (coverage_ratio, coverage_map).
-    coverage_ratio = fraction of queries covered above threshold.
     """
     coverage_map: list[dict[str, Any]] = []
     covered = 0
@@ -85,7 +84,74 @@ def compute_coverage(
             "best_passage_index": best_passage_idx,
             "similarity_score": round(best_score, 4),
             "is_covered": is_covered,
+            "coverage_tier": "good" if is_covered else "none",
         })
 
     ratio = covered / len(query_embeddings) if query_embeddings else 0.0
     return ratio, coverage_map
+
+
+def compute_coverage_tiered(
+    query_embeddings: list[list[float]],
+    passage_embeddings: list[list[float]],
+    thresholds: dict[str, float] | None = None,
+) -> tuple[float, list[dict[str, Any]]]:
+    """
+    4-tier coverage for the full pipeline (v2).
+
+    Tiers and weights:
+        excellent (≥0.88)  → weight 1.0
+        good      (≥0.75)  → weight 0.7
+        weak      (≥0.60)  → weight 0.3
+        none      (<0.60)  → weight 0.0
+
+    Score = (n_excellent×1.0 + n_good×0.7 + n_weak×0.3) / n_total
+
+    Returns (weighted_score, coverage_map).
+    Each entry in coverage_map has: query_index, best_passage_index,
+    similarity_score, tier, is_covered.
+    """
+    if thresholds is None:
+        from .config import config
+        thresholds = {
+            "excellent": config.COVERAGE_EXCELLENT,
+            "good": config.COVERAGE_GOOD,
+            "weak": config.COVERAGE_WEAK,
+        }
+
+    coverage_map: list[dict[str, Any]] = []
+    tier_weights = {"excellent": 1.0, "good": 0.7, "weak": 0.3, "none": 0.0}
+    total_weight = 0.0
+
+    for q_idx, q_emb in enumerate(query_embeddings):
+        best_score = 0.0
+        best_passage_idx = -1
+        for p_idx, p_emb in enumerate(passage_embeddings):
+            sim = cosine_similarity(q_emb, p_emb)
+            if sim > best_score:
+                best_score = sim
+                best_passage_idx = p_idx
+
+        if best_score >= thresholds["excellent"]:
+            tier = "excellent"
+        elif best_score >= thresholds["good"]:
+            tier = "good"
+        elif best_score >= thresholds["weak"]:
+            tier = "weak"
+        else:
+            tier = "none"
+
+        total_weight += tier_weights[tier]
+
+        coverage_map.append({
+            "query_index": q_idx,
+            "best_passage_index": best_passage_idx,
+            "similarity_score": round(best_score, 4),
+            "tier": tier,
+            "is_covered": tier != "none",
+            "coverage_tier": tier,
+        })
+
+    n_total = len(query_embeddings) or 1
+    weighted_score = round(total_weight / n_total, 3)
+    return weighted_score, coverage_map

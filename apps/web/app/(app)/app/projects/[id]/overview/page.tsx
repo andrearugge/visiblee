@@ -47,10 +47,10 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
         createdAt: true,
         aiReadinessScore: true,
         fanoutCoverageScore: true,
-        passageQualityScore: true,
-        chunkabilityScore: true,
-        entityCoherenceScore: true,
-        crossPlatformScore: true,
+        citationPowerScore: true,
+        extractabilityScore: true,
+        entityAuthorityScore: true,
+        sourceAuthorityScore: true,
       },
     }),
   ]);
@@ -79,10 +79,10 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
             snapshot={{
               aiReadinessScore: snapshot.aiReadinessScore,
               fanoutCoverageScore: snapshot.fanoutCoverageScore,
-              passageQualityScore: snapshot.passageQualityScore,
-              chunkabilityScore: snapshot.chunkabilityScore,
-              entityCoherenceScore: snapshot.entityCoherenceScore,
-              crossPlatformScore: snapshot.crossPlatformScore,
+              citationPowerScore: snapshot.citationPowerScore,
+              extractabilityScore: snapshot.extractabilityScore,
+              entityAuthorityScore: snapshot.entityAuthorityScore,
+              sourceAuthorityScore: snapshot.sourceAuthorityScore,
               createdAt: snapshot.createdAt.toISOString(),
             }}
           />

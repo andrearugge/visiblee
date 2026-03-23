@@ -18,10 +18,10 @@ interface Snapshot {
   createdAt: string;
   aiReadinessScore: number;
   fanoutCoverageScore: number;
-  passageQualityScore: number;
-  chunkabilityScore: number;
-  entityCoherenceScore: number;
-  crossPlatformScore: number;
+  citationPowerScore: number;
+  extractabilityScore: number;
+  entityAuthorityScore: number;
+  sourceAuthorityScore: number;
 }
 
 interface ScoreHistoryChartProps {
@@ -30,10 +30,10 @@ interface ScoreHistoryChartProps {
 
 const SUB_SCORES = [
   { key: 'fanoutCoverageScore', color: '#60a5fa', labelKey: 'queryReach' },
-  { key: 'passageQualityScore', color: '#34d399', labelKey: 'answerStrength' },
-  { key: 'chunkabilityScore', color: '#a78bfa', labelKey: 'extractability' },
-  { key: 'entityCoherenceScore', color: '#f472b6', labelKey: 'brandTrust' },
-  { key: 'crossPlatformScore', color: '#fb923c', labelKey: 'sourceAuthority' },
+  { key: 'citationPowerScore', color: '#34d399', labelKey: 'citationPower' },
+  { key: 'extractabilityScore', color: '#a78bfa', labelKey: 'extractability' },
+  { key: 'entityAuthorityScore', color: '#f472b6', labelKey: 'brandAuthority' },
+  { key: 'sourceAuthorityScore', color: '#fb923c', labelKey: 'sourceAuthority' },
 ] as const;
 
 export function ScoreHistoryChart({ snapshots }: ScoreHistoryChartProps) {
@@ -47,10 +47,10 @@ export function ScoreHistoryChart({ snapshots }: ScoreHistoryChartProps) {
     date: new Date(s.createdAt).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }),
     aiReadinessScore: Math.round(s.aiReadinessScore * 100),
     fanoutCoverageScore: Math.round(s.fanoutCoverageScore * 100),
-    passageQualityScore: Math.round(s.passageQualityScore * 100),
-    chunkabilityScore: Math.round(s.chunkabilityScore * 100),
-    entityCoherenceScore: Math.round(s.entityCoherenceScore * 100),
-    crossPlatformScore: Math.round(s.crossPlatformScore * 100),
+    citationPowerScore: Math.round(s.citationPowerScore * 100),
+    extractabilityScore: Math.round(s.extractabilityScore * 100),
+    entityAuthorityScore: Math.round(s.entityAuthorityScore * 100),
+    sourceAuthorityScore: Math.round(s.sourceAuthorityScore * 100),
   }));
 
   function toggleLine(key: string) {

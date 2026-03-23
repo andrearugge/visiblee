@@ -90,13 +90,13 @@ model PreviewAnalysis {
   brandName    String
   queryTargets String[]
 
-  // Micro-analysis results
-  aiReadinessScore     Float?
-  fanoutCoverageScore  Float?
-  passageQualityScore  Float?
-  chunkabilityScore    Float?
-  entityCoherenceScore Float?
-  crossPlatformScore   Float?
+  // Micro-analysis results (v2 score names)
+  aiReadinessScore    Float?
+  fanoutCoverageScore Float?
+  citationPowerScore  Float?
+  extractabilityScore Float?
+  entityAuthorityScore Float?
+  sourceAuthorityScore Float?
   insights             Json?
   contentsFound        Int?
   analysisData         Json?
@@ -136,27 +136,30 @@ model PreviewAnalysis {
 // ─────────────────────────────────────────────
 
 model Project {
-  id           String  @id @default(uuid())
-  userId       String
-  name         String
-  description  String?
-  brandName    String
-  websiteUrl   String
-  brandContext String?
-  previewId    String?
-  status       String  @default("active") // 'active' | 'paused' | 'archived'
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String  @id @default(uuid())
+  userId            String
+  name              String
+  description       String?
+  brandName         String
+  websiteUrl        String
+  brandContext      String?
+  previewId         String?
+  status            String  @default("active") // 'active' | 'paused' | 'archived'
+  optimizationFocus String? // 'content_quality' | 'brand_authority' | 'cross_platform' | 'technical'
+  aiPlatformTarget  String  @default("all")    // 'google_ai' | 'chatgpt' | 'perplexity' | 'all'
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetQueries TargetQuery[]
-  contents      Content[]
-  competitors   Competitor[]
-  scoreSnapshots ProjectScoreSnapshot[]
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetQueries   TargetQuery[]
+  contents        Content[]
+  competitors     Competitor[]
+  scoreSnapshots  ProjectScoreSnapshot[]
   recommendations Recommendation[]
-  notifications Notification[]
-  jobs          Job[]
+  notifications   Notification[]
+  jobs            Job[]
   previewAnalyses PreviewAnalysis[]
+  citationChecks  CitationCheck[]
 
   @@index([userId])
   @@map("projects")
@@ -174,9 +177,10 @@ model TargetQuery {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fanoutQueries    FanoutQuery[]
+  project            Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fanoutQueries      FanoutQuery[]
   competitorContents CompetitorContent[]
+  citationChecks     CitationCheck[]
 
   @@index([projectId])
   @@map("target_queries")
@@ -214,17 +218,25 @@ model Content {
   isIndexed           Boolean  @default(true)
   isConfirmed         Boolean  @default(false)
   rawText             String?
+  rawHtml             String?
   wordCount           Int?
   lastFetchedAt       DateTime?
   lastModifiedAt      DateTime?
   discoveryConfidence Float?
+  schemaMarkup        Json?
+  hasArticleSchema    Boolean  @default(false)
+  hasFaqSchema        Boolean  @default(false)
+  hasOrgSchema        Boolean  @default(false)
+  dateModifiedSchema  DateTime?
+  lastContentHash     String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  passages      Passage[]
-  contentScores ContentScore[]
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  passages        Passage[]
+  contentScores   ContentScore[]
   recommendations Recommendation[]
+  versions        ContentVersion[]
 
   @@unique([url, projectId])
   @@index([projectId])
@@ -233,18 +245,23 @@ model Content {
 }
 
 model Passage {
-  id           String   @id @default(uuid())
-  contentId    String
-  passageText  String
-  passageIndex Int
-  wordCount    Int?
-  heading      String?
-  embedding    Unsupported("vector(1024)")?
-  createdAt    DateTime @default(now())
+  id               String   @id @default(uuid())
+  contentId        String
+  passageText      String
+  passageIndex     Int
+  wordCount        Int?
+  heading          String?
+  embedding        Unsupported("vector(1024)")?
+  relativePosition Float?
+  entityDensity    Float?
+  hasStatistics    Boolean  @default(false)
+  hasSourceCitation Boolean @default(false)
+  isAnswerFirst    Boolean  @default(false)
+  createdAt        DateTime @default(now())
 
-  content        Content          @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  passageScores  PassageScore[]
-  coverageMap    FanoutCoverageMap[]
+  content         Content            @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  passageScores   PassageScore[]
+  coverageMap     FanoutCoverageMap[]
   weakestForContentScores ContentScore[] @relation("WeakestPassage")
   recommendations Recommendation[]
 
@@ -274,17 +291,17 @@ model Competitor {
 }
 
 model CompetitorContent {
-  id             String  @id @default(uuid())
-  competitorId   String
-  url            String
-  title          String?
-  rawText        String?
+  id              String  @id @default(uuid())
+  competitorId    String
+  url             String
+  title           String?
+  rawText         String?
   foundForQueryId String?
-  createdAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
 
-  competitor   Competitor         @relation(fields: [competitorId], references: [id], onDelete: Cascade)
-  foundForQuery TargetQuery?      @relation(fields: [foundForQueryId], references: [id])
-  passages     CompetitorPassage[]
+  competitor    Competitor         @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  foundForQuery TargetQuery?       @relation(fields: [foundForQueryId], references: [id])
+  passages      CompetitorPassage[]
 
   @@map("competitor_contents")
 }
@@ -309,22 +326,24 @@ model CompetitorPassage {
 // ─────────────────────────────────────────────
 
 model ProjectScoreSnapshot {
-  id                  String   @id @default(uuid())
-  projectId           String
-  snapshotType        String   @default("weekly") // 'weekly' | 'manual'
-  aiReadinessScore    Float
-  fanoutCoverageScore Float
-  passageQualityScore Float
-  chunkabilityScore   Float
-  entityCoherenceScore Float
-  crossPlatformScore  Float
-  metadata            Json?
-  createdAt           DateTime @default(now())
+  id                   String   @id @default(uuid())
+  projectId            String
+  snapshotType         String   @default("weekly") // 'weekly' | 'manual'
+  aiReadinessScore     Float
+  fanoutCoverageScore  Float
+  citationPowerScore   Float
+  extractabilityScore  Float
+  entityAuthorityScore Float
+  sourceAuthorityScore Float
+  metadata             Json?
+  createdAt            DateTime @default(now())
 
-  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contentScores    ContentScore[]
-  passageScores    PassageScore[]
-  recommendations  Recommendation[]
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contentScores   ContentScore[]
+  passageScores   PassageScore[]
+  recommendations Recommendation[]
+  citationChecks  CitationCheck[]
+  contentVersions ContentVersion[]
 
   @@index([projectId])
   @@map("project_score_snapshots")
@@ -335,16 +354,16 @@ model ContentScore {
   contentId           String
   snapshotId          String
   overallScore        Float
-  passageQualityScore Float?
-  chunkabilityScore   Float?
+  citationPowerScore  Float?
+  extractabilityScore Float?
   fanoutCoverageScore Float?
   weakestPassageId    String?
   details             Json?
   createdAt           DateTime @default(now())
 
-  content         Content              @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  snapshot        ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  weakestPassage  Passage?             @relation("WeakestPassage", fields: [weakestPassageId], references: [id])
+  content        Content              @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  snapshot       ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  weakestPassage Passage?             @relation("WeakestPassage", fields: [weakestPassageId], references: [id])
 
   @@index([contentId])
   @@index([snapshotId])
@@ -352,17 +371,18 @@ model ContentScore {
 }
 
 model PassageScore {
-  id                 String   @id @default(uuid())
-  passageId          String
-  snapshotId         String
-  selfContainedness  Float?
-  claimClarity       Float?
-  informationDensity Float?
-  completeness       Float?
-  verifiability      Float?
-  overallScore       Float?
-  llmReasoning       String?
-  createdAt          DateTime @default(now())
+  id                     String   @id @default(uuid())
+  passageId              String
+  snapshotId             String
+  positionScore          Float?
+  entityDensity          Float?
+  statisticalSpecificity Float?
+  definiteness           Float?
+  answerFirst            Float?
+  sourceCitation         Float?
+  overallScore           Float?
+  llmReasoning           String?
+  createdAt              DateTime @default(now())
 
   passage  Passage              @relation(fields: [passageId], references: [id], onDelete: Cascade)
   snapshot ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
@@ -373,12 +393,13 @@ model PassageScore {
 }
 
 model FanoutCoverageMap {
-  id             String   @id @default(uuid())
-  fanoutQueryId  String
-  passageId      String
+  id              String   @id @default(uuid())
+  fanoutQueryId   String
+  passageId       String
   similarityScore Float
-  isCovered      Boolean
-  createdAt      DateTime @default(now())
+  isCovered       Boolean
+  coverageTier    String?  // 'excellent' | 'good' | 'weak' | 'none'
+  createdAt       DateTime @default(now())
 
   fanoutQuery FanoutQuery @relation(fields: [fanoutQueryId], references: [id], onDelete: Cascade)
   passage     Passage     @relation(fields: [passageId], references: [id], onDelete: Cascade)
@@ -386,6 +407,45 @@ model FanoutCoverageMap {
   @@index([fanoutQueryId])
   @@index([passageId])
   @@map("fanout_coverage_map")
+}
+
+// ─────────────────────────────────────────────
+// CITATION VERIFICATION
+// ─────────────────────────────────────────────
+
+model CitationCheck {
+  id            String   @id @default(uuid())
+  projectId     String
+  targetQueryId String
+  snapshotId    String?
+  citedSources  Json     // [{url, title, domain, isUser, isCompetitor}]
+  userCited     Boolean  @default(false)
+  searchQueries Json?    // query di ricerca usate da Gemini (fan-out reale)
+  rawResponse   String?  // risposta Gemini completa (per debug)
+  checkedAt     DateTime @default(now())
+
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  targetQuery TargetQuery           @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
+  snapshot    ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
+
+  @@index([projectId])
+  @@index([targetQueryId])
+  @@map("citation_checks")
+}
+
+model ContentVersion {
+  id          String   @id @default(uuid())
+  contentId   String
+  snapshotId  String
+  passageData Json     // snapshot dei passaggi con score al momento dell'analisi
+  contentHash String   // hash per detect cambiamenti
+  createdAt   DateTime @default(now())
+
+  content  Content              @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  snapshot ProjectScoreSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@map("content_versions")
 }
 
 // ─────────────────────────────────────────────
@@ -405,14 +465,15 @@ model Recommendation {
   suggestedAction String?
   estimatedImpact Float?
   targetScore     String?
+  sprintGroup     String?
   status          String   @default("pending") // 'pending' | 'in_progress' | 'completed' | 'dismissed'
   snapshotId      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  project  Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  content  Content?             @relation(fields: [contentId], references: [id], onDelete: SetNull)
-  passage  Passage?             @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  project  Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  content  Content?              @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  passage  Passage?              @relation(fields: [passageId], references: [id], onDelete: SetNull)
   snapshot ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
 
   @@index([projectId])

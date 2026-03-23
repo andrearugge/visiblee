@@ -19,7 +19,7 @@ from typing import Any
 
 from .fetcher import fetch_url
 from .segmenter import segment_html
-from .scoring import score_passage_quality
+from .scoring import score_citation_power
 
 log = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ async def run_competitor_pipeline(conn, project_id: str, competitor_id: str) -> 
             })
 
     # Score passages
-    avg_score, scored_passages = await score_passage_quality(all_passages)
+    avg_score, scored_passages = score_citation_power([{"id": competitor_id, "passages": all_passages}])
 
     # Build score lookup by (page_url, passage_index)
     score_lookup: dict[tuple[str, int], float] = {}

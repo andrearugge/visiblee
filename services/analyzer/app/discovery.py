@@ -200,14 +200,15 @@ async def discover_content(
     Multi-signal content discovery pipeline.
 
     Parallel searches:
-    1. site:{domain}                   — own content
-    2. "{brand}" site:linkedin.com     — LinkedIn presence
-    3. "{brand}" site:reddit.com       — Reddit threads
-    4. "{brand}" site:medium.com       — Medium articles
-    5. "{brand}" site:youtube.com      — YouTube videos
-    6. "{brand}" site:substack.com     — Substack posts
-    7. "{brand}" site:{news1} OR ...   — Country-aware news/press
-    8. "{brand}" -site:{domain}        — General web mentions (catch-all)
+    1.  site:{domain}                      — own content
+    2.  "{brand}" site:linkedin.com        — LinkedIn presence
+    3.  "{brand}" site:reddit.com          — Reddit threads
+    4.  "{brand}" site:medium.com          — Medium articles
+    5.  "{brand}" site:youtube.com         — YouTube videos
+    6.  "{brand}" site:substack.com        — Substack posts
+    7.  intitle:"{brand}"                  — Pages with brand in title (press articles, reviews)
+    8.  "{brand}" -site:{domain}           — General web mentions (catch-all)
+    9+. "{brand}" site:{news_site}         — Individual country-aware news/press queries
 
     Results are deduplicated, classified by Gemini, and tagged with platform.
     Returns list of {url, title, snippet, platform, contentType, confidence}.
@@ -215,22 +216,28 @@ async def discover_content(
     domain = urlparse(website_url).netloc.lstrip("www.")
     lang = language[:2].lower()
 
-    # Build news query: up to 5 country-relevant sites in a single search
     news_sites = _NEWS_SITES_BY_LANG.get(lang, _NEWS_SITES_FALLBACK)
-    # Brave supports multi-site with space-separated site: operators
-    news_query = f'"{brand_name}" ' + " OR ".join(f"site:{s}" for s in news_sites[:5])
 
-    # All queries to run in parallel
+    catchall_exact = f'"{brand_name}" -site:{domain}'
+    catchall_broad = f'{brand_name} -site:{domain}'
+    intitle_query = f'intitle:"{brand_name}"'
+
+    # All queries — (query, count). No offset: Brave free plan returns 422 on offset > 0.
     queries: list[tuple[str, int]] = [
-        (f"site:{domain}", 20),                                    # 1. own
-        (f'"{brand_name}" site:linkedin.com', 10),                 # 2. LinkedIn
-        (f'"{brand_name}" site:reddit.com', 10),                   # 3. Reddit
-        (f'"{brand_name}" site:medium.com', 10),                   # 4. Medium
-        (f'"{brand_name}" site:youtube.com', 10),                  # 5. YouTube
-        (f'"{brand_name}" site:substack.com', 10),                 # 6. Substack
-        (news_query, 10),                                          # 7. News (country-aware)
-        (f'"{brand_name}" -site:{domain}', 20),                    # 8. General mentions
+        (f"site:{domain}", 20),                    # 1. own
+        (f'"{brand_name}" site:linkedin.com', 10), # 2. LinkedIn
+        (f'"{brand_name}" site:reddit.com', 10),   # 3. Reddit
+        (f'"{brand_name}" site:medium.com', 10),   # 4. Medium
+        (f'"{brand_name}" site:youtube.com', 10),  # 5. YouTube
+        (f'"{brand_name}" site:substack.com', 10), # 6. Substack
+        (intitle_query, 20),                       # 7. Pages with brand in title
+        (catchall_exact, 20),                      # 8. Exact-match catch-all
+        (catchall_broad, 20),                      # 9. Broad catch-all (no quotes — deeper index)
     ]
+
+    # Individual news site queries (no OR — each site searched separately for reliability)
+    for news_site in news_sites[:5]:
+        queries.append((f'"{brand_name}" site:{news_site}', 10))   # 10+. Individual press sites
 
     log.info(f"Discovery: running {len(queries)} parallel searches for {domain} (lang={lang})")
 
@@ -251,8 +258,8 @@ async def discover_content(
 
     log.info(f"Discovery: {len(all_results)} unique URLs before classification")
 
-    # Classify in one Gemini call (cap at 60 to stay within token budget)
-    classified = await _classify_with_gemini(all_results[:60], brand_name, domain)
+    # Classify in one Gemini call (cap at 80 to stay within token budget)
+    classified = await _classify_with_gemini(all_results[:80], brand_name, domain)
 
     # Add platform tag
     final: list[dict[str, Any]] = [

@@ -19,10 +19,10 @@ import {
 interface Snapshot {
   aiReadinessScore: number;
   fanoutCoverageScore: number;
-  passageQualityScore: number;
-  chunkabilityScore: number;
-  entityCoherenceScore: number;
-  crossPlatformScore: number;
+  citationPowerScore: number;
+  extractabilityScore: number;
+  entityAuthorityScore: number;
+  sourceAuthorityScore: number;
   createdAt: string;
 }
 
@@ -169,28 +169,28 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
       value: snapshot.fanoutCoverageScore,
     },
     {
-      key: 'answerStrength',
-      label: ts('answerStrength.label'),
-      description: ts('answerStrength.description'),
-      value: snapshot.passageQualityScore,
+      key: 'citationPower',
+      label: ts('citationPower.label'),
+      description: ts('citationPower.description'),
+      value: snapshot.citationPowerScore,
     },
     {
       key: 'extractability',
       label: ts('extractability.label'),
       description: ts('extractability.description'),
-      value: snapshot.chunkabilityScore,
+      value: snapshot.extractabilityScore,
     },
     {
-      key: 'brandTrust',
-      label: ts('brandTrust.label'),
-      description: ts('brandTrust.description'),
-      value: snapshot.entityCoherenceScore,
+      key: 'brandAuthority',
+      label: ts('brandAuthority.label'),
+      description: ts('brandAuthority.description'),
+      value: snapshot.entityAuthorityScore,
     },
     {
       key: 'sourceAuthority',
       label: ts('sourceAuthority.label'),
       description: ts('sourceAuthority.description'),
-      value: snapshot.crossPlatformScore,
+      value: snapshot.sourceAuthorityScore,
     },
   ];
 
@@ -247,10 +247,10 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
             <ScoreRadarChart
               scores={{
                 queryReach: snapshot.fanoutCoverageScore,
-                answerStrength: snapshot.passageQualityScore,
-                extractability: snapshot.chunkabilityScore,
-                brandTrust: snapshot.entityCoherenceScore,
-                sourceAuthority: snapshot.crossPlatformScore,
+                citationPower: snapshot.citationPowerScore,
+                extractability: snapshot.extractabilityScore,
+                brandAuthority: snapshot.entityAuthorityScore,
+                sourceAuthority: snapshot.sourceAuthorityScore,
               }}
             />
           </div>

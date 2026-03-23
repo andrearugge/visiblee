@@ -25,7 +25,7 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
-      select: { passageQualityScore: true },
+      select: { citationPowerScore: true },
     }),
   ]);
 
@@ -43,7 +43,7 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
     <CompetitorsClient
       projectId={id}
       initialCompetitors={serialized}
-      ownPassageScore={latestSnapshot?.passageQualityScore ?? null}
+      ownPassageScore={latestSnapshot?.citationPowerScore ?? null}
     />
   );
 }

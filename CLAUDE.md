@@ -1,14 +1,10 @@
 # CLAUDE.md — Visiblee
 
-## ⚠️ IMPORTANT: Scoring Engine v2 Refactoring in progress
+## ℹ️ Scoring Engine v2 — COMPLETE
 
-The scoring engine is being rewritten. Before doing ANY work:
-1. Read `/docs/visiblee-methodology-v2.md` — the new algorithmic rationale (source of truth)
-2. Read `/docs/refactoring-plan-v2.md` — the task sequence to execute
-3. The old docs in `/docs/archive/` are SUPERSEDED — do not use them for decisions
-
-The score names, weights, sub-criteria, and pipeline steps have ALL changed. 
-See refactoring-plan-v2.md for the complete mapping old→new.
+The scoring engine refactoring (Phase 4) is complete. Score names, weights, sub-criteria, and pipeline have been updated.
+Reference: `/docs/visiblee-methodology-v2.md` (algorithmic rationale) and `/docs/refactoring-plan-v2.md` (task log).
+Old docs in `/docs/archive/` are superseded.
 
 ## What is this project?
 Visiblee is a SaaS web app that helps brands, creators, and professionals improve their visibility in AI-powered search (Google AI Mode, AI Overviews, ChatGPT, Perplexity, Gemini). It analyzes indexed content, builds an "AI Readiness" profile based on documented Google patents, and guides users to optimize their content for AI citation.
@@ -82,14 +78,16 @@ visiblee/
 
 ### Score naming
 Technical names in code/DB/API. User-friendly names ONLY in i18n translation files, never hardcoded:
-| Code name | UI name |
-|---|---|
-| `ai_readiness_score` | AI Readiness Score |
-| `fanout_coverage_score` | Query Reach |
-| `passage_quality_score` | Answer Strength |
-| `chunkability_score` | Extractability |
-| `entity_coherence_score` | Brand Trust |
-| `cross_platform_score` | Source Authority |
+| Code name | UI name | Weight |
+|---|---|---|
+| `ai_readiness_score` | AI Readiness Score | composite |
+| `fanout_coverage_score` | Query Reach | 30% |
+| `citation_power_score` | Citation Power | 25% |
+| `entity_authority_score` | Brand Authority | 20% |
+| `extractability_score` | Extractability | 15% |
+| `source_authority_score` | Source Authority | 10% |
+
+> **v2 renames** (Scoring Engine v2): `passage_quality_score` → `citation_power_score`, `entity_coherence_score` → `entity_authority_score`, `chunkability_score` → `extractability_score`, `cross_platform_score` → `source_authority_score`
 
 ### Git
 - Branches: `feature/name`, `fix/name`, `refactor/name`
@@ -118,8 +116,44 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 3 — Content discovery & authenticated app — **COMPLETE**
-**Status**: All tasks done. Ready for Phase 4.
+**Phase**: 4 — Scoring Engine v2 — **IN PROGRESS**
+**Status**: COMPLETE — tutti i 15 task completati.
+
+---
+
+## Phase 4 — Scoring Engine v2 — IN PROGRESS
+
+Full refactoring of the scoring engine. Reference: `/docs/refactoring-plan-v2.md` and `/docs/visiblee-methodology-v2.md`.
+
+**Blocco A — Fondamenta:**
+
+| Task | Status | Summary |
+|---|---|---|
+| 4.1 | ✅ | Update CLAUDE.md with v2 score names and Phase 4 section |
+| 4.2 | ✅ | Prisma schema migration: rename score columns + new fields (CitationCheck, ContentVersion) |
+| 4.3 | ✅ | config.py: add coverage thresholds, freshness multipliers, free tier limits |
+| 4.4 | ✅ | fetcher.py: preserve raw HTML, extract JSON-LD schema markup, robots.txt check |
+| 4.5 | ✅ | segmenter.py: add relative_position, entity_density, has_statistics, has_source_citation, is_answer_first |
+
+**Blocco B — Nuovo scoring engine:**
+
+| Task | Status | Summary |
+|---|---|---|
+| 4.6 | ✅ | scoring.py: fanout cleanup + recent category + current year injection |
+| 4.7 | ✅ | embeddings.py: 4-tier coverage (excellent/good/weak/none) replacing binary threshold |
+| 4.8 | ✅ | scoring.py: score_citation_power (fully heuristic, zero LLM calls) |
+| 4.9 | ✅ | scoring.py: score_entity_authority, score_extractability, score_source_authority, freshness multiplier |
+| 4.10 | ✅ | full_pipeline.py: integrate all new scores + freshness multiplier + content versioning |
+
+**Blocco C — Citation verification + UI:**
+
+| Task | Status | Summary |
+|---|---|---|
+| 4.11 | ✅ | citation_check.py: Gemini Grounding API for real citation verification |
+| 4.12 | ✅ | competitor_analysis.py: auto-analyze competitor pages found in citation checks |
+| 4.13 | ✅ | pipeline.py (preview): update to new score names and heuristic scoring |
+| 4.14 | ✅ | i18n + UI: update all score name references in TypeScript/TSX — zero TS errors |
+| 4.15 | ✅ | CLAUDE.md: Phase 4 complete |
 
 ---
 

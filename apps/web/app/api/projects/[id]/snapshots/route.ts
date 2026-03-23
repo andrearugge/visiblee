@@ -25,10 +25,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       createdAt: true,
       aiReadinessScore: true,
       fanoutCoverageScore: true,
-      passageQualityScore: true,
-      chunkabilityScore: true,
-      entityCoherenceScore: true,
-      crossPlatformScore: true,
+      citationPowerScore: true,
+      extractabilityScore: true,
+      entityAuthorityScore: true,
+      sourceAuthorityScore: true,
     },
   });
 

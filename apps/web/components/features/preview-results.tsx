@@ -24,10 +24,10 @@ interface PreviewData {
   brandName: string;
   aiReadinessScore: number;
   fanoutCoverageScore: number;
-  passageQualityScore: number;
-  chunkabilityScore: number;
-  entityCoherenceScore: number;
-  crossPlatformScore: number;
+  citationPowerScore: number;
+  extractabilityScore: number;
+  entityAuthorityScore: number;
+  sourceAuthorityScore: number;
   insights: string[];
   contentsFound: number;
 }
@@ -163,10 +163,10 @@ export function PreviewResults({ data }: PreviewResultsProps) {
 
   const scoreRows = [
     { key: 'queryReach', label: t('queryReach'), description: t('queryReachDescription'), value: data.fanoutCoverageScore },
-    { key: 'answerStrength', label: t('answerStrength'), description: t('answerStrengthDescription'), value: data.passageQualityScore },
-    { key: 'extractability', label: t('extractability'), description: t('extractabilityDescription'), value: data.chunkabilityScore },
-    { key: 'brandTrust', label: t('brandTrust'), description: t('brandTrustDescription'), value: data.entityCoherenceScore },
-    { key: 'sourceAuthority', label: t('sourceAuthority'), description: t('sourceAuthorityDescription'), value: data.crossPlatformScore },
+    { key: 'citationPower', label: t('citationPower'), description: t('citationPowerDescription'), value: data.citationPowerScore },
+    { key: 'extractability', label: t('extractability'), description: t('extractabilityDescription'), value: data.extractabilityScore },
+    { key: 'brandAuthority', label: t('brandAuthority'), description: t('brandAuthorityDescription'), value: data.entityAuthorityScore },
+    { key: 'sourceAuthority', label: t('sourceAuthority'), description: t('sourceAuthorityDescription'), value: data.sourceAuthorityScore },
   ];
 
   return (
@@ -200,10 +200,10 @@ export function PreviewResults({ data }: PreviewResultsProps) {
               <ScoreRadarChart
                 scores={{
                   queryReach: data.fanoutCoverageScore,
-                  answerStrength: data.passageQualityScore,
-                  extractability: data.chunkabilityScore,
-                  brandTrust: data.entityCoherenceScore,
-                  sourceAuthority: data.crossPlatformScore,
+                  citationPower: data.citationPowerScore,
+                  extractability: data.extractabilityScore,
+                  brandAuthority: data.entityAuthorityScore,
+                  sourceAuthority: data.sourceAuthorityScore,
                 }}
               />
             </div>

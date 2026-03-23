@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 """
-Scoring logic for all 6 AI Readiness dimensions.
+Scoring logic for the 5 AI Readiness dimensions (v2).
+
+Scoring engine philosophy (v2):
+- Citation Power, Extractability, Entity Authority, Source Authority
+  are FULLY HEURISTIC — zero LLM calls.
+- Claude / Gemini are reserved for insight generation and recommendations
+  where language model reasoning adds real value.
+- Fanout query generation still uses Gemini (taxonomy-aware expansion).
 """
 
 import re
 import asyncio
+from datetime import datetime
 from typing import Any
 
 from .config import config
@@ -30,7 +38,7 @@ async def generate_fanout_queries(
     brand_name: str,
     language: str,
 ) -> list[str]:
-    """Generate N fanout queries per target query using Gemini Flash."""
+    """Generate fanout queries. Returns flat list (target + expanded)."""
     grouped = await generate_fanout_queries_grouped(target_queries, brand_name, language)
     all_queries: list[str] = list(target_queries)
     for expanded in grouped:
@@ -43,189 +51,409 @@ async def generate_fanout_queries_grouped(
     brand_name: str,
     language: str,
 ) -> list[list[str]]:
-    """Generate N fanout queries per target. Returns list[list[str]] grouped by target."""
+    """
+    Generate N fanout queries per target using Gemini Flash.
+    Returns list[list[str]] grouped by target query.
+
+    Categories: related, implicit, comparative, exploratory, decisional, recent
+    (recent queries include the current year for freshness signal).
+    """
     if not _gemini_client:
         return [[] for _ in target_queries]
 
     n = config.FANOUT_PER_QUERY
     lang_instruction = "in Italian" if language == "it" else "in English"
+    current_year = datetime.now().year
 
     async def expand_query(query: str) -> list[str]:
         prompt = (
-            f"Generate {n} diverse search queries {lang_instruction} that are semantically related to: '{query}'\n"
+            f"Generate {n} diverse search queries {lang_instruction} semantically related to: '{query}'\n"
             f"Context: brand '{brand_name}'\n"
-            f"Include: related questions, implicit needs, comparative queries, exploratory variations.\n"
+            f"Include a mix of:\n"
+            f"- related questions and implicit needs\n"
+            f"- comparative queries (vs alternatives)\n"
+            f"- exploratory and decisional queries\n"
+            f"- at least 1 recent query mentioning {current_year}\n"
             f"Return ONLY the queries, one per line, no numbering, no extra text."
         )
         try:
             response = await _gemini_client.aio.models.generate_content(
                 model="gemini-2.5-flash", contents=prompt
             )
-            lines = [l.strip() for l in response.text.strip().splitlines() if l.strip()]
+            lines = [ln.strip() for ln in response.text.strip().splitlines() if ln.strip()]
             return lines[:n]
         except Exception:
             return []
 
-    tasks = [expand_query(q) for q in target_queries]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*[expand_query(q) for q in target_queries])
     return list(results)
 
 
-# ── Passage quality scoring ────────────────────────────────────────────────
+# ── Citation Power score (ex passage quality) — fully heuristic ───────────
 
-_PASSAGE_QUALITY_PROMPT = """Score this passage on 5 criteria (0.0–1.0 each):
-1. self_containedness: Can it be understood without context?
-2. claim_clarity: Are claims specific and unambiguous?
-3. information_density: High signal-to-noise ratio?
-4. completeness: Does it fully address its topic?
-5. verifiability: Does it cite facts, data, or named sources?
+def score_citation_power(contents: list[dict[str, Any]]) -> tuple[float, list[dict[str, Any]]]:
+    """
+    Score citation power across all passages from all confirmed contents.
+    Replaces the old Claude-based score_passage_quality — zero LLM calls.
 
-Passage:
-{passage}
+    Sub-criteria and weights:
+        position_score          25%  — early passages score higher
+        entity_density          20%  — normalized against benchmark (0.206)
+        statistical_specificity 20%  — contains numeric data with context
+        definiteness            15%  — answer-first sentence structure
+        answer_first            10%  — explicit definition lead
+        source_citation         10%  — attribution to named sources
 
-Respond ONLY with JSON: {{"self_containedness": 0.0, "claim_clarity": 0.0, "information_density": 0.0, "completeness": 0.0, "verifiability": 0.0}}"""
+    Returns (project_score, per_passage_scores).
+    """
+    all_scored: list[dict[str, Any]] = []
 
+    for content in contents:
+        for passage in content.get("passages", []):
+            pos = passage.get("relativePosition") or passage.get("relative_position", 0.5)
 
-async def score_passage_quality(passages: list[dict[str, Any]]) -> tuple[float, list[dict[str, Any]]]:
-    """Score up to 2 best passages per page using Claude Sonnet."""
-    if not passages or not _claude:
-        return 0.5, []
+            # Position score: first 30% = 1.0, mid = 0.7, last 30% = 0.55
+            if pos <= 0.30:
+                position_score = 1.0
+            elif pos <= 0.70:
+                position_score = 0.7
+            else:
+                position_score = 0.55
 
-    # Select top passages by word count (proxy for richness), max 10 total
-    candidates = sorted(passages, key=lambda p: p.get("word_count", 0), reverse=True)[:10]
-    scored: list[dict[str, Any]] = []
+            # Entity density: normalize against empirical benchmark
+            ed = passage.get("entityDensity") or passage.get("entity_density", 0.0)
+            entity_score = min(ed / config.ENTITY_DENSITY_BENCHMARK, 1.0) if ed else 0.0
 
-    async def score_one(passage: dict[str, Any]) -> dict[str, Any] | None:
-        try:
-            text = passage["passage_text"][:2000]  # truncate for cost
-            msg = await _claude.messages.create(
-                model="claude-sonnet-4-5",
-                max_tokens=200,
-                messages=[{"role": "user", "content": _PASSAGE_QUALITY_PROMPT.format(passage=text)}],
+            # Statistical specificity
+            has_stats = passage.get("hasStatistics") or passage.get("has_statistics", False)
+            stat_score = 0.9 if has_stats else 0.2
+
+            # Definiteness (proxy: answer-first + implied directness)
+            is_answer = passage.get("isAnswerFirst") or passage.get("is_answer_first", False)
+            def_score = 0.85 if is_answer else 0.3
+
+            # Answer-first structure
+            af_score = 0.9 if is_answer else 0.3
+
+            # Source citation
+            has_src = passage.get("hasSourceCitation") or passage.get("has_source_citation", False)
+            sc_score = 0.9 if has_src else 0.2
+
+            overall = round(
+                position_score * 0.25
+                + entity_score  * 0.20
+                + stat_score    * 0.20
+                + def_score     * 0.15
+                + af_score      * 0.10
+                + sc_score      * 0.10,
+                3,
             )
-            import json
-            raw = msg.content[0].text.strip()
-            # Extract JSON from response
-            json_match = re.search(r"\{[^}]+\}", raw)
-            if not json_match:
-                return None
-            criteria = json.loads(json_match.group())
-            overall = sum(criteria.values()) / len(criteria)
-            return {
+
+            all_scored.append({
                 **passage,
-                "scores": criteria,
-                "overall_score": round(overall, 3),
-            }
-        except Exception:
-            return None
+                "content_id": content.get("id"),
+                "scores": {
+                    "position_score":          round(position_score, 3),
+                    "entity_density":          round(entity_score, 3),
+                    "statistical_specificity": round(stat_score, 3),
+                    "definiteness":            round(def_score, 3),
+                    "answer_first":            round(af_score, 3),
+                    "source_citation":         round(sc_score, 3),
+                },
+                "overall_score": overall,
+            })
 
-    # Batch with semaphore to avoid rate limits
-    sem = asyncio.Semaphore(3)
-
-    async def bounded(p: dict[str, Any]) -> dict[str, Any] | None:
-        async with sem:
-            return await score_one(p)
-
-    results = await asyncio.gather(*[bounded(p) for p in candidates])
-    scored = [r for r in results if r is not None]
-
-    if not scored:
+    if not all_scored:
         return 0.5, []
 
-    avg = sum(s["overall_score"] for s in scored) / len(scored)
-    return round(avg, 3), scored
+    avg = sum(s["overall_score"] for s in all_scored) / len(all_scored)
+    return round(avg, 3), all_scored
 
 
-# ── Chunkability score ────────────────────────────────────────────────────
+# ── Entity Authority score (ex entity coherence) ───────────────────────────
 
-def score_chunkability(pages: list[dict[str, Any]]) -> float:
+def score_entity_authority(
+    contents: list[dict[str, Any]],
+    brand_name: str,
+    schema_data: dict[str, Any] | None = None,
+    discovery_stats: dict[str, int] | None = None,
+) -> float:
     """
-    Heuristic chunkability:
-    - Paragraph word count 134–167 = optimal (1.0), outside = penalty
-    - Presence of headings
-    - Answer-first structure (first sentence contains key noun)
+    Score entity authority — how clearly the brand is represented as a
+    distinct, authoritative entity in AI knowledge bases.
+
+    Sub-criteria and weights:
+        kg_presence             30%  — links to Wikipedia/Wikidata via schema sameAs
+        cross_web_corroboration 25%  — mention content vs own content ratio
+        entity_density_avg      20%  — average entity density across passages
+        term_consistency        15%  — key terms reused across multiple pages
+        entity_home_strength    10%  — schema Organization + sameAs quality
     """
-    if not pages:
+    if not contents:
         return 0.5
 
-    all_passages = [p for page in pages for p in page.get("passages", [])]
-    if not all_passages:
-        return 0.5
-
-    scores: list[float] = []
-    for passage in all_passages:
-        wc = passage.get("word_count", 0)
-        # Word count score
-        if 134 <= wc <= 167:
-            wc_score = 1.0
-        elif 80 <= wc < 134 or 167 < wc <= 250:
-            wc_score = 0.7
-        else:
-            wc_score = 0.4
-
-        # Heading presence
-        heading_score = 0.8 if passage.get("heading") else 0.4
-
-        # Answer-first: first sentence should be substantive (>8 words)
-        text = passage.get("passage_text", "")
-        first_sentence = text.split(".")[0] if text else ""
-        answer_first_score = 0.8 if len(first_sentence.split()) >= 8 else 0.4
-
-        scores.append((wc_score * 0.5) + (heading_score * 0.25) + (answer_first_score * 0.25))
-
-    return round(sum(scores) / len(scores), 3)
-
-
-# ── Entity coherence score ─────────────────────────────────────────────────
-
-def score_entity_coherence(pages: list[dict[str, Any]], brand_name: str) -> float:
-    """
-    Simplified entity coherence:
-    - Brand name appears consistently across pages
-    - Key terms reused across multiple pages
-    """
-    if not pages:
-        return 0.5
+    schema_data = schema_data or {}
+    discovery_stats = discovery_stats or {}
 
     brand_lower = brand_name.lower()
+
+    # — kg_presence: sameAs links to Wikipedia / Wikidata
+    org_schemas = [s for s in schema_data.get("schemas", []) if _is_schema_type(s, "Organization")]
+    same_as_links: list[str] = []
+    for org in org_schemas:
+        raw = org.get("sameAs", [])
+        if isinstance(raw, str):
+            same_as_links.append(raw)
+        elif isinstance(raw, list):
+            same_as_links.extend(raw)
+
+    kg_links = sum(
+        1 for link in same_as_links
+        if "wikipedia.org" in link or "wikidata.org" in link
+    )
+    kg_presence = min(kg_links * 0.5, 1.0)
+
+    # — cross_web_corroboration: mention / (own + mention) ratio
+    own_count = max(discovery_stats.get("own_count", len(contents)), 1)
+    mention_count = discovery_stats.get("mention_count", 0)
+    corroboration = mention_count / (own_count + mention_count) if (own_count + mention_count) else 0.0
+
+    # — entity_density_avg across all passages
+    densities = [
+        p.get("entityDensity") or p.get("entity_density", 0.0)
+        for c in contents
+        for p in c.get("passages", [])
+    ]
+    ed_avg = sum(densities) / len(densities) if densities else 0.0
+    entity_density_score = min(ed_avg / config.ENTITY_DENSITY_BENCHMARK, 1.0)
+
+    # — term_consistency: key terms shared across ≥2 pages
     all_texts: list[str] = []
     brand_mentions: list[int] = []
-
-    for page in pages:
+    for content in contents:
         page_text = " ".join(
-            p["passage_text"] for p in page.get("passages", [])
+            p.get("passageText") or p.get("passage_text", "")
+            for p in content.get("passages", [])
         ).lower()
         all_texts.append(page_text)
         brand_mentions.append(page_text.count(brand_lower))
 
-    # Brand presence score
-    pages_with_brand = sum(1 for m in brand_mentions if m > 0)
-    brand_score = pages_with_brand / len(pages) if pages else 0.0
-
-    # Term consistency: extract top words, check cross-page reuse
     word_counts: dict[str, int] = {}
     for text in all_texts:
         words = re.findall(r"\b[a-z]{4,}\b", text)
-        for w in set(words):  # unique per page
+        for w in set(words):
             word_counts[w] = word_counts.get(w, 0) + 1
 
-    # Words appearing in ≥2 pages
     consistent_terms = sum(1 for v in word_counts.values() if v >= 2)
-    term_score = min(consistent_terms / 20, 1.0)  # saturates at 20 shared terms
+    term_score = min(consistent_terms / 20, 1.0)
 
-    return round((brand_score * 0.6) + (term_score * 0.4), 3)
+    # — entity_home_strength: Organization schema + sameAs richness
+    if org_schemas:
+        if len(same_as_links) >= 3:
+            entity_home = 1.0
+        elif same_as_links:
+            entity_home = 0.6
+        else:
+            entity_home = 0.4
+    else:
+        entity_home = 0.2
+
+    score = round(
+        kg_presence     * 0.30
+        + corroboration * 0.25
+        + entity_density_score * 0.20
+        + term_score    * 0.15
+        + entity_home   * 0.10,
+        3,
+    )
+    return score
 
 
-# ── Cross-platform score ───────────────────────────────────────────────────
+def _is_schema_type(schema: dict | list, target_type: str) -> bool:
+    if isinstance(schema, list):
+        return any(_is_schema_type(s, target_type) for s in schema)
+    schema_type = schema.get("@type", "")
+    if isinstance(schema_type, list):
+        return target_type in schema_type
+    return schema_type == target_type
 
-def score_cross_platform(platform_results: dict[str, list[str]]) -> float:
-    """Score based on how many platforms have results."""
+
+# ── Extractability score (ex chunkability) ─────────────────────────────────
+
+def score_extractability(
+    contents: list[dict[str, Any]],
+    schema_data: dict[str, Any] | None = None,
+    robots_blocked: list[str] | None = None,
+) -> float:
+    """
+    Score how easily AI models can extract and cite content.
+
+    Sub-criteria and weights:
+        passage_length     20%  — 134–167 word passages score highest
+        answer_capsule     20%  — short definitive blocks after headings
+        schema_markup      20%  — Article + FAQ + Org schema present
+        heading_structure  15%  — headings present and question-formatted
+        ai_crawler_access  15%  — no AI bots blocked in robots.txt
+        self_ref_pollution 10%  — absence of self-referential filler phrases
+    """
+    if not contents:
+        return 0.5
+
+    schema_data = schema_data or {}
+    robots_blocked = robots_blocked or []
+
+    all_passages = [p for c in contents for p in c.get("passages", [])]
+    if not all_passages:
+        return 0.5
+
+    # — passage_length
+    wc_scores: list[float] = []
+    for p in all_passages:
+        wc = p.get("wordCount") or p.get("word_count", 0)
+        if 134 <= wc <= 167:
+            wc_scores.append(1.0)
+        elif 80 <= wc < 134 or 167 < wc <= 250:
+            wc_scores.append(0.7)
+        else:
+            wc_scores.append(0.4)
+    passage_length_score = sum(wc_scores) / len(wc_scores)
+
+    # — answer_capsule: proportion of passages that are answer-first AND short (40–60 words)
+    capsule_count = sum(
+        1 for p in all_passages
+        if (p.get("isAnswerFirst") or p.get("is_answer_first", False))
+        and config.ANSWER_CAPSULE_MIN <= (p.get("wordCount") or p.get("word_count", 0)) <= config.ANSWER_CAPSULE_MAX
+    )
+    answer_capsule_score = min(capsule_count / max(len(all_passages) * 0.2, 1), 1.0)
+
+    # — schema_markup
+    has_article = schema_data.get("has_article_schema", False)
+    has_faq = schema_data.get("has_faq_schema", False)
+    has_org = schema_data.get("has_org_schema", False)
+    schema_score = (0.4 * has_article + 0.35 * has_faq + 0.25 * has_org)
+
+    # — heading_structure
+    passages_with_heading = sum(1 for p in all_passages if p.get("heading"))
+    heading_ratio = passages_with_heading / len(all_passages)
+    question_headings = sum(
+        1 for p in all_passages
+        if (p.get("isQuestionHeading") or p.get("is_question_heading", False))
+    )
+    question_ratio = question_headings / len(all_passages)
+    heading_score = (heading_ratio * 0.5) + (question_ratio * 0.5)
+
+    # — ai_crawler_access: penalize for each blocked bot
+    access_score = max(0.0, 1.0 - len(robots_blocked) * 0.2)
+
+    # — self_ref_pollution: penalize vague self-referential phrases
+    _SELF_REF = re.compile(
+        r'\b(as (we|I) (mentioned|said|discussed)|come (detto|menzionato)|come sopra)\b',
+        re.IGNORECASE,
+    )
+    polluted = sum(
+        1 for p in all_passages
+        if _SELF_REF.search(p.get("passageText") or p.get("passage_text", ""))
+    )
+    pollution_score = max(0.0, 1.0 - polluted / len(all_passages))
+
+    score = round(
+        passage_length_score  * 0.20
+        + answer_capsule_score * 0.20
+        + schema_score         * 0.20
+        + heading_score        * 0.15
+        + access_score         * 0.15
+        + pollution_score      * 0.10,
+        3,
+    )
+    return score
+
+
+# ── Source Authority score (ex cross-platform) ─────────────────────────────
+
+def score_source_authority(
+    platform_results: dict[str, list[str]],
+    ai_platform_target: str = "all",
+) -> float:
+    """
+    Score based on presence across platforms, weighted by AI target.
+
+    ai_platform_target: 'all' | 'google_ai' | 'chatgpt' | 'perplexity'
+    """
     if not platform_results:
         return 0.0
 
-    total_platforms = len(platform_results)
-    platforms_with_presence = sum(1 for urls in platform_results.values() if urls)
-    return round(platforms_with_presence / total_platforms, 3)
+    # Platform weights per target audience
+    _WEIGHTS: dict[str, dict[str, float]] = {
+        "all": {
+            "website": 0.25, "linkedin": 0.15, "medium": 0.10,
+            "reddit": 0.10, "news": 0.20, "youtube": 0.10,
+            "substack": 0.05, "other": 0.05,
+        },
+        "google_ai": {
+            "website": 0.35, "news": 0.25, "reddit": 0.15,
+            "linkedin": 0.10, "youtube": 0.10, "other": 0.05,
+        },
+        "chatgpt": {
+            "website": 0.30, "medium": 0.20, "reddit": 0.15,
+            "linkedin": 0.15, "news": 0.10, "other": 0.10,
+        },
+        "perplexity": {
+            "website": 0.25, "reddit": 0.20, "news": 0.20,
+            "linkedin": 0.15, "medium": 0.10, "other": 0.10,
+        },
+    }
+    weights = _WEIGHTS.get(ai_platform_target, _WEIGHTS["all"])
+
+    score = 0.0
+    for platform, urls in platform_results.items():
+        if urls:
+            score += weights.get(platform, 0.0)
+
+    return round(min(score, 1.0), 3)
+
+
+# ── Freshness multiplier ───────────────────────────────────────────────────
+
+def compute_freshness_multiplier(contents: list[dict[str, Any]]) -> float:
+    """
+    Compute a project-level freshness multiplier based on content modification dates.
+
+    Uses schema dateModified if available, else lastFetchedAt / last_fetched_at.
+    Returns a multiplier in [0.70, 1.15] applied to the composite score.
+    """
+    multipliers: list[float] = []
+    now = datetime.utcnow()
+
+    for content in contents:
+        raw_date = (
+            content.get("dateModifiedSchema")
+            or content.get("date_modified_schema")
+            or content.get("lastFetchedAt")
+            or content.get("last_fetched_at")
+        )
+        if not raw_date:
+            multipliers.append(config.FRESHNESS_NEUTRAL)
+            continue
+
+        if isinstance(raw_date, str):
+            try:
+                raw_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            except ValueError:
+                multipliers.append(config.FRESHNESS_NEUTRAL)
+                continue
+
+        days_old = (now - raw_date.replace(tzinfo=None)).days
+
+        if days_old < 30:
+            multipliers.append(config.FRESHNESS_BOOST_30D)
+        elif days_old < 60:
+            multipliers.append(config.FRESHNESS_NEUTRAL)
+        elif days_old < 120:
+            multipliers.append(config.FRESHNESS_DECAY_120D)
+        else:
+            multipliers.append(config.FRESHNESS_PENALTY)
+
+    return round(sum(multipliers) / len(multipliers), 3) if multipliers else config.FRESHNESS_NEUTRAL
 
 
 # ── Insight generation ─────────────────────────────────────────────────────
@@ -253,12 +481,12 @@ async def generate_insights(
     if _claude:
         try:
             msg = await _claude.messages.create(
-                model="claude-sonnet-4-5",
+                model="claude-sonnet-4-6",
                 max_tokens=400,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = msg.content[0].text.strip()
-            bullets = [l.strip().lstrip("•").strip() for l in text.splitlines() if l.strip().startswith("•")]
+            bullets = [ln.strip().lstrip("•").strip() for ln in text.splitlines() if ln.strip().startswith("•")]
             if bullets:
                 return bullets[:4]
         except Exception:
@@ -270,7 +498,7 @@ async def generate_insights(
                 model="gemini-2.5-flash", contents=prompt
             )
             text = response.text.strip()
-            bullets = [l.strip().lstrip("•").strip() for l in text.splitlines() if l.strip().startswith("•")]
+            bullets = [ln.strip().lstrip("•").strip() for ln in text.splitlines() if ln.strip().startswith("•")]
             if bullets:
                 return bullets[:4]
         except Exception:
@@ -278,7 +506,7 @@ async def generate_insights(
 
     return [
         f"Your AI Readiness Score is {scores.get('ai_readiness_score', 0):.0%}.",
-        "Focus on improving content chunkability and passage quality.",
+        "Improve content extractability by adding structured headings and answer-first passages.",
         "Expand your presence across AI-indexed platforms.",
     ]
 
@@ -286,17 +514,18 @@ async def generate_insights(
 # ── Composite AI Readiness Score ───────────────────────────────────────────
 
 SCORE_WEIGHTS = {
-    "fanout_coverage_score": 0.25,
-    "passage_quality_score": 0.25,
-    "chunkability_score": 0.20,
-    "entity_coherence_score": 0.15,
-    "cross_platform_score": 0.15,
+    "fanout_coverage_score":  0.30,
+    "citation_power_score":   0.25,
+    "entity_authority_score": 0.20,
+    "extractability_score":   0.15,
+    "source_authority_score": 0.10,
 }
 
 
-def compute_ai_readiness(scores: dict[str, float]) -> float:
-    """Weighted composite of the 5 sub-scores → AI Readiness Score."""
-    total = sum(
-        scores.get(k, 0.0) * w for k, w in SCORE_WEIGHTS.items()
-    )
-    return round(min(total, 1.0), 3)
+def compute_ai_readiness(scores: dict[str, float], freshness_multiplier: float = 1.0) -> float:
+    """
+    Weighted composite of the 5 sub-scores × freshness multiplier → AI Readiness Score.
+    Result is clamped to [0.0, 1.0].
+    """
+    total = sum(scores.get(k, 0.0) * w for k, w in SCORE_WEIGHTS.items())
+    return round(min(total * freshness_multiplier, 1.0), 3)

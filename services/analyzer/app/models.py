@@ -4,7 +4,7 @@ from __future__ import annotations
 Pydantic schemas for request/response validation.
 """
 
-from typing import Any
+from typing import Any, Optional
 from pydantic import BaseModel, HttpUrl, field_validator
 
 
@@ -28,10 +28,10 @@ class PreviewAnalyzeRequest(BaseModel):
 class ScoreBreakdown(BaseModel):
     ai_readiness_score: float
     fanout_coverage_score: float
-    passage_quality_score: float
-    chunkability_score: float
-    entity_coherence_score: float
-    cross_platform_score: float
+    citation_power_score: float
+    extractability_score: float
+    entity_authority_score: float
+    source_authority_score: float
 
 
 class PreviewAnalyzeResponse(BaseModel):
@@ -69,11 +69,11 @@ class PassageResult(BaseModel):
     passage_index: int
     passage_text: str
     word_count: int
-    heading: str | None = None
+    heading: Optional[str] = None
 
 
 class FetchContentResponse(BaseModel):
     url: str
-    title: str | None
+    title: Optional[str]
     word_count: int
     passages: list[PassageResult]

@@ -38,16 +38,16 @@
       "label": "Query Reach",
       "description": "How many related questions your content can answer"
     },
-    "answerStrength": {
-      "label": "Answer Strength",
+    "citationPower": {
+      "label": "Citation Power",
       "description": "How strong each paragraph is in competition"
     },
     "extractability": {
       "label": "Extractability",
       "description": "How easily AI can extract information from your content"
     },
-    "brandTrust": {
-      "label": "Brand Trust",
+    "brandAuthority": {
+      "label": "Brand Authority",
       "description": "How recognizable and consistent your brand is"
     },
     "sourceAuthority": {
@@ -177,12 +177,12 @@
     "scoreBreakdown": "Score breakdown",
     "queryReach": "Query Reach",
     "queryReachDescription": "How many related questions your content can answer. Improve by creating more topically diverse content.",
-    "answerStrength": "Answer Strength",
-    "answerStrengthDescription": "How well your passages can stand alone as AI answers. Improve by writing self-contained, fact-dense paragraphs.",
+    "citationPower": "Citation Power",
+    "citationPowerDescription": "How well your content positions itself to be cited by AI. Improve with statistics, named sources, and definition-lead passages.",
     "extractability": "Extractability",
     "extractabilityDescription": "How easily AI can chunk and extract your content. Improve with clear headings and 130–170 word paragraphs.",
-    "brandTrust": "Brand Trust",
-    "brandTrustDescription": "How consistently your brand name and terminology appear across your content.",
+    "brandAuthority": "Brand Authority",
+    "brandAuthorityDescription": "How clearly your brand is represented as a distinct, authoritative entity in AI knowledge bases.",
     "sourceAuthority": "Source Authority",
     "sourceAuthorityDescription": "Your presence across authoritative platforms (LinkedIn, Reddit, YouTube, etc.).",
     "insights": "Key insights",
@@ -246,9 +246,9 @@
       "noData": "Run at least 2 analyses to see your score trend.",
       "aiReadiness": "AI Readiness",
       "queryReach": "Query Reach",
-      "answerStrength": "Answer Strength",
+      "citationPower": "Citation Power",
       "extractability": "Extractability",
-      "brandTrust": "Brand Trust",
+      "brandAuthority": "Brand Authority",
       "sourceAuthority": "Source Authority"
     },
     "convertedBannerTitle": "Your preview data has been imported",
@@ -334,11 +334,12 @@
     "goToOverview": "Go to Overview",
     "passageN": "Passage {n}",
     "overallScore": "Overall score",
-    "selfContainedness": "Self-containedness",
-    "claimClarity": "Claim clarity",
-    "informationDensity": "Information density",
-    "completeness": "Completeness",
-    "verifiability": "Verifiability",
+    "positionScore": "Position",
+    "entityDensity": "Entity Density",
+    "statisticalSpecificity": "Statistical Specificity",
+    "definiteness": "Definiteness",
+    "sourceCitation": "Source Citation",
+    "answerFirst": "Answer First",
     "reasoning": "Reasoning",
     "showReasoning": "Show reasoning",
     "hideReasoning": "Hide reasoning",
@@ -357,9 +358,9 @@
     "step2Title": "Your AI Readiness Score",
     "step2Description": "Five dimensions combine into your overall score. Each one maps to a documented signal used by AI search engines.",
     "step2Dim1": "Query Reach — how many related questions your content can answer",
-    "step2Dim2": "Answer Strength — how well your passages stand alone as AI answers",
+    "step2Dim2": "Citation Power — how well your content is positioned for AI citation",
     "step2Dim3": "Extractability — how easily AI can chunk and extract your content",
-    "step2Dim4": "Brand Trust — how consistently your brand appears across content",
+    "step2Dim4": "Brand Authority — how clearly your brand is recognized as an authoritative entity",
     "step2Dim5": "Source Authority — your presence across authoritative platforms",
     "step3Title": "Content discovery",
     "step3Description": "We automatically find content published by your brand and mentions across the web. You review each item and confirm what's relevant.",

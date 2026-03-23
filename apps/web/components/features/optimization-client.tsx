@@ -26,10 +26,10 @@ const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const SCORE_LABELS: Record<string, string> = {
   fanout_coverage_score: 'Query Reach',
-  passage_quality_score: 'Answer Strength',
-  chunkability_score: 'Extractability',
-  entity_coherence_score: 'Brand Trust',
-  cross_platform_score: 'Source Authority',
+  citation_power_score: 'Citation Power',
+  extractability_score: 'Extractability',
+  entity_authority_score: 'Brand Authority',
+  source_authority_score: 'Source Authority',
 };
 
 function TypeBadge({ type }: { type: string }) {
