@@ -1,10 +1,8 @@
 # CLAUDE.md — Visiblee
 
-## ℹ️ Scoring Engine v2 — COMPLETE
+## Phase 4 — Scoring Engine v2 + Discovery v2 — COMPLETE
 
-The scoring engine refactoring (Phase 4) is complete. Score names, weights, sub-criteria, and pipeline have been updated.
 Reference: `/docs/visiblee-methodology-v2.md` (algorithmic rationale) and `/docs/refactoring-plan-v2.md` (task log).
-Old docs in `/docs/archive/` are superseded.
 
 ## What is this project?
 Visiblee is a SaaS web app that helps brands, creators, and professionals improve their visibility in AI-powered search (Google AI Mode, AI Overviews, ChatGPT, Perplexity, Gemini). It analyzes indexed content, builds an "AI Readiness" profile based on documented Google patents, and guides users to optimize their content for AI citation.
@@ -87,8 +85,6 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 | `extractability_score` | Extractability | 15% |
 | `source_authority_score` | Source Authority | 10% |
 
-> **v2 renames** (Scoring Engine v2): `passage_quality_score` → `citation_power_score`, `entity_coherence_score` → `entity_authority_score`, `chunkability_score` → `extractability_score`, `cross_platform_score` → `source_authority_score`
-
 ### Git
 - Branches: `feature/name`, `fix/name`, `refactor/name`
 - Commits: conventional (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`)
@@ -116,20 +112,26 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 4 — Scoring Engine v2 — **IN PROGRESS**
-**Status**: COMPLETE — tutti i 15 task completati.
+**Phase**: 4 — Scoring Engine v2 + Discovery v2 — **COMPLETE**
+**Status**: COMPLETE ✅
 
 ---
 
-## Phase 4 — Scoring Engine v2 — IN PROGRESS
+## Phase 4 — Scoring Engine v2 + Discovery v2
 
-Full refactoring of the scoring engine. Reference: `/docs/refactoring-plan-v2.md` and `/docs/visiblee-methodology-v2.md`.
+Full refactoring of the scoring engine and discovery pipeline. Reference: `/docs/refactoring-plan-v2.md` and `/docs/visiblee-methodology-v2.md`.
+
+**Blocco 0 — Discovery:**
+
+| Task | Status | Summary |
+|---|---|---|
+| 4.0 | ✅ | discovery.py: intitle + backlink + sector keywords + brand variations + Gemini Grounding; worker passes target_queries |
 
 **Blocco A — Fondamenta:**
 
 | Task | Status | Summary |
 |---|---|---|
-| 4.1 | ✅ | Update CLAUDE.md with v2 score names and Phase 4 section |
+| 4.1 | ✅ | CLAUDE.md updated with v2 score names, Phase 4 task table, Task 4.0 added |
 | 4.2 | ✅ | Prisma schema migration: rename score columns + new fields (CitationCheck, ContentVersion) |
 | 4.3 | ✅ | config.py: add coverage thresholds, freshness multipliers, free tier limits |
 | 4.4 | ✅ | fetcher.py: preserve raw HTML, extract JSON-LD schema markup, robots.txt check |
@@ -187,8 +189,6 @@ Full refactoring of the scoring engine. Reference: `/docs/refactoring-plan-v2.md
 | 2.7 | Preview → project conversion on registration |
 
 ---
-
-## Phase 3 — Content discovery & authenticated app
 
 ## Phase 3 — Content discovery & authenticated app — COMPLETE
 

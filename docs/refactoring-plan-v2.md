@@ -31,6 +31,7 @@
 - < 0.60: non coperta (peso 0.0)
 
 ### Nuove feature nel pipeline
+- **Discovery migliorata**: query Brave arricchite (intitle, backlink, settore, variazioni) + Gemini Grounding come sorgente supplementare
 - Citation verification via Gemini API con Grounding
 - Competitor citation analysis automatico
 - Schema markup check
@@ -50,11 +51,258 @@
 
 ### Overview delle fasi
 
-Il refactoring è diviso in 3 blocchi:
+Il refactoring è diviso in 4 blocchi:
 
-1. **Blocco A (Task 4.1-4.5)**: Schema migration + config + segmenter + fetcher — le fondamenta
-2. **Blocco B (Task 4.6-4.10)**: Nuovo scoring engine — il cuore
-3. **Blocco C (Task 4.11-4.15)**: Citation verification + competitor analysis + UI updates
+1. **Blocco 0 (Task 4.0)**: Discovery pipeline improvement — critico, senza una buona discovery il resto vale poco
+2. **Blocco A (Task 4.1-4.5)**: Schema migration + config + segmenter + fetcher — le fondamenta
+3. **Blocco B (Task 4.6-4.10)**: Nuovo scoring engine — il cuore
+4. **Blocco C (Task 4.11-4.15)**: Citation verification + competitor analysis + UI updates
+
+---
+
+## BLOCCO 0 — Discovery Pipeline Improvement
+
+### Task 4.0: Migliora la content discovery con query Brave arricchite + Gemini Grounding
+
+**Priorità**: CRITICA — senza una buona discovery il ranking vale poco e il cliente non percepisce valore.
+
+**Il problema attuale**: La discovery non trova articoli press/blog creati per il brand. Esempio concreto: "Marino Allestimenti" (marinoallestimenti.com) ha articoli su testate e blog di settore, ma la discovery non li trova perché:
+1. La query news cerca solo su grandi testate nazionali hardcoded
+2. La query generica (`"Brand" -site:domain`) restituisce solo 20 risultati e per brand con cognome/nome comune si riempiono di rumore
+3. Non c'è ricerca per backlink (pagine che linkano al dominio)
+4. Non ci sono variazioni del brand name (srl, s.r.l., ecc.)
+5. Non c'è uso dell'operatore `intitle:` di Brave
+
+**File da toccare:**
+- `services/analyzer/app/discovery.py`
+- Tutti i chiamanti di `discover_content` (worker.py, eventuali route)
+
+**Cosa fare:**
+
+#### 1. Aggiungere parametro `target_queries` alla funzione `discover_content`
+
+```python
+async def discover_content(
+    website_url: str,
+    brand_name: str,
+    language: str = "en",
+    target_queries: list[str] | None = None,  # NUOVO
+) -> list[dict[str, Any]]:
+```
+
+#### 2. Aggiungere funzione helper per keyword di settore
+
+```python
+def _extract_sector_keywords(target_queries: list[str], brand_name: str) -> str:
+    """Extract 2-3 sector keywords from target queries for more focused discovery."""
+    if not target_queries:
+        return ""
+
+    stopwords_it = {"come", "cosa", "qual", "quale", "dove", "quando", "perché", "chi",
+                    "il", "la", "le", "lo", "i", "gli", "di", "del", "della", "dei",
+                    "per", "con", "su", "tra", "fra", "è", "sono", "un", "una", "che",
+                    "non", "più", "anche", "questo", "quello", "nella", "nel", "al", "alla"}
+    stopwords_en = {"what", "how", "where", "when", "why", "who", "which", "the", "a", "an",
+                    "is", "are", "was", "for", "and", "or", "but", "in", "on", "at", "to",
+                    "of", "with", "from", "by", "not", "this", "that", "your", "my", "can"}
+    stopwords = stopwords_it | stopwords_en
+    brand_tokens = set(brand_name.lower().split())
+
+    all_words = " ".join(target_queries).lower().split()
+    keywords = [
+        w for w in all_words
+        if w not in stopwords and w not in brand_tokens and len(w) > 3 and w.isalpha()
+    ]
+
+    seen = set()
+    unique = []
+    for w in keywords:
+        if w not in seen:
+            seen.add(w)
+            unique.append(w)
+
+    return " ".join(unique[:3])
+```
+
+#### 3. Aggiungere funzione helper per variazioni brand name
+
+```python
+def _generate_brand_variations(brand_name: str) -> list[str]:
+    """Generate common legal and formatting variations of the brand name."""
+    variations = []
+    name = brand_name.strip()
+    name_lower = name.lower()
+
+    legal_suffixes = ["srl", "s.r.l.", "spa", "s.p.a.", "snc", "s.n.c.",
+                      "sas", "s.a.s.", "ltd", "llc", "inc", "gmbh"]
+
+    has_suffix = any(name_lower.endswith(s) or name_lower.endswith(f" {s}") for s in legal_suffixes)
+    if not has_suffix:
+        variations.append(f"{name} srl")
+        variations.append(f"{name} s.r.l.")
+
+    if has_suffix:
+        clean = name
+        for s in legal_suffixes:
+            for fmt in [f" {s}", f" {s.upper()}", f" {s.title()}"]:
+                clean = clean.replace(fmt, "")
+        clean = clean.strip()
+        if clean and clean.lower() != name_lower:
+            variations.append(clean)
+
+    return variations[:4]
+```
+
+#### 4. Aggiungere 4 query Brave supplementari in `discover_content`
+
+Dopo la costruzione della lista `queries` esistente (le 8 query originali — NON rimuoverle), appendere:
+
+```python
+sector_keywords = _extract_sector_keywords(target_queries or [], brand_name)
+brand_variations = _generate_brand_variations(brand_name)
+
+additional_queries = [
+    # 9. Brand nel titolo — LA PIÙ IMPORTANTE per press/blog
+    (f'intitle:"{brand_name}" -site:{domain}', 20),
+    # 10. Backlink discovery — pagine che citano/linkano il dominio
+    (f'"{domain}" -site:{domain}', 10),
+]
+
+# 11. Brand + settore (solo se ci sono keyword)
+if sector_keywords:
+    additional_queries.append(
+        (f'"{brand_name}" {sector_keywords} -site:{domain}', 10)
+    )
+
+# 12. Variazioni ragione sociale
+if brand_variations:
+    variation_parts = " OR ".join(f'"{v}"' for v in brand_variations[:2])
+    additional_queries.append(
+        (f'({variation_parts}) -site:{domain}', 10)
+    )
+
+queries = queries + additional_queries
+```
+
+#### 5. Aggiungere Gemini Grounding come sorgente supplementare
+
+Dopo la deduplicazione dei risultati Brave e PRIMA della classificazione Gemini, aggiungere:
+
+```python
+async def _discover_via_gemini_grounding(
+    brand_name: str,
+    target_queries: list[str],
+    user_domain: str,
+    existing_urls: set[str],
+) -> list[dict]:
+    """
+    Use Gemini with Google Search grounding to find brand mentions in Google's index.
+    Supplements Brave results with sources that Google can see but Brave might miss.
+    """
+    # Importa il client Gemini (già inizializzato in discovery.py o scoring.py)
+    try:
+        from google import genai as google_genai
+        gemini = google_genai.Client(api_key=config.GOOGLE_AI_API_KEY) if config.GOOGLE_AI_API_KEY else None
+    except ImportError:
+        gemini = None
+
+    if not gemini or not target_queries:
+        return []
+
+    additional = []
+    for query_text in target_queries[:5]:  # Cap al free tier
+        try:
+            response = await gemini.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"{query_text} {brand_name}",
+                config={"tools": [{"google_search": {}}]},
+            )
+
+            if not response.candidates:
+                continue
+
+            candidate = response.candidates[0]
+            grounding = getattr(candidate, 'grounding_metadata', None)
+            if not grounding or not getattr(grounding, 'grounding_chunks', None):
+                continue
+
+            for chunk in grounding.grounding_chunks:
+                web = getattr(chunk, 'web', None)
+                if not web or not web.uri:
+                    continue
+                url = web.uri
+                if url in existing_urls:
+                    continue
+
+                chunk_domain = urlparse(url).netloc.lstrip("www.")
+                title = web.title or ""
+
+                # Aggiungi se è del brand OR se menziona il brand nel titolo
+                if user_domain in chunk_domain or brand_name.lower() in title.lower():
+                    additional.append({
+                        "url": url,
+                        "title": title,
+                        "snippet": "",
+                        "source": "gemini_grounding",
+                    })
+
+        except Exception as e:
+            log.warning(f"Gemini grounding discovery failed for '{query_text}': {e}")
+            continue
+
+    return additional
+```
+
+Integrare nel flusso di `discover_content`:
+
+```python
+# Dopo dedup Brave, prima della classificazione:
+seen_urls = {r["url"] for r in all_results}
+gemini_results = await _discover_via_gemini_grounding(
+    brand_name, target_queries or [], domain, seen_urls
+)
+for gr in gemini_results:
+    if gr["url"] not in seen_urls:
+        seen_urls.add(gr["url"])
+        all_results.append(gr)
+
+if gemini_results:
+    log.info(f"Discovery: Gemini Grounding added {len(gemini_results)} URLs")
+```
+
+**NOTA IMPORTANTE sulla API Gemini Grounding**: la sintassi `config={"tools": [{"google_search": {}}]}` potrebbe variare in base alla versione del SDK `google-genai` installata. Controlla https://ai.google.dev/gemini-api/docs/google-search per la sintassi corretta. In alcune versioni serve `GenerateContentConfig(tools=[Tool(google_search=GoogleSearch())])` o simile. Se il SDK non supporta ancora il google_search tool, logga un warning e skippa — NON crashare la discovery.
+
+#### 6. Alzare il cap di classificazione
+
+Il cap attuale è `all_results[:60]`. Con più query (12 Brave + Gemini), il numero di risultati potrebbe salire. Alzare a 80:
+
+```python
+classified = await _classify_with_gemini(all_results[:80], brand_name, domain)
+```
+
+#### 7. Aggiornare i chiamanti
+
+Cerca tutti i punti dove `discover_content` viene chiamata e passa `target_queries` se disponibili:
+- In `worker.py`: quando processa un job `discovery`, carica le target queries dal DB e passale
+- Se usata altrove: adattare di conseguenza
+
+#### 8. Aggiungere logging dettagliato per source
+
+```python
+# Dopo la dedup finale, prima della classificazione
+brave_count = sum(1 for r in all_results if r.get("source") != "gemini_grounding")
+gemini_count = sum(1 for r in all_results if r.get("source") == "gemini_grounding")
+log.info(
+    f"Discovery for {domain}: {brave_count} from Brave + {gemini_count} from Gemini Grounding "
+    f"= {len(all_results)} total unique URLs"
+)
+```
+
+**Criterio di verifica:**
+1. La discovery per "Marino Allestimenti" (marinoallestimenti.com) con query target tipo "allestimenti per eventi" trova articoli sulle testate (via query `intitle:`)
+2. La discovery funziona anche senza `target_queries` (backward compatibility)
+3. Se Gemini Grounding non è disponibile (API key mancante o SDK incompatibile), la discovery continua a funzionare con solo Brave (graceful degradation)
+4. Il logging mostra il breakdown per sorgente
 
 ---
 
@@ -820,6 +1068,7 @@ Aggiungere note su:
 
 ### Ordine di esecuzione
 I task DEVONO essere eseguiti in ordine. Ogni task dipende dal precedente.
+**Eccezione**: Task 4.0 (Discovery) è indipendente dal resto e può essere testato immediatamente con dati reali. Eseguilo PRIMA di tutto il resto — se la discovery non funziona bene, il resto del refactoring perde di significato.
 
 ### Testing
 Dopo ogni task, verificare che:
@@ -827,6 +1076,8 @@ Dopo ogni task, verificare che:
 2. Il server Python parte (`uvicorn app.main:app --reload`)
 3. Il server Next.js parte (`npm run dev`)
 4. Non ci sono errori TypeScript (`npx tsc --noEmit`)
+
+**Per Task 4.0 specificamente**: testare con il brand "Marino Allestimenti" (marinoallestimenti.com) e query target tipo "allestimenti per eventi", "stand fieristici". Verificare che la query `intitle:` trova articoli press/blog.
 
 ### Rollback
 Se un task fallisce, NON procedere al successivo. Fixare il task corrente prima.
