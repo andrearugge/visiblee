@@ -112,10 +112,10 @@ def update_preview(conn, preview_id: str, result: dict) -> None:
                 status = 'completed',
                 "aiReadinessScore" = %(ai_readiness_score)s,
                 "fanoutCoverageScore" = %(fanout_coverage_score)s,
-                "passageQualityScore" = %(passage_quality_score)s,
-                "chunkabilityScore" = %(chunkability_score)s,
-                "entityCoherenceScore" = %(entity_coherence_score)s,
-                "crossPlatformScore" = %(cross_platform_score)s,
+                "citationPowerScore" = %(citation_power_score)s,
+                "extractabilityScore" = %(extractability_score)s,
+                "entityAuthorityScore" = %(entity_authority_score)s,
+                "sourceAuthorityScore" = %(source_authority_score)s,
                 insights = %(insights)s,
                 "contentsFound" = %(contents_found)s,
                 "analysisData" = %(analysis_data)s
@@ -238,8 +238,8 @@ async def process_email_job(job: dict) -> None:
             cur.execute(
                 """
                 SELECT "brandName", "websiteUrl", locale,
-                       "aiReadinessScore", "fanoutCoverageScore", "passageQualityScore",
-                       "chunkabilityScore", "entityCoherenceScore", "crossPlatformScore",
+                       "aiReadinessScore", "fanoutCoverageScore", "citationPowerScore",
+                       "extractabilityScore", "entityAuthorityScore", "sourceAuthorityScore",
                        insights
                 FROM preview_analyses
                 WHERE id = %s AND status = 'completed'
@@ -264,10 +264,10 @@ async def process_email_job(job: dict) -> None:
             website_url=preview["websiteUrl"],
             ai_readiness_score=float(preview["aiReadinessScore"] or 0),
             fanout_coverage_score=float(preview["fanoutCoverageScore"] or 0),
-            passage_quality_score=float(preview["passageQualityScore"] or 0),
-            chunkability_score=float(preview["chunkabilityScore"] or 0),
-            entity_coherence_score=float(preview["entityCoherenceScore"] or 0),
-            cross_platform_score=float(preview["crossPlatformScore"] or 0),
+            citation_power_score=float(preview["citationPowerScore"] or 0),
+            extractability_score=float(preview["extractabilityScore"] or 0),
+            entity_authority_score=float(preview["entityAuthorityScore"] or 0),
+            source_authority_score=float(preview["sourceAuthorityScore"] or 0),
             insights=insights,
             preview_id=preview_id,
             language=preview["locale"] or "en",
@@ -442,13 +442,22 @@ async def process_discovery_job(job: dict) -> None:
             user = cur.fetchone()
         language = (user or {}).get("preferredLocale", "en")
 
+        # Load active target queries to enable sector-keyword and Gemini Grounding discovery
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT "queryText" FROM target_queries WHERE "projectId" = %s AND "isActive" = true',
+                (project_id,),
+            )
+            target_queries = [row["queryText"] for row in cur.fetchall()]
+
         results = await asyncio.wait_for(
             discover_content(
                 website_url=project["websiteUrl"],
                 brand_name=project["brandName"],
                 language=language,
+                target_queries=target_queries or None,
             ),
-            timeout=90,
+            timeout=120,
         )
 
         # Upsert into contents table (skip duplicates by url + projectId)

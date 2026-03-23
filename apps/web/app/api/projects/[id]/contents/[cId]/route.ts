@@ -59,6 +59,7 @@ export async function GET(
                   entityDensity: true,
                   statisticalSpecificity: true,
                   definiteness: true,
+                  answerFirst: true,
                   sourceCitation: true,
                   llmReasoning: true,
                 },

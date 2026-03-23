@@ -38,10 +38,10 @@ def _build_html(
     website_url: str,
     ai_readiness_score: float,
     fanout_coverage_score: float,
-    passage_quality_score: float,
-    chunkability_score: float,
-    entity_coherence_score: float,
-    cross_platform_score: float,
+    citation_power_score: float,
+    extractability_score: float,
+    entity_authority_score: float,
+    source_authority_score: float,
     insights: list[str],
     preview_id: str,
     language: str,
@@ -49,13 +49,22 @@ def _build_html(
 ) -> str:
     ai_score = round(ai_readiness_score * 100)
 
-    subject_scores = [
-        ("Query Reach", fanout_coverage_score),
-        ("Answer Strength", passage_quality_score),
-        ("Extractability", chunkability_score),
-        ("Brand Trust", entity_coherence_score),
-        ("Source Authority", cross_platform_score),
-    ]
+    if language == "it":
+        subject_scores = [
+            ("Query Reach", fanout_coverage_score),
+            ("Citation Power", citation_power_score),
+            ("Extractability", extractability_score),
+            ("Brand Authority", entity_authority_score),
+            ("Source Authority", source_authority_score),
+        ]
+    else:
+        subject_scores = [
+            ("Query Reach", fanout_coverage_score),
+            ("Citation Power", citation_power_score),
+            ("Extractability", extractability_score),
+            ("Brand Authority", entity_authority_score),
+            ("Source Authority", source_authority_score),
+        ]
 
     if language == "it":
         t = {
@@ -220,10 +229,10 @@ def send_preview_report(
     website_url: str,
     ai_readiness_score: float,
     fanout_coverage_score: float,
-    passage_quality_score: float,
-    chunkability_score: float,
-    entity_coherence_score: float,
-    cross_platform_score: float,
+    citation_power_score: float,
+    extractability_score: float,
+    entity_authority_score: float,
+    source_authority_score: float,
     insights: list[str],
     preview_id: str,
     language: str = "en",
@@ -242,10 +251,10 @@ def send_preview_report(
         website_url=website_url,
         ai_readiness_score=ai_readiness_score,
         fanout_coverage_score=fanout_coverage_score,
-        passage_quality_score=passage_quality_score,
-        chunkability_score=chunkability_score,
-        entity_coherence_score=entity_coherence_score,
-        cross_platform_score=cross_platform_score,
+        citation_power_score=citation_power_score,
+        extractability_score=extractability_score,
+        entity_authority_score=entity_authority_score,
+        source_authority_score=source_authority_score,
         insights=insights,
         preview_id=preview_id,
         language=language,

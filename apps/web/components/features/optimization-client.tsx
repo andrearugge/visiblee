@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, Zap, BookOpen, Globe, CheckCircle2, Clock, XCircle, Circle } from 'lucide-react';
+import { ChevronDown, Zap, BookOpen, Globe, CheckCircle2, Clock, XCircle, Circle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Recommendation {
@@ -20,16 +20,17 @@ interface Recommendation {
 interface OptimizationClientProps {
   projectId: string;
   recommendations: Recommendation[];
+  isStale?: boolean;
 }
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
-const SCORE_LABELS: Record<string, string> = {
-  fanout_coverage_score: 'Query Reach',
-  citation_power_score: 'Citation Power',
-  extractability_score: 'Extractability',
-  entity_authority_score: 'Brand Authority',
-  source_authority_score: 'Source Authority',
+const SCORE_KEY_MAP: Record<string, string> = {
+  fanout_coverage_score: 'queryReach',
+  citation_power_score: 'citationPower',
+  extractability_score: 'extractability',
+  entity_authority_score: 'brandAuthority',
+  source_authority_score: 'sourceAuthority',
 };
 
 function TypeBadge({ type }: { type: string }) {
@@ -86,8 +87,9 @@ function StatusIcon({ status }: { status: string }) {
 
 function RecommendationCard({ rec, projectId }: { rec: Recommendation; projectId: string }) {
   const t = useTranslations('optimization');
+  const tScores = useTranslations('scores');
   const [status, setStatus] = useState(rec.status);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [updating, setUpdating] = useState(false);
 
   async function updateStatus(newStatus: string) {
@@ -124,7 +126,7 @@ function RecommendationCard({ rec, projectId }: { rec: Recommendation; projectId
               <EffortBadge effort={rec.effort} />
               {rec.targetScore && (
                 <span className="text-xs text-zinc-400">
-                  {t('targetScore')}: <span className="font-medium text-zinc-600">{SCORE_LABELS[rec.targetScore] ?? rec.targetScore}</span>
+                  {t('targetScore')}: <span className="font-medium text-zinc-600">{SCORE_KEY_MAP[rec.targetScore] ? tScores(`${SCORE_KEY_MAP[rec.targetScore]}.label`) : rec.targetScore}</span>
                 </span>
               )}
             </div>
@@ -267,7 +269,8 @@ function PrioritySection({
   );
 }
 
-export function OptimizationClient({ projectId, recommendations }: OptimizationClientProps) {
+export function OptimizationClient({ projectId, recommendations, isStale }: OptimizationClientProps) {
+  const t = useTranslations('optimization');
   const sorted = [...recommendations].sort(
     (a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1),
   );
@@ -280,6 +283,12 @@ export function OptimizationClient({ projectId, recommendations }: OptimizationC
 
   return (
     <div className="space-y-8 p-6">
+      {isStale && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+          <p className="text-sm text-amber-800">{t('staleWarning')}</p>
+        </div>
+      )}
       {(['high', 'medium', 'low'] as const).map((p) => (
         <PrioritySection key={p} priority={p} recs={byPriority[p]} projectId={projectId} />
       ))}

@@ -37,7 +37,7 @@ _REC_SCHEMA = """{
       "title": "short title",
       "description": "2–3 sentences explaining why this matters",
       "suggestedAction": "specific action to take",
-      "targetScore": "fanout_coverage_score|passage_quality_score|chunkability_score|entity_coherence_score|cross_platform_score"
+      "targetScore": "fanout_coverage_score|citation_power_score|extractability_score|entity_authority_score|source_authority_score"
     }
   ]
 }"""
@@ -113,8 +113,8 @@ def _normalize(r: dict) -> dict:
     valid_priorities = {"high", "medium", "low"}
     valid_efforts = {"quick", "moderate", "significant"}
     valid_scores = {
-        "fanout_coverage_score", "passage_quality_score", "chunkability_score",
-        "entity_coherence_score", "cross_platform_score",
+        "fanout_coverage_score", "citation_power_score", "extractability_score",
+        "entity_authority_score", "source_authority_score",
     }
     return {
         "type": r.get("type") if r.get("type") in valid_types else "quick_win",
@@ -149,7 +149,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
             ),
             "targetScore": "fanout_coverage_score",
         })
-    if scores.get("cross_platform_score", 1.0) < 0.5:
+    if scores.get("source_authority_score", 1.0) < 0.5:
         recs.append({
             "type": "platform_opportunity",
             "priority": "high",
@@ -165,7 +165,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
                 if it else
                 "Publish on LinkedIn, Reddit, or Medium to increase authority."
             ),
-            "targetScore": "cross_platform_score",
+            "targetScore": "source_authority_score",
         })
     return recs or [{
         "type": "quick_win",
@@ -182,7 +182,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
             if it else
             "Rewrite your weakest passages to make them more self-contained and informative."
         ),
-        "targetScore": "passage_quality_score",
+        "targetScore": "citation_power_score",
     }]
 
 

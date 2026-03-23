@@ -46,7 +46,7 @@ from .competitor_analysis import analyze_competitor_citations
 
 log = logging.getLogger(__name__)
 
-KNOWN_PLATFORMS = ["linkedin", "reddit", "medium", "youtube", "substack", "news"]
+KNOWN_PLATFORMS = ["website", "linkedin", "reddit", "medium", "youtube", "substack", "news", "other"]
 
 
 # ── DB helpers ────────────────────────────────────────────────────────────────

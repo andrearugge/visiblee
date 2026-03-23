@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
-const ALLOWED_TYPES = ['full_analysis', 'discovery', 'fetch_content', 'competitor_analysis'] as const;
+// competitor_analysis is intentionally excluded — use /competitors/[cId]/analyze route which injects competitorId
+const ALLOWED_TYPES = ['full_analysis', 'discovery', 'fetch_content'] as const;
 type JobType = (typeof ALLOWED_TYPES)[number];
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -61,7 +61,7 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
       <ScoreBar value={value} className="flex-1" />
       <TooltipProvider delay={200}>
         <Tooltip>
-          <TooltipTrigger render={<button className="text-zinc-300 hover:text-zinc-500 transition-colors" />}>
+          <TooltipTrigger render={<button suppressHydrationWarning className="text-zinc-300 hover:text-zinc-500 transition-colors" />}>
             <HelpCircle className="size-3.5" />
           </TooltipTrigger>
           <TooltipContent side="left" className="max-w-56 text-xs">

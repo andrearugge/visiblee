@@ -22,21 +22,29 @@ export default async function OptimizationPage({ params }: Props) {
   });
   if (!project) notFound();
 
-  const recommendations = await db.recommendation.findMany({
-    where: { projectId: id },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      type: true,
-      priority: true,
-      effort: true,
-      title: true,
-      description: true,
-      suggestedAction: true,
-      targetScore: true,
-      status: true,
-    },
-  });
+  const [recommendations, latestSnapshot] = await Promise.all([
+    db.recommendation.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        type: true,
+        priority: true,
+        effort: true,
+        title: true,
+        description: true,
+        suggestedAction: true,
+        targetScore: true,
+        status: true,
+        snapshotId: true,
+      },
+    }),
+    db.projectScoreSnapshot.findFirst({
+      where: { projectId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    }),
+  ]);
 
   if (recommendations.length === 0) {
     return (
@@ -53,9 +61,14 @@ export default async function OptimizationPage({ params }: Props) {
     );
   }
 
+  // Recommendations are stale if they belong to an older snapshot than the latest one
+  const recSnapshotId = recommendations[0]?.snapshotId;
+  const isStale = !!latestSnapshot && !!recSnapshotId && recSnapshotId !== latestSnapshot.id;
+
   return (
     <OptimizationClient
       projectId={id}
+      isStale={isStale}
       recommendations={recommendations.map((r) => ({
         ...r,
         effort: r.effort ?? 'moderate',
