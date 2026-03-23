@@ -26,7 +26,7 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
   });
   if (!project) notFound();
 
-  const [snapshot, activeJob, confirmedContentCount, allSnapshots] = await Promise.all([
+  const [snapshot, activeJob, confirmedContentCount, allSnapshots, queryCount, contentCount, discoveryJob] = await Promise.all([
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
@@ -52,6 +52,12 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
         entityAuthorityScore: true,
         sourceAuthorityScore: true,
       },
+    }),
+    db.targetQuery.count({ where: { projectId: id, isActive: true } }),
+    db.content.count({ where: { projectId: id } }),
+    db.job.findFirst({
+      where: { projectId: id, type: 'discovery', status: { in: ['pending', 'running'] } },
+      select: { id: true },
     }),
   ]);
 
@@ -97,6 +103,10 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
           projectId={id}
           hasContent={confirmedContentCount > 0}
           initialAnalysisRunning={!!activeJob}
+          initialQueryCount={queryCount}
+          initialContentCount={contentCount}
+          initialConfirmedCount={confirmedContentCount}
+          initialDiscoveryRunning={!!discoveryJob}
         />
       )}
     </div>
