@@ -1,6 +1,6 @@
-# Approccio Commerciale — Visiblee v1
+# Approccio Commerciale — Visiblee
 
-> **Versione**: 1.0 — Marzo 2026
+> **Data**: Marzo 2026
 > **Lingua**: Italiano
 > **Audience**: founder, product manager, investitori, team commerciale
 
@@ -10,7 +10,7 @@
 
 ### 1.1 Il fenomeno AI search e il disaccoppiamento ranking/citazione
 
-La ricerca su Google sta cambiando strutturalmente. AI Overviews appare sul 50-60% delle ricerche US. Google AI Mode, disponibile per abbonati AI Pro/Ultra, usa Gemini per generare risposte sintetiche con citazioni. ChatGPT ha 2.5 miliardi di prompt al giorno. Perplexity ha 780 milioni di query mensili.
+La ricerca su Google sta cambiando strutturalmente. AI Overviews appare sul 50-60% delle ricerche US. Google AI Mode, disponibile per abbonati AI Pro/Ultra, usa Gemini per generare risposte sintetiche con citazioni. Parallelamente, l'intero ecosistema AI search (ChatGPT, Perplexity, Gemini standalone) sta spostando l'attenzione degli utenti dal click sul link alla risposta sintetica generata.
 
 Il cambiamento critico è questo: l'AI non mostra una lista di link — genera una risposta e cita alcune fonti. E le fonti citate non coincidono con i siti in prima posizione su Google. A febbraio 2026, solo il 12% delle citazioni di Google AI Mode corrisponde alla top 10 organica (Moz, 40K keyword). L'88% delle citazioni viene da pagine che l'utente non vedrebbe nei risultati tradizionali.
 
@@ -75,7 +75,7 @@ Nel mezzo c'è il segmento reale: agenzie digitali (5-50 persone), marketing man
 - **Brand consumer B2C con poco contenuto**: un e-commerce di abbigliamento o un ristorante non trae valore da questo tool. Le citazioni AI per questi settori hanno dinamiche diverse (local pack, product listings), non quelle misurate da Visiblee.
 - **Chi cerca "posizionarsi su ChatGPT" senza capire la natura probabilistica**: utenti con aspettative irrealistiche (garantire la citazione) generano churn e supporto costoso.
 - **Startup in pre-product/market fit**: chi non ha ancora contenuti da analizzare non trae valore immediato. Meglio acquisirli quando hanno già una base di contenuti.
-- **Enterprise con team tecnico interno**: preferiranno costruire internamente o acquistare BrightEdge/Profound. Non è il target giusto per v1.
+- **Enterprise con team tecnico interno**: preferiranno costruire internamente o acquistare BrightEdge/Profound. Non è il target attuale.
 
 ---
 
@@ -239,25 +239,25 @@ Questo report si produce in 30-45 minuti con i dati di Visiblee. Ha un valore pe
 
 ## 7. Roadmap commerciale suggerita
 
-### v1 (attuale): scoring + citation simulation + competitor monitoring
+### Release attuale: scoring + citation simulation + competitor monitoring
 
-Il MVP completo: analisi dei contenuti, scoring 5 dimensioni, Opportunity Map, Citation Simulation settimanale con Gemini Grounding, Competitor Gap Analysis automatico. Target market: agenzie SEO e brand B2B che si stanno chiedendo come adattarsi all'AI search.
+Il core completo: analisi dei contenuti, scoring 5 dimensioni, Opportunity Map, Citation Simulation settimanale con Gemini Grounding (ecosistema Google), Competitor Gap Analysis automatico. Target market: agenzie SEO e brand B2B che si stanno chiedendo come adattarsi all'AI search.
 
-**Go-to-market v1**: content marketing GEO (articoli su cosa è il fan-out, come funziona AI Mode), community SEO italiana e internazionale, Product Hunt launch, outreach diretto ad agenzie digitali con 5-30 persone.
+**Go-to-market**: content marketing GEO (articoli su cosa è il fan-out, come funziona AI Mode), community SEO italiana e internazionale, Product Hunt launch, outreach diretto ad agenzie digitali con 5-30 persone.
 
-### v1.1: Share of Model tracking
+### Prossima release: Share of Model tracking
 
-Aggiunge query automatiche su più piattaforme per misurare la "quota di menzione" del brand nelle risposte AI. Invece di mandare solo le query target dell'utente, il sistema genera query di settore standard e misura con quale frequenza il brand appare tra le fonti citate.
+Aggiunge query automatiche per misurare la "quota di menzione" del brand nelle risposte AI. Invece di mandare solo le query target dell'utente, il sistema genera query di settore standard e misura con quale frequenza il brand appare tra le fonti citate.
 
 **Razionale commerciale**: la Share of Model è la metrica più richiesta dagli enterprise (BrightEdge la vende a $3.000+/mese). Portarla in un piano accessibile è un differenziatore forte.
 
-### v2: multi-platform citation (ChatGPT, Perplexity)
+### Roadmap: multi-platform citation
 
-Quando ChatGPT o Perplexity offrono API adeguate per la citation verification, o quando i volumi giustificano approcci alternativi (es. query dirette con parsing strutturato). La piattaforma è progettata per supportare più provider: il modulo `citation_check.py` è astraibile.
+Estensione della citation verification ad altri motori AI quando saranno disponibili API adeguate. La piattaforma è progettata per supportare più provider: il modulo `citation_check.py` è astraibile.
 
-**Razionale commerciale**: il 70% degli utenti vuole sapere anche "vengo citato su ChatGPT?" Il blocco oggi è tecnico (nessuna API ufficiale). Appena risolto, è una feature ad alto impatto con basso sviluppo aggiuntivo.
+**Razionale commerciale**: il 70% degli utenti vuole sapere anche "vengo citato su altri motori AI?" Il blocco oggi è tecnico (assenza di API ufficiali equivalenti a Gemini Grounding). Appena risolto, è una feature ad alto impatto con basso sviluppo aggiuntivo.
 
-### v3: AI-first CMS integration
+### Roadmap: AI-first CMS integration
 
 Integrazione con CMS (WordPress, Webflow, Contentful) per offrire suggerimenti inline nell'editor: "questo paragrafo manca dell'answer capsule" mentre si sta scrivendo il contenuto. Il sistema di scoring diventa un "linter" del contenuto in tempo reale.
 

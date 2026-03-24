@@ -1,6 +1,6 @@
-# Documento Metodologico degli Algoritmi di Scoring — Visiblee v1
+# Documento Metodologico degli Algoritmi di Scoring — Visiblee
 
-> **Versione**: 1.0 — Marzo 2026
+> **Data**: Marzo 2026
 > **Scopo**: documentare le scelte tecniche, la letteratura di riferimento e la motivazione strutturata per ogni componente del sistema di scoring di Visiblee.
 > **Audience**: AI Engineers, Data Scientists, product manager tecnici.
 > **Stato**: documento di riferimento per l'implementazione corrente. Ogni modifica allo scoring deve partire da qui.
@@ -11,7 +11,7 @@
 
 ### 1.1 Il fenomeno AI search
 
-La ricerca basata su AI non è più sperimentale. A marzo 2026, Google AI Overviews appare sul 50-60% delle ricerche US (Google I/O 2025 + Conductor 2026 su 21.9M query) e raggiunge oltre 1 miliardo di utenti mensili in 200+ paesi. Google AI Mode è disponibile per abbonati AI Pro/Ultra in US. ChatGPT processa 2.5 miliardi di prompt al giorno. Perplexity ha raggiunto 45 milioni di utenti attivi.
+La ricerca basata su AI non è più sperimentale. A marzo 2026, Google AI Overviews appare sul 50-60% delle ricerche US (Google I/O 2025 + Conductor 2026 su 21.9M query) e raggiunge oltre 1 miliardo di utenti mensili in 200+ paesi. Google AI Mode è disponibile per abbonati AI Pro/Ultra in US.
 
 Il cambiamento strutturale è la **separazione tra ranking organico e citazione AI**:
 
@@ -325,18 +325,18 @@ extractability = (
 
 **Perché il peso è il più basso**: il disaccoppiamento ranking/citazione rende la "presenza" meno importante della "qualità della presenza". Essere su 6 piattaforme con contenuti superficiali vale meno che essere su 2 piattaforme con contenuti profondi e entity-rich.
 
-**Piattaforme monitorate e pesi per piattaforma AI target:**
+**Piattaforme monitorate e pesi:**
 
-| Piattaforma | Peso base | Boost Google AI | Boost ChatGPT | Boost Perplexity |
-|---|---|---|---|---|
-| Website (proprio) | 1.0 | — | — | — |
-| YouTube | 0.7 | +0.3 (= 1.0) | — | — |
-| LinkedIn | 0.7 | — | — | — |
-| Medium/Substack | 0.6 | — | — | — |
-| Wikipedia | 0.5 | — | +0.5 (= 1.0) | — |
-| Reddit | 0.4 | — | — | +0.5 (= 0.9) |
-| News/media | 0.8 | — | +0.2 (= 1.0) | — |
-| Review platform (G2, Trustpilot) | 0.6 | — | +0.3 (= 0.9) | — |
+| Piattaforma | Peso | Note |
+|---|---|---|
+| Website (proprio) | 1.0 | Sorgente primaria |
+| YouTube | 1.0 | Fortemente preferito da Google AI (Ahrefs: most-cited in AIO) |
+| LinkedIn | 0.7 | Autorità professionale |
+| Medium/Substack | 0.6 | Content authority |
+| Wikipedia | 0.5 | Knowledge Graph signal |
+| Reddit | 0.4 | Community corroboration |
+| News/media | 0.8 | Corroboration esterna ad alta autorità |
+| Review platform (G2, Trustpilot) | 0.6 | Social proof e entity corroboration |
 
 **Formula per piattaforma:**
 
@@ -459,7 +459,7 @@ La citation verification viene eseguita settimanalmente per ogni query target. I
 ### 7.4 Limitazioni
 
 - La Gemini API simula Gemini, non è identica al 100% a ciò che AI Overview mostra in SERP. Le fonti possono differire leggermente.
-- Non copre ChatGPT o Perplexity (solo ecosistema Google). Il coverage multi-platform è pianificato per v2.
+- Copre solo l'ecosistema Google (AI Mode / AI Overviews). Il coverage multi-platform è pianificato per una release futura.
 - Il costo è ~$0.01-0.03 per query per settimana, sostenibile con i limiti del Free tier.
 
 ### 7.5 Feedback loop per calibramento score
@@ -564,7 +564,7 @@ I parametri a livello "interpretazione progettuale" sono i candidati primari per
 
 **I pesi sono approssimazioni** basate su correlazioni aggregate. La correlazione di r=0.87 per la semantic completeness non significa che aumentare il Query Reach dell'1% produca l'1% in più di citazioni — le correlazioni sono aggregate e non deterministiche a livello di singolo contenuto.
 
-**La citation verification copre solo Google.** La Gemini API con grounding è ufficiale, legale e affidabile per l'ecosistema Google. Non copre ChatGPT, Perplexity o altri motori AI — il coverage multi-platform è pianificato per v2.
+**La citation verification copre solo Google.** La Gemini API con grounding è ufficiale, legale e affidabile per l'ecosistema Google (AI Mode / AI Overviews). Il coverage di altri motori AI è pianificato per una release futura.
 
 **L'entity density è approssimata.** Il NER euristico usato non ha la precisione di un modello NER dedicato. Per contenuti tecnici o in lingue diverse dall'inglese, l'approssimazione è meno accurata.
 
@@ -595,6 +595,6 @@ I parametri a livello "interpretazione progettuale" sono i candidati primari per
 | **Pairwise ranking** | Tecnica di ranking in cui un LLM confronta i passaggi a coppie per costruire una lista ordinata, più accurata del ranking per similarità pura. |
 | **Query Reach** | Score che misura la copertura semantica dei contenuti rispetto al ventaglio di sotto-query generabili per le query target. |
 | **Self-reference pollution** | Presenza eccessiva di riferimenti anaforici ("questo", "come detto sopra") che rendono un passaggio incomprensibile fuori dal suo contesto — penalizzato nel retrieval RAG. |
-| **Share of Model** | La frequenza con cui un brand appare nelle risposte AI a un set di query rilevanti per il suo settore. Metrica futura pianificata per v1.1. |
+| **Share of Model** | La frequenza con cui un brand appare nelle risposte AI a un set di query rilevanti per il suo settore. Metrica pianificata per una release futura. |
 | **Source Authority** | Score che misura la distribuzione della presenza del brand su piattaforme diverse dal sito principale, pesata per la piattaforma AI target. |
 | **Voyage AI** | Provider di embeddings specializzato in retrieval. Il modello `voyage-3-large` con retrieval asimmetrico è il più accurato per il matching semantico query-documento. |

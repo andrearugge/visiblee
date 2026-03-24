@@ -1,6 +1,6 @@
-# Guida Utente — Come funziona Visiblee v1
+# Guida Utente — Come funziona Visiblee
 
-> **Versione**: 1.0 — Marzo 2026
+> **Data**: Marzo 2026
 > **Lingua**: Italiano
 > **Audience**: marketer, professionisti SEO, brand manager, consulenti GEO
 
@@ -8,7 +8,7 @@
 
 ## 1. Cos'è Visiblee e cosa misura
 
-Visiblee misura e migliora la visibilità del tuo brand nei motori di ricerca basati su AI: Google AI Mode, Google AI Overviews, ChatGPT, Perplexity.
+Visiblee misura e migliora la visibilità del tuo brand in Google AI Mode e Google AI Overviews.
 
 Questi sistemi non funzionano come la SEO tradizionale. Non mostrano una lista di link — generano una risposta sintetica e citano alcune fonti. Il problema: l'88% delle pagine citate da AI Mode non appare nemmeno nella top 10 organica di Google. Essere in prima posizione su Google non garantisce più di essere citato dall'AI.
 
@@ -45,7 +45,7 @@ Questi due parametri sono fondamentali per ottenere risultati rilevanti.
 
 Le query target sono le domande per cui vuoi apparire nelle risposte AI. Sono il cuore del progetto.
 
-**Cosa sono**: query reali che il tuo cliente ideale potrebbe digitare su Google AI Mode o scrivere a ChatGPT. Non sono keyword SEO — sono domande complete o frasi informative.
+**Cosa sono**: query reali che il tuo cliente ideale potrebbe digitare su Google AI Mode. Non sono keyword SEO — sono domande complete o frasi informative.
 
 **Quante inserirne**: il piano Free prevede fino a 5 query. Inizia con 3-5 query molto specifiche e rilevanti, piuttosto che con 5 query generiche.
 
