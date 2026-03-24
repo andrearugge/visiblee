@@ -112,8 +112,29 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 
 ## Current state
 
-**Phase**: 4 — Scoring Engine v2 + Discovery v2 — **COMPLETE**
+**Phase**: 5 — UI Features + Market Targeting — **COMPLETE**
 **Status**: COMPLETE ✅
+
+---
+
+## Phase 5 — UI Features + Market Targeting — COMPLETE
+
+| Task | Summary |
+|---|---|
+| 5.1 | Queries management page: add/remove queries (limit 15), run analysis, i18n `queries` namespace |
+| 5.2 | Citation simulation UI: `TrendDots`, expandable `CitationCard` per query, sources list, segment quote, Gemini search queries toggle |
+| 5.3 | Citation simulation backend: enriched `citation_check.py` — grounding_supports → `supportedText`, `responseText`, `userCitedPosition`, `userCitedSegment`, `isCompetitor`; DELETE-before-INSERT |
+| 5.4 | Content detail page verified: fixed missing `answerFirst` in DB select |
+| 5.5 | Score history chart: Recharts LineChart in overview, toggle per sub-score, min 2 snapshots |
+| 5.6 | Competitor monitoring: add/delete competitors, trigger `competitor_analysis` job, comparison score bars |
+| 5.7 | Opportunity Map UX: header, stat card, legend, gap row highlights, sort toggle, fixed "11 11 gap" bug |
+| 5.8 | Overview empty state: `SetupChecklist` with localStorage dismiss, multi-line textarea for queries, `min-h-[calc(100vh-3.5rem)]` skeleton |
+| 5.9 | Target language + country on Project: `targetLanguage` (ISO 639-1) + `targetCountry` (ISO 3166-1); `SearchableSelect` component; market-aware fanout, discovery (Brave `country`+`search_lang`), citation check (Gemini system prompt) |
+| 5.10 | Settings page: edit targetLanguage + targetCountry on existing projects |
+
+**Key additions:**
+- `components/ui/searchable-select.tsx` — lightweight combobox with live filter, no extra deps
+- `app/api/projects/[id]/citations/route.ts` — GET citations with 4-week trend bucketing
 
 ---
 
