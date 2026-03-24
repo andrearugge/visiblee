@@ -49,6 +49,7 @@ export default async function ContentDetailPage({ params }: Props) {
                   entityDensity: true,
                   statisticalSpecificity: true,
                   definiteness: true,
+                  answerFirst: true,
                   sourceCitation: true,
                   llmReasoning: true,
                 },
