@@ -28,7 +28,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, brandName, websiteUrl, description, status } = body;
+  const { name, brandName, websiteUrl, description, status, targetLanguage, targetCountry } = body;
 
   const updated = await db.project.update({
     where: { id },
@@ -38,6 +38,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(websiteUrl !== undefined && { websiteUrl }),
       ...(description !== undefined && { description }),
       ...(status !== undefined && { status }),
+      ...(targetLanguage !== undefined && { targetLanguage }),
+      ...(targetCountry !== undefined && { targetCountry }),
     },
   });
 

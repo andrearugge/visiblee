@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select';
 import {
   Dialog,
   DialogContent,
@@ -16,12 +17,58 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { value: 'it', label: 'Italiano' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'pt', label: 'Português' },
+];
+
+const COUNTRY_OPTIONS: SelectOption[] = [
+  { value: 'IT', label: 'Italy' },
+  { value: 'US', label: 'United States' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'MX', label: 'Mexico' },
+  { value: 'AR', label: 'Argentina' },
+  { value: 'CO', label: 'Colombia' },
+  { value: 'CL', label: 'Chile' },
+  { value: 'PE', label: 'Peru' },
+  { value: 'FR', label: 'France' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'CH', label: 'Switzerland' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'AT', label: 'Austria' },
+  { value: 'PT', label: 'Portugal' },
+  { value: 'BR', label: 'Brazil' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'IN', label: 'India' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'SE', label: 'Sweden' },
+  { value: 'NO', label: 'Norway' },
+  { value: 'DK', label: 'Denmark' },
+  { value: 'FI', label: 'Finland' },
+  { value: 'PL', label: 'Poland' },
+  { value: 'IE', label: 'Ireland' },
+  { value: 'NZ', label: 'New Zealand' },
+  { value: 'ZA', label: 'South Africa' },
+  { value: 'SG', label: 'Singapore' },
+  { value: 'AE', label: 'United Arab Emirates' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'KR', label: 'South Korea' },
+];
+
 interface Project {
   id: string;
   name: string;
   brandName: string;
   websiteUrl: string;
   description: string | null;
+  targetLanguage: string;
+  targetCountry: string;
 }
 
 interface Props {
@@ -37,6 +84,8 @@ export function ProjectSettingsForm({ project }: Props) {
   const [brandName, setBrandName] = useState(project.brandName);
   const [websiteUrl, setWebsiteUrl] = useState(project.websiteUrl);
   const [description, setDescription] = useState(project.description ?? '');
+  const [targetLanguage, setTargetLanguage] = useState(project.targetLanguage || 'en');
+  const [targetCountry, setTargetCountry] = useState(project.targetCountry || 'US');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -50,7 +99,7 @@ export function ProjectSettingsForm({ project }: Props) {
     const res = await fetch(`/api/projects/${project.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, brandName, websiteUrl, description }),
+      body: JSON.stringify({ name, brandName, websiteUrl, description, targetLanguage, targetCountry }),
     });
 
     setSaving(false);
@@ -110,6 +159,29 @@ export function ProjectSettingsForm({ project }: Props) {
             onChange={(e) => setWebsiteUrl(e.target.value)}
             required
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>{t('targetLanguage')}</Label>
+            <SearchableSelect
+              options={LANGUAGE_OPTIONS}
+              value={targetLanguage}
+              onChange={setTargetLanguage}
+              placeholder={t('selectLanguage')}
+              searchPlaceholder={t('searchLanguage')}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('targetCountry')}</Label>
+            <SearchableSelect
+              options={COUNTRY_OPTIONS}
+              value={targetCountry}
+              onChange={setTargetCountry}
+              placeholder={t('selectCountry')}
+              searchPlaceholder={t('searchCountry')}
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
