@@ -880,71 +880,440 @@ Per ogni contenuto, salvare un hash del testo. Al prossimo ciclo, confrontare l'
 
 ## BLOCCO C — Citation verification + UI
 
-### Task 4.11: Implementa Citation Verification (Gemini Grounding)
+### Task 4.11: Implementa Citation Simulation (Gemini Grounding) — Backend + Frontend
 
-**File da creare:**
-- `services/analyzer/app/citation_check.py`
+Questa è la feature con il maggiore impatto commerciale di Visiblee. Il cliente vede, per ogni sua query target, esattamente cosa l'AI risponderebbe, quali fonti citerebbe, e se lui è tra quelle fonti. È il momento "aha" che giustifica il pagamento.
 
-**Cosa fare:** Creare un modulo che per ogni query target:
+**File da creare/toccare:**
+- `services/analyzer/app/citation_check.py` (nuovo — backend)
+- `apps/web/app/(app)/app/projects/[id]/queries/page.tsx` (aggiornare — mostrare risultati)
+- `apps/web/messages/en.json` e `it.json` (aggiungere chiavi i18n)
+- API route per servire i dati al frontend
 
-1. Chiama Gemini API con `google_search` tool abilitato
-2. Raccoglie `groundingMetadata` dalla risposta
-3. Estrae le fonti citate (`groundingChunks`)
-4. Per ogni fonte, verifica se il dominio corrisponde al sito dell'utente
-5. Salva il risultato nella tabella `CitationCheck`
+---
+
+#### Parte A: Backend — `citation_check.py`
+
+Creare il modulo che per ogni query target chiama Gemini con Google Search grounding e salva i risultati strutturati.
 
 ```python
-async def check_citations(
+"""
+Citation simulation via Gemini API with Google Search grounding.
+
+For each target query, asks Gemini a question with grounding enabled.
+Gemini searches Google internally and returns:
+- The synthesized response text
+- groundingChunks: the web sources used (URL + title)
+- groundingSupports: mapping between response segments and specific sources
+- webSearchQueries: the internal search queries Gemini generated (real fan-out!)
+
+This data is saved to CitationCheck records for display in the Queries page.
+"""
+
+import asyncio
+import logging
+from typing import Any
+from urllib.parse import urlparse
+
+from .config import config
+
+log = logging.getLogger(__name__)
+
+try:
+    from google import genai as google_genai
+    _gemini_client = google_genai.Client(api_key=config.GOOGLE_AI_API_KEY) if config.GOOGLE_AI_API_KEY else None
+except ImportError:
+    _gemini_client = None
+
+
+async def run_citation_checks(
     target_queries: list[dict],
     user_domain: str,
     project_id: str,
-) -> list[dict]:
+    known_competitor_domains: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """
-    For each target query, ask Gemini with grounding and check if user is cited.
+    For each target query, simulate what Google AI would respond and which sources it cites.
+    
+    Args:
+        target_queries: list of {"id": str, "queryText": str}
+        user_domain: the user's domain (e.g. "marinoallestimenti.com")
+        project_id: for logging
+        known_competitor_domains: domains already identified as competitors
+    
+    Returns list of dicts ready to save to CitationCheck table:
+        {
+            "target_query_id": str,
+            "user_cited": bool,
+            "user_cited_position": int | None,      # 1-based position among sources, None if not cited
+            "user_cited_segment": str | None,        # the response text segment supported by user's content
+            "cited_sources": [                       # ALL sources, in citation order
+                {
+                    "url": str,
+                    "title": str,
+                    "domain": str,
+                    "is_user": bool,
+                    "is_competitor": bool,
+                    "position": int,                 # 1-based
+                    "supported_text": str | None,    # which part of the response this source supports
+                }
+            ],
+            "search_queries": [str],                 # Gemini's internal fan-out queries (GOLD DATA)
+            "response_text": str,                    # The full synthesized response
+            "raw_response": str | None,              # Full response for debug (optional, can be large)
+        }
     """
+    if not _gemini_client:
+        log.warning(f"[{project_id}] Gemini client not available — skipping citation checks")
+        return []
+    
+    competitor_domains = set(known_competitor_domains or [])
     results = []
     
     for tq in target_queries:
         query_text = tq["queryText"]
-        
-        response = await _gemini_client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=query_text,
-            config={
-                "tools": [{"google_search": {}}],
-            }
-        )
-        
-        # Extract grounding metadata
-        cited_sources = []
-        grounding = getattr(response.candidates[0], 'grounding_metadata', None)
-        if grounding and grounding.grounding_chunks:
-            for chunk in grounding.grounding_chunks:
-                web = getattr(chunk, 'web', None)
-                if web:
-                    domain = extract_domain(web.uri)
-                    cited_sources.append({
-                        "url": web.uri,
-                        "title": web.title,
-                        "domain": domain,
-                        "is_user": domain == user_domain,
-                    })
-        
-        user_cited = any(s["is_user"] for s in cited_sources)
-        
-        results.append({
-            "target_query_id": tq["id"],
-            "cited_sources": cited_sources,
-            "user_cited": user_cited,
-            "search_queries": getattr(grounding, 'web_search_queries', []) if grounding else [],
-        })
+        try:
+            result = await _check_single_query(
+                query_text=query_text,
+                target_query_id=tq["id"],
+                user_domain=user_domain,
+                competitor_domains=competitor_domains,
+            )
+            results.append(result)
+            
+            status = "CITED ✓" if result["user_cited"] else "NOT CITED ✗"
+            log.info(
+                f"[{project_id}] Citation check '{query_text}': {status} "
+                f"({len(result['cited_sources'])} sources, "
+                f"{len(result['search_queries'])} internal queries)"
+            )
+            
+        except Exception as e:
+            log.warning(f"[{project_id}] Citation check failed for '{query_text}': {e}")
+            results.append({
+                "target_query_id": tq["id"],
+                "user_cited": False,
+                "user_cited_position": None,
+                "user_cited_segment": None,
+                "cited_sources": [],
+                "search_queries": [],
+                "response_text": "",
+                "raw_response": None,
+                "error": str(e),
+            })
     
     return results
+
+
+async def _check_single_query(
+    query_text: str,
+    target_query_id: str,
+    user_domain: str,
+    competitor_domains: set[str],
+) -> dict[str, Any]:
+    """Run a single citation check for one query."""
+    
+    # Call Gemini with Google Search grounding
+    # NOTE: The exact syntax for enabling grounding may vary by SDK version.
+    # Check https://ai.google.dev/gemini-api/docs/google-search for current syntax.
+    # Some versions use: config=GenerateContentConfig(tools=[Tool(google_search=GoogleSearch())])
+    response = await _gemini_client.aio.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=query_text,
+        config={
+            "tools": [{"google_search": {}}],
+        }
+    )
+    
+    if not response.candidates:
+        return _empty_result(target_query_id)
+    
+    candidate = response.candidates[0]
+    
+    # Extract the response text
+    response_text = ""
+    if candidate.content and candidate.content.parts:
+        response_text = "".join(
+            part.text for part in candidate.content.parts if hasattr(part, 'text') and part.text
+        )
+    
+    # Extract grounding metadata
+    grounding = getattr(candidate, 'grounding_metadata', None)
+    if not grounding:
+        return {
+            "target_query_id": target_query_id,
+            "user_cited": False,
+            "user_cited_position": None,
+            "user_cited_segment": None,
+            "cited_sources": [],
+            "search_queries": [],
+            "response_text": response_text,
+            "raw_response": response_text,
+        }
+    
+    # Extract cited sources from groundingChunks
+    cited_sources = []
+    chunks = getattr(grounding, 'grounding_chunks', None) or []
+    for i, chunk in enumerate(chunks):
+        web = getattr(chunk, 'web', None)
+        if not web or not web.uri:
+            continue
+        
+        domain = _extract_domain(web.uri)
+        is_user = _domain_matches(domain, user_domain)
+        is_competitor = any(_domain_matches(domain, cd) for cd in competitor_domains)
+        
+        cited_sources.append({
+            "url": web.uri,
+            "title": web.title or "",
+            "domain": domain,
+            "is_user": is_user,
+            "is_competitor": is_competitor,
+            "position": i + 1,
+            "supported_text": None,  # Will be filled from groundingSupports
+        })
+    
+    # Extract groundingSupports — maps response segments to sources
+    supports = getattr(grounding, 'grounding_supports', None) or []
+    for support in supports:
+        # Each support has: segment (with startIndex, endIndex, text) and groundingChunkIndices
+        segment = getattr(support, 'segment', None)
+        chunk_indices = getattr(support, 'grounding_chunk_indices', None) or []
+        
+        if segment and chunk_indices:
+            segment_text = getattr(segment, 'text', '') or ''
+            for idx in chunk_indices:
+                if 0 <= idx < len(cited_sources):
+                    # Append to the source's supported_text
+                    existing = cited_sources[idx].get("supported_text") or ""
+                    if existing:
+                        cited_sources[idx]["supported_text"] = existing + " [...] " + segment_text
+                    else:
+                        cited_sources[idx]["supported_text"] = segment_text
+    
+    # Extract internal search queries (the real fan-out — extremely valuable data)
+    search_queries = []
+    raw_queries = getattr(grounding, 'web_search_queries', None) or []
+    search_queries = list(raw_queries)
+    
+    # Determine user citation status
+    user_cited = any(s["is_user"] for s in cited_sources)
+    user_cited_position = None
+    user_cited_segment = None
+    if user_cited:
+        user_source = next(s for s in cited_sources if s["is_user"])
+        user_cited_position = user_source["position"]
+        user_cited_segment = user_source.get("supported_text")
+    
+    return {
+        "target_query_id": target_query_id,
+        "user_cited": user_cited,
+        "user_cited_position": user_cited_position,
+        "user_cited_segment": user_cited_segment,
+        "cited_sources": cited_sources,
+        "search_queries": search_queries,
+        "response_text": response_text,
+        "raw_response": response_text,  # Could store full JSON for debug
+    }
+
+
+def _extract_domain(url: str) -> str:
+    try:
+        return urlparse(url).netloc.lstrip("www.").lower()
+    except Exception:
+        return ""
+
+def _domain_matches(domain: str, target: str) -> bool:
+    """Check if domain matches target, handling subdomains."""
+    target = target.lstrip("www.").lower()
+    return domain == target or domain.endswith("." + target)
+
+def _empty_result(target_query_id: str) -> dict:
+    return {
+        "target_query_id": target_query_id,
+        "user_cited": False,
+        "user_cited_position": None,
+        "user_cited_segment": None,
+        "cited_sources": [],
+        "search_queries": [],
+        "response_text": "",
+        "raw_response": None,
+    }
 ```
 
-**NOTA IMPORTANTE**: la API Gemini con Grounding usa il parametro `tools` con `google_search`. Controllare la documentazione più recente di google-genai SDK per la sintassi esatta. L'URL di riferimento è: https://ai.google.dev/gemini-api/docs/google-search
+#### Parte B: Salvare i risultati nel DB
 
-**Criterio di verifica:** Per una query di test (es: "best CRM for startups"), la funzione restituisce una lista di fonti citate con URL e titoli. Il campo `user_cited` è corretto.
+Aggiungere una funzione `save_citation_checks` che salva nella tabella `CitationCheck` (già definita nella migration Task 4.2):
+
+```python
+def save_citation_checks(
+    conn,
+    project_id: str,
+    snapshot_id: str | None,
+    checks: list[dict],
+) -> None:
+    """Save citation check results to DB. Replaces previous checks for same queries."""
+    with conn.cursor() as cur:
+        for check in checks:
+            if check.get("error"):
+                continue  # Skip failed checks
+            
+            # Delete previous check for this query (keep only latest)
+            cur.execute(
+                'DELETE FROM citation_checks WHERE "projectId" = %s AND "targetQueryId" = %s',
+                (project_id, check["target_query_id"]),
+            )
+            
+            cur.execute(
+                """
+                INSERT INTO citation_checks (
+                    id, "projectId", "targetQueryId", "snapshotId",
+                    "citedSources", "userCited", "searchQueries",
+                    "rawResponse", "checkedAt"
+                )
+                VALUES (
+                    gen_random_uuid(), %s, %s, %s,
+                    %s, %s, %s,
+                    %s, NOW()
+                )
+                """,
+                (
+                    project_id,
+                    check["target_query_id"],
+                    snapshot_id,
+                    json.dumps(check["cited_sources"]),
+                    check["user_cited"],
+                    json.dumps(check["search_queries"]),
+                    check.get("raw_response"),
+                ),
+            )
+```
+
+#### Parte C: Integrazione nel full_pipeline.py
+
+Aggiungere la citation check come step 11 nel pipeline, DOPO il salvataggio dello snapshot (perché è non-critica — un fallimento non deve bloccare lo scoring):
+
+```python
+# Step 11 — Citation simulation (non-critical)
+try:
+    known_competitors = _load_competitor_domains(conn, project_id)
+    citation_checks = await run_citation_checks(
+        target_queries=target_queries,
+        user_domain=domain,
+        project_id=project_id,
+        known_competitor_domains=known_competitors,
+    )
+    save_citation_checks(conn, project_id, snapshot_id, citation_checks)
+    conn.commit()
+    
+    cited_count = sum(1 for c in citation_checks if c["user_cited"])
+    log.info(f"[{project_id}] Citation checks: {cited_count}/{len(citation_checks)} queries cited")
+except Exception as exc:
+    log.warning(f"[{project_id}] Citation checks failed (non-blocking): {exc}")
+    conn.rollback()
+```
+
+#### Parte D: API Route per il frontend
+
+Creare una API route che serve i dati di citation check per un progetto:
+
+```
+GET /api/projects/[id]/citations
+```
+
+Response:
+```json
+{
+  "citations": [
+    {
+      "id": "...",
+      "targetQueryId": "...",
+      "queryText": "allestimenti per eventi Milano",
+      "userCited": false,
+      "userCitedPosition": null,
+      "userCitedSegment": null,
+      "citedSources": [
+        {
+          "url": "https://eventiatelier.it/...",
+          "title": "Allestimenti per eventi a Milano",
+          "domain": "eventiatelier.it",
+          "isUser": false,
+          "isCompetitor": true,
+          "position": 1,
+          "supportedText": "Gli allestimenti per eventi richiedono..."
+        }
+      ],
+      "searchQueries": [
+        "allestimenti fieristici Milano",
+        "stand personalizzati eventi",
+        "migliori aziende allestimenti Lombardia"
+      ],
+      "checkedAt": "2026-03-24T10:00:00Z",
+      "trend": {
+        "citedWeeks": 0,
+        "totalWeeks": 4,
+        "history": [false, false, false, false]
+      }
+    }
+  ]
+}
+```
+
+Il campo `trend` va calcolato dalla storia delle citation checks per la stessa query (ultime 4 settimane). Richiede una query sulle citation_checks precedenti con `checkedAt` nelle ultime 4 settimane.
+
+#### Parte E: Frontend — Vista nella pagina Queries
+
+Aggiornare la pagina Queries (`apps/web/app/(app)/app/projects/[id]/queries/page.tsx`) per mostrare i risultati di citation simulation sotto ogni query target.
+
+**Design per ogni query target — STATO: NON CITATO:**
+
+Mostrare una card sotto la query con:
+1. **Badge di stato**: "Non citato" con icona ✗ rossa. Affiancato dal trend: "0/4 settimane" con icone pallini (●○○○)
+2. **Lista fonti citate**: tutte le fonti restituite da Gemini, numerate in ordine di citazione. Per ogni fonte: numero posizione, favicon/icona, dominio, titolo della pagina (troncato). Le fonti competitor (già noti) hanno un badge "Competitor". Link "Vedi analisi" che porta alla pagina Competitors con il dettaglio per quel competitor e quella query.
+3. **Sotto-query Google**: sezione collassabile "Google ha cercato internamente:" con la lista delle `searchQueries`. Queste sono le sotto-query fan-out reali — dato unico e preziosissimo.
+4. **CTA**: "Scopri perché queste fonti vengono citate →" che porta alla pagina Competitors
+
+**Design per ogni query target — STATO: CITATO:**
+
+Stessa struttura, ma:
+1. **Badge di stato**: "Citato" con icona ✓ verde + posizione ("Posizione 3 su 5"). Trend: "3/4 settimane" con pallini verdi.
+2. **Lista fonti**: il contenuto dell'utente è evidenziato con icona ⭐ e sfondo leggero colorato.
+3. **Segmento citato**: se disponibile da `groundingSupports`, mostrare: "Il tuo contenuto supporta questa parte della risposta AI:" seguito dal testo del segmento in un blocco citazione con sfondo colorato. Questo è il momento "wow" — il cliente vede esattamente quale frase l'AI ha preso dal suo contenuto.
+4. **CTA**: "Come salire in posizione 1 →" che porta a Optimization Tips
+
+**Stato empty**: se i citation checks non sono ancora stati eseguiti (primo accesso, prima dell'analisi completa), mostrare un empty state educativo: "Dopo la prima analisi completa, vedrai qui quali fonti Google AI cita per le tue query e se sei tra queste."
+
+**i18n**: tutte le stringhe devono usare chiavi di traduzione. Aggiungere namespace `citations` in en.json e it.json:
+```json
+{
+  "citations": {
+    "notCited": "Not cited",
+    "cited": "Cited",
+    "position": "Position {position} of {total}",
+    "trend": "{cited}/{total} weeks",
+    "sourcesTitle": "Sources cited by Google AI ({count}):",
+    "searchQueriesTitle": "Google searched internally:",
+    "searchQueriesCollapsed": "Show Google's internal queries",
+    "yourContentSupports": "Your content supports this part of the AI response:",
+    "seeCompetitorAnalysis": "See why these sources are cited →",
+    "howToRankHigher": "How to rank higher →",
+    "competitor": "Competitor",
+    "emptyState": "After the first full analysis, you'll see which sources Google AI cites for your queries.",
+    "volatilityNote": "This is a snapshot from {date}. AI citations vary between sessions — the weekly trend is more meaningful than a single check."
+  }
+}
+```
+
+**Nota sulla volatilità**: sotto la sezione citation di ogni query, mostrare una nota discreta (testo piccolo, colore muted): "Snapshot del {data}. Le citazioni AI variano tra le sessioni — il trend settimanale è più significativo di un singolo check." Questo gestisce le aspettative del cliente.
+
+#### Criterio di verifica
+
+1. **Backend**: `run_citation_checks` restituisce dati strutturati per una query di test. I campi `cited_sources`, `search_queries`, `user_cited` sono popolati correttamente.
+2. **DB**: I record vengono salvati nella tabella `citation_checks` e la cancellazione del precedente per la stessa query funziona.
+3. **API**: La route `/api/projects/[id]/citations` restituisce i dati con il trend calcolato.
+4. **Frontend**: La pagina Queries mostra le card citation con tutte le informazioni. Lo stato empty funziona. I link a Competitors funzionano.
+5. **Graceful degradation**: Se Gemini Grounding non è disponibile (API key mancante, SDK incompatibile, errore di rete), il pipeline completa normalmente senza citation checks e la UI mostra l'empty state.
+6. **i18n**: Tutte le stringhe sono tradotte in IT e EN.
 
 ---
 

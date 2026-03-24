@@ -414,15 +414,18 @@ model FanoutCoverageMap {
 // ─────────────────────────────────────────────
 
 model CitationCheck {
-  id            String   @id @default(uuid())
-  projectId     String
-  targetQueryId String
-  snapshotId    String?
-  citedSources  Json     // [{url, title, domain, isUser, isCompetitor}]
-  userCited     Boolean  @default(false)
-  searchQueries Json?    // query di ricerca usate da Gemini (fan-out reale)
-  rawResponse   String?  // risposta Gemini completa (per debug)
-  checkedAt     DateTime @default(now())
+  id                String   @id @default(uuid())
+  projectId         String
+  targetQueryId     String
+  snapshotId        String?
+  citedSources      Json     // [{url, title, domain, isUser, isCompetitor, position, supportedText}]
+  userCited         Boolean  @default(false)
+  userCitedPosition Int?     // 1-based position if cited
+  userCitedSegment  String?  // AI response segment supported by user's content
+  responseText      String?  // full synthesized AI response
+  searchQueries     Json?    // Gemini's internal fan-out queries (real signal)
+  rawResponse       String?  // full response for debug
+  checkedAt         DateTime @default(now())
 
   project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   targetQuery TargetQuery           @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)

@@ -41,7 +41,7 @@ from .scoring import (
     generate_insights,
 )
 from .recommendations import generate_recommendations, save_recommendations
-from .citation_check import check_citations, save_citation_checks
+from .citation_check import check_citations, save_citation_checks, _extract_domain
 from .competitor_analysis import analyze_competitor_citations
 
 log = logging.getLogger(__name__)
@@ -648,8 +648,18 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     if target_queries:
         try:
             website_url: str = project["websiteUrl"]
+            # Load known competitor domains for is_competitor flagging
+            with conn.cursor() as _cur:
+                _cur.execute(
+                    'SELECT "websiteUrl" FROM competitors WHERE "projectId" = %s AND "isConfirmed" = TRUE',
+                    (project_id,),
+                )
+                _competitor_domains = [
+                    _extract_domain(row[0]) for row in _cur.fetchall() if row[0]
+                ]
             citation_results = await check_citations(
-                target_queries, website_url, project_id
+                target_queries, website_url, project_id,
+                known_competitor_domains=_competitor_domains,
             )
             save_citation_checks(conn, project_id, snapshot_id, citation_results)
             conn.commit()

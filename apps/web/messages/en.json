@@ -486,6 +486,23 @@
     "pendingChangesSubtitle": "Run a new analysis to update your scores and coverage data.",
     "runAnalysisNow": "Run analysis now"
   },
+  "citations": {
+    "sectionTitle": "AI Citation Simulation",
+    "sectionSubtitle": "For each query, Visiblee asks Google AI Mode and checks whether your content is cited.",
+    "cited": "Cited",
+    "notCited": "Not cited",
+    "position": "Position {position} of {total}",
+    "trend": "{cited}/{total} weeks",
+    "sourcesTitle": "Sources cited by Google AI ({count})",
+    "searchQueriesToggle": "Google searched internally ({count})",
+    "yourContentSupports": "Your content supports this part of the AI response:",
+    "competitor": "Competitor",
+    "seeCompetitors": "See competitor analysis →",
+    "howToRankHigher": "How to rank higher →",
+    "emptyState": "After the first full analysis, you'll see which sources Google AI cites for your queries — and whether you're among them.",
+    "volatilityNote": "Snapshot from {date}. AI citations vary between sessions — the weekly trend is more meaningful than a single check.",
+    "checkedAt": "Checked {date}"
+  },
   "competitors": {
     "title": "Competitors",
     "addName": "Competitor name",
