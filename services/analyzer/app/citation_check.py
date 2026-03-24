@@ -53,6 +53,8 @@ async def check_citations(
     user_domain: str,
     project_id: str,
     known_competitor_domains: list[str] | None = None,
+    target_language: str = "en",
+    target_country: str = "US",
 ) -> list[dict[str, Any]]:
     """
     For each target query, simulate a Google AI Mode response and extract citation data.
@@ -88,6 +90,8 @@ async def check_citations(
                 target_query_id=target_query_id,
                 user_domain=user_domain_clean,
                 competitor_domains=competitor_domains,
+                target_language=target_language,
+                target_country=target_country,
             )
             status = "CITED ✓" if result["user_cited"] else "NOT CITED ✗"
             log.info(
@@ -105,15 +109,31 @@ async def check_citations(
     return results
 
 
+_LANG_NAMES = {
+    "it": "Italian", "en": "English", "es": "Spanish",
+    "fr": "French", "de": "German", "pt": "Portuguese",
+}
+
+
 async def _check_single_query(
     query_text: str,
     target_query_id: str,
     user_domain: str,
     competitor_domains: set[str],
+    target_language: str = "en",
+    target_country: str = "US",
 ) -> dict[str, Any]:
+    lang_name = _LANG_NAMES.get(target_language[:2].lower(), "English")
+    system_prompt = (
+        f"You are simulating a Google AI Mode response for a user in {target_country} "
+        f"searching in {lang_name}. Answer the query as Google AI Mode would, "
+        f"using web sources relevant to that market and language."
+    )
     response = await _gemini.aio.models.generate_content(
         model="gemini-2.5-flash",
-        contents=query_text,
+        contents=[
+            {"role": "user", "parts": [{"text": f"{system_prompt}\n\nQuery: {query_text}"}]},
+        ],
         config={"tools": [{"google_search": {}}]},
     )
 

@@ -56,6 +56,7 @@ def _load_project(conn, project_id: str) -> dict | None:
         cur.execute(
             """
             SELECT p."websiteUrl", p."brandName", p."aiPlatformTarget",
+                   p."targetLanguage", p."targetCountry",
                    u."preferredLocale"
             FROM projects p
             JOIN users u ON u.id = p."userId"
@@ -499,7 +500,8 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
         raise ValueError(f"Project {project_id} not found")
 
     brand_name: str = project["brandName"]
-    language: str = project["preferredLocale"] or "en"
+    language: str = project["targetLanguage"] or project["preferredLocale"] or "en"
+    target_country: str = project["targetCountry"] or "US"
     ai_platform_target: str = project.get("aiPlatformTarget") or "all"
 
     target_queries = _load_target_queries(conn, project_id)
@@ -660,6 +662,8 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
             citation_results = await check_citations(
                 target_queries, website_url, project_id,
                 known_competitor_domains=_competitor_domains,
+                target_language=language,
+                target_country=target_country,
             )
             save_citation_checks(conn, project_id, snapshot_id, citation_results)
             conn.commit()

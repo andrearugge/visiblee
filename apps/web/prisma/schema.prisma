@@ -147,6 +147,8 @@ model Project {
   status            String  @default("active") // 'active' | 'paused' | 'archived'
   optimizationFocus String? // 'content_quality' | 'brand_authority' | 'cross_platform' | 'technical'
   aiPlatformTarget  String  @default("all")    // 'google_ai' | 'chatgpt' | 'perplexity' | 'all'
+  targetLanguage    String  @default("en")     // ISO 639-1: 'it' | 'en' | 'es' | 'fr' | 'de' | 'pt'
+  targetCountry     String  @default("US")     // ISO 3166-1 alpha-2: country of the target market
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

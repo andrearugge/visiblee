@@ -424,7 +424,7 @@ async def process_discovery_job(job: dict) -> None:
         # Fetch project data
         with conn.cursor() as cur:
             cur.execute(
-                'SELECT "websiteUrl", "brandName" FROM projects WHERE id = %s',
+                'SELECT "websiteUrl", "brandName", "targetLanguage", "targetCountry" FROM projects WHERE id = %s',
                 (project_id,),
             )
             project = cur.fetchone()
@@ -433,14 +433,8 @@ async def process_discovery_job(job: dict) -> None:
             fail_job(conn, job_id, "Project not found")
             return
 
-        # Get user locale for language-aware classification
-        with conn.cursor() as cur:
-            cur.execute(
-                'SELECT "preferredLocale" FROM users WHERE id = (SELECT "userId" FROM projects WHERE id = %s)',
-                (project_id,),
-            )
-            user = cur.fetchone()
-        language = (user or {}).get("preferredLocale", "en")
+        language = project.get("targetLanguage") or "en"
+        target_country = project.get("targetCountry") or "US"
 
         # Load active target queries to enable sector-keyword and Gemini Grounding discovery
         with conn.cursor() as cur:
@@ -455,6 +449,7 @@ async def process_discovery_job(job: dict) -> None:
                 website_url=project["websiteUrl"],
                 brand_name=project["brandName"],
                 language=language,
+                country=target_country,
                 target_queries=target_queries or None,
             ),
             timeout=120,

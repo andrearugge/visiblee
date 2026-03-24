@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { name, brandName, websiteUrl, description, queryTargets } = body;
+  const { name, brandName, websiteUrl, description, queryTargets, targetLanguage, targetCountry } = body;
 
   if (!name || !brandName || !websiteUrl) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -33,6 +33,8 @@ export async function POST(req: Request) {
       brandName,
       websiteUrl,
       description,
+      targetLanguage: targetLanguage || 'en',
+      targetCountry: targetCountry || 'US',
     },
   });
 

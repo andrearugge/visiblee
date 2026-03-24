@@ -6,6 +6,51 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select';
+
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { value: 'it', label: 'Italiano' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'pt', label: 'Português' },
+];
+
+const COUNTRY_OPTIONS: SelectOption[] = [
+  { value: 'IT', label: 'Italy' },
+  { value: 'US', label: 'United States' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'MX', label: 'Mexico' },
+  { value: 'AR', label: 'Argentina' },
+  { value: 'CO', label: 'Colombia' },
+  { value: 'CL', label: 'Chile' },
+  { value: 'PE', label: 'Peru' },
+  { value: 'FR', label: 'France' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'CH', label: 'Switzerland' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'AT', label: 'Austria' },
+  { value: 'PT', label: 'Portugal' },
+  { value: 'BR', label: 'Brazil' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'IN', label: 'India' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'SE', label: 'Sweden' },
+  { value: 'NO', label: 'Norway' },
+  { value: 'DK', label: 'Denmark' },
+  { value: 'FI', label: 'Finland' },
+  { value: 'PL', label: 'Poland' },
+  { value: 'IE', label: 'Ireland' },
+  { value: 'NZ', label: 'New Zealand' },
+  { value: 'ZA', label: 'South Africa' },
+  { value: 'SG', label: 'Singapore' },
+  { value: 'AE', label: 'United Arab Emirates' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'KR', label: 'South Korea' },
+];
 
 export function NewProjectForm() {
   const t = useTranslations('projects');
@@ -16,6 +61,8 @@ export function NewProjectForm() {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [description, setDescription] = useState('');
   const [queriesText, setQueriesText] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('it');
+  const [targetCountry, setTargetCountry] = useState('IT');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,13 +79,18 @@ export function NewProjectForm() {
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, brandName, websiteUrl, description, queryTargets }),
+      body: JSON.stringify({ name, brandName, websiteUrl, description, queryTargets, targetLanguage, targetCountry }),
     });
 
     setLoading(false);
 
     if (!res.ok) {
-      setError((await res.json()).error ?? 'Error');
+      try {
+        const data = await res.json();
+        setError(data.error ?? 'Error');
+      } catch {
+        setError('Error');
+      }
       return;
     }
 
@@ -80,6 +132,29 @@ export function NewProjectForm() {
           placeholder={t('urlPlaceholder')}
           required
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>{t('targetLanguage')}</Label>
+          <SearchableSelect
+            options={LANGUAGE_OPTIONS}
+            value={targetLanguage}
+            onChange={setTargetLanguage}
+            placeholder={t('selectLanguage')}
+            searchPlaceholder={t('searchLanguage')}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t('targetCountry')}</Label>
+          <SearchableSelect
+            options={COUNTRY_OPTIONS}
+            value={targetCountry}
+            onChange={setTargetCountry}
+            placeholder={t('selectCountry')}
+            searchPlaceholder={t('searchCountry')}
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">

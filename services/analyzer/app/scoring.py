@@ -62,7 +62,8 @@ async def generate_fanout_queries_grouped(
         return [[] for _ in target_queries]
 
     n = config.FANOUT_PER_QUERY
-    lang_instruction = "in Italian" if language == "it" else "in English"
+    _LANG_NAMES = {"it": "Italian", "en": "English", "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese"}
+    lang_instruction = f"in {_LANG_NAMES.get(language[:2].lower(), 'English')}"
     current_year = datetime.now().year
 
     async def expand_query(query: str) -> list[str]:
@@ -464,7 +465,8 @@ async def generate_insights(
     language: str,
 ) -> list[str]:
     """Generate 3–4 insight bullets using Claude or Gemini."""
-    lang_instruction = "in Italian" if language == "it" else "in English"
+    _LANG_NAMES = {"it": "Italian", "en": "English", "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese"}
+    lang_instruction = f"in {_LANG_NAMES.get(language[:2].lower(), 'English')}"
 
     score_summary = "\n".join(
         f"- {k.replace('_', ' ').title()}: {v:.0%}" for k, v in scores.items()

@@ -142,7 +142,12 @@ def _generate_brand_variations(brand_name: str) -> list[str]:
     return variations[:4]
 
 
-async def _brave_search(query: str, count: int = 20) -> list[dict[str, str]]:
+async def _brave_search(
+    query: str,
+    count: int = 20,
+    country: str = "US",
+    search_lang: str = "en",
+) -> list[dict[str, str]]:
     """Run a Brave web search and return [{url, title, snippet}]."""
     if not config.BRAVE_SEARCH_API_KEY:
         return []
@@ -155,7 +160,12 @@ async def _brave_search(query: str, count: int = 20) -> list[dict[str, str]]:
                     "Accept-Encoding": "gzip",
                     "X-Subscription-Token": config.BRAVE_SEARCH_API_KEY,
                 },
-                params={"q": query, "count": min(count, 20)},
+                params={
+                    "q": query,
+                    "count": min(count, 20),
+                    "country": country.lower(),
+                    "search_lang": search_lang[:2].lower(),
+                },
                 timeout=12,
             )
             if resp.status_code != 200:
@@ -315,6 +325,7 @@ async def discover_content(
     website_url: str,
     brand_name: str,
     language: str = "en",
+    country: str = "US",
     target_queries: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """
@@ -374,9 +385,9 @@ async def discover_content(
     for news_site in news_sites[:5]:
         queries.append((f'"{brand_name}" site:{news_site}', 10))                 # 13+.
 
-    log.info(f"Discovery: running {len(queries)} parallel Brave searches for {domain} (lang={lang})")
+    log.info(f"Discovery: running {len(queries)} parallel Brave searches for {domain} (lang={lang}, country={country})")
 
-    all_batches = await asyncio.gather(*[_brave_search(q, c) for q, c in queries])
+    all_batches = await asyncio.gather(*[_brave_search(q, c, country=country, search_lang=lang) for q, c in queries])
 
     # Deduplicate across all Brave batches (preserve order: own content first)
     seen: set[str] = set()
