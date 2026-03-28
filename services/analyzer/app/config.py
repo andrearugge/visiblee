@@ -36,6 +36,10 @@ class Config:
     # App URL (used for links in emails)
     APP_URL: str = os.getenv("APP_URL", "http://localhost:3000")
 
+    # Google OAuth (used for GSC token refresh)
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
     # Internal
     ANALYZER_API_KEY: str = os.getenv("ANALYZER_API_KEY", "dev-internal-key")
 
@@ -66,6 +70,9 @@ class Config:
 
     # Gemini Grounding (citation verification) — same key as GOOGLE_AI_API_KEY
     GOOGLE_AI_API_KEY_GROUNDING: str = os.getenv("GOOGLE_AI_API_KEY", "")
+
+    # GSC integration — encryption key for OAuth tokens (64 hex chars)
+    GSC_TOKEN_ENCRYPTION_KEY: str = os.getenv("GSC_TOKEN_ENCRYPTION_KEY", "")
 
     # Free tier limits
     MAX_QUERIES_FREE: int = int(os.getenv("MAX_QUERIES_FREE", "5"))

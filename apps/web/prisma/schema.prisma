@@ -28,11 +28,12 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  projects      Project[]
-  notifications Notification[]
+  accounts        Account[]
+  sessions        Session[]
+  projects        Project[]
+  notifications   Notification[]
   previewAnalyses PreviewAnalysis[]
+  gscConnections  GscConnection[]
 
   @@map("users")
 }
@@ -152,16 +153,20 @@ model Project {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetQueries   TargetQuery[]
-  contents        Content[]
-  competitors     Competitor[]
-  scoreSnapshots  ProjectScoreSnapshot[]
-  recommendations Recommendation[]
-  notifications   Notification[]
-  jobs            Job[]
-  previewAnalyses PreviewAnalysis[]
-  citationChecks  CitationCheck[]
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetQueries     TargetQuery[]
+  contents          Content[]
+  competitors       Competitor[]
+  scoreSnapshots    ProjectScoreSnapshot[]
+  recommendations   Recommendation[]
+  notifications     Notification[]
+  jobs              Job[]
+  previewAnalyses   PreviewAnalysis[]
+  citationChecks    CitationCheck[]
+  gscConnection     GscConnection?
+  gscQueryData      GscQueryData[]
+  intentProfiles    IntentProfile[]
+  querySuggestions  GscQuerySuggestion[]
 
   @@index([userId])
   @@map("projects")
@@ -432,6 +437,7 @@ model CitationCheck {
   project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   targetQuery TargetQuery           @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
   snapshot    ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
+  variants    CitationCheckVariant[]
 
   @@index([projectId])
   @@index([targetQueryId])
@@ -512,6 +518,161 @@ model Job {
   @@index([projectId])
   @@index([previewId])
   @@map("jobs")
+}
+
+// ─────────────────────────────────────────────
+// GSC INTEGRATION
+// ─────────────────────────────────────────────
+
+model GscConnection {
+  id             String    @id @default(uuid())
+  projectId      String    @unique // 1 connessione per progetto
+  userId         String              // chi ha autorizzato
+
+  // OAuth tokens (encrypted AES-256-GCM)
+  accessToken    String
+  refreshToken   String
+  tokenExpiresAt DateTime
+
+  // GSC property
+  propertyUrl    String?             // es. "https://www.example.com/" o "sc-domain:example.com"
+  propertyType   String?             // "URL_PREFIX" | "DOMAIN"
+
+  // Status
+  status         String    @default("active") // "active" | "revoked" | "error"
+  lastSyncAt     DateTime?
+  lastSyncError  String?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id])
+
+  @@map("gsc_connections")
+}
+
+model GscQueryData {
+  id          String   @id @default(uuid())
+  projectId   String
+
+  // Dati dalla GSC API
+  query       String
+  page        String?             // landing page URL
+  country     String?             // ISO 3166-1 alpha-3
+  device      String?             // "DESKTOP" | "MOBILE" | "TABLET"
+
+  // Metriche
+  clicks      Int      @default(0)
+  impressions Int      @default(0)
+  ctr         Float    @default(0)
+  position    Float    @default(0) // posizione media
+
+  // Periodo
+  dateStart   DateTime
+  dateEnd     DateTime
+  syncBatchId String              // traccia quale sync ha importato questi dati
+
+  // Classificazione intento (calcolata dopo sync)
+  intentType  String?             // "informational" | "comparative" | "decisional" | "navigational" | "conversational_ai"
+  intentScore Float?              // confidenza 0-1
+  isLongQuery Boolean  @default(false) // query 6+ parole (proxy AI query)
+
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, query, country, device, dateStart, dateEnd])
+  @@index([projectId, impressions(sort: Desc)])
+  @@index([projectId, intentType])
+  @@index([projectId, isLongQuery])
+  @@map("gsc_query_data")
+}
+
+model IntentProfile {
+  id               String   @id @default(uuid())
+  projectId        String
+
+  // Identificazione
+  name             String
+  slug             String
+  description      String?
+
+  // Caratteristiche derivate
+  dominantIntent   String              // "informational" | "comparative" | "decisional"
+  dominantDevice   String?             // "DESKTOP" | "MOBILE"
+  dominantCountry  String?             // ISO alpha-3
+  avgQueryLength   Float
+  queryCount       Int
+  totalImpressions Int
+
+  // Pattern e query di esempio
+  topPatterns      Json                // top 5 pattern (es. ["vs", "migliore", "come"])
+  sampleQueries    Json                // 5 query esempio
+
+  // Contesto per citation check
+  contextPrompt    String?             // system prompt addendum per simulare questo profilo
+
+  // Stato
+  isActive         Boolean  @default(true)
+  generatedAt      DateTime @default(now())
+
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  citationVariants CitationCheckVariant[]
+
+  @@unique([projectId, slug])
+  @@map("intent_profiles")
+}
+
+model CitationCheckVariant {
+  id                String   @id @default(uuid())
+  citationCheckId   String
+  intentProfileId   String
+
+  // Risultati della variante
+  userCited         Boolean  @default(false)
+  userCitedPosition Int?
+  userCitedSegment  String?
+  citedSources      Json?
+  responseText      String?
+  searchQueries     Json?
+
+  // Contesto usato
+  contextPromptUsed String
+
+  createdAt         DateTime @default(now())
+
+  citationCheck     CitationCheck @relation(fields: [citationCheckId], references: [id], onDelete: Cascade)
+  intentProfile     IntentProfile @relation(fields: [intentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([citationCheckId, intentProfileId])
+  @@map("citation_check_variants")
+}
+
+model GscQuerySuggestion {
+  id                   String   @id @default(uuid())
+  projectId            String
+
+  query                String
+  reason               String
+  intentType           String
+  impressions          Int
+  clicks               Int
+  avgPosition          Float
+
+  // Matching con query target esistenti
+  matchedTargetQueryId String?
+  similarityScore      Float?
+
+  // Stato
+  status               String   @default("pending") // "pending" | "accepted" | "dismissed"
+
+  createdAt            DateTime @default(now())
+
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, query])
+  @@map("gsc_query_suggestions")
 }
 
 // ─────────────────────────────────────────────

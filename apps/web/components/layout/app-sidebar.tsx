@@ -42,6 +42,7 @@ const PROJECT_MAIN_LINKS = [
   { segment: 'overview', i18nKey: 'overview' as const, icon: BarChart2 },
   { segment: 'contents', i18nKey: 'contents' as const, icon: FileText },
   { segment: 'queries', i18nKey: 'queries' as const, icon: Search },
+  { segment: 'audience', i18nKey: 'audience' as const, icon: Users },
   { segment: 'opportunities', i18nKey: 'opportunityMap' as const, icon: Map },
   { segment: 'competitors', i18nKey: 'competitors' as const, icon: Users },
   { segment: 'optimization', i18nKey: 'optimizationTips' as const, icon: Lightbulb },

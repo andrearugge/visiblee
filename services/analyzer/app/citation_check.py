@@ -115,6 +115,30 @@ _LANG_NAMES = {
 }
 
 
+def _get_base_system_prompt(target_language: str, target_country: str) -> str:
+    lang_name = _LANG_NAMES.get(target_language[:2].lower(), "English")
+    return (
+        f"You are simulating a Google AI Mode response for a user in {target_country} "
+        f"searching in {lang_name}. Answer the query as Google AI Mode would, "
+        f"using web sources relevant to that market and language."
+    )
+
+
+def _build_enriched_system_prompt(
+    base_language: str,
+    base_country: str,
+    context_addendum: str,
+) -> str:
+    base = _get_base_system_prompt(base_language, base_country)
+    return (
+        f"{base}\n\n"
+        f"Additional context about the user performing this search:\n"
+        f"{context_addendum}\n\n"
+        f"Consider this user context when generating your response, as it may influence "
+        f"which sources and information are most relevant."
+    )
+
+
 async def _check_single_query(
     query_text: str,
     target_query_id: str,
@@ -122,13 +146,9 @@ async def _check_single_query(
     competitor_domains: set[str],
     target_language: str = "en",
     target_country: str = "US",
+    system_prompt_override: str | None = None,
 ) -> dict[str, Any]:
-    lang_name = _LANG_NAMES.get(target_language[:2].lower(), "English")
-    system_prompt = (
-        f"You are simulating a Google AI Mode response for a user in {target_country} "
-        f"searching in {lang_name}. Answer the query as Google AI Mode would, "
-        f"using web sources relevant to that market and language."
-    )
+    system_prompt = system_prompt_override or _get_base_system_prompt(target_language, target_country)
     response = await _gemini.aio.models.generate_content(
         model="gemini-2.5-flash",
         contents=[
@@ -280,3 +300,199 @@ def save_citation_checks(
                     r.get("raw_response"),
                 ),
             )
+    conn.commit()
+
+
+def save_citation_check_single(
+    conn,
+    project_id: str,
+    target_query_id: str,
+    result: dict[str, Any],
+    snapshot_id: str | None = None,
+) -> str:
+    """
+    Save a single citation check result (replacing any previous one for the same query).
+    Returns the new citation_check id.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            'DELETE FROM citation_checks WHERE "projectId" = %s AND "targetQueryId" = %s',
+            (project_id, target_query_id),
+        )
+        cur.execute(
+            """
+            INSERT INTO citation_checks (
+                id, "projectId", "targetQueryId", "snapshotId",
+                "citedSources", "userCited",
+                "userCitedPosition", "userCitedSegment", "responseText",
+                "searchQueries", "rawResponse", "checkedAt"
+            ) VALUES (
+                gen_random_uuid(), %s, %s, %s,
+                %s, %s,
+                %s, %s, %s,
+                %s, %s, NOW()
+            )
+            RETURNING id
+            """,
+            (
+                project_id,
+                target_query_id,
+                snapshot_id,
+                _json.dumps(result.get("cited_sources", [])),
+                result.get("user_cited", False),
+                result.get("user_cited_position"),
+                result.get("user_cited_segment"),
+                result.get("response_text"),
+                _json.dumps(result.get("search_queries", [])),
+                result.get("raw_response"),
+            ),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return row["id"]
+
+
+def save_citation_check_variant(
+    conn,
+    citation_check_id: str,
+    intent_profile_id: str,
+    result: dict[str, Any],
+    context_prompt_used: str,
+) -> None:
+    """Save a citation check variant for an intent profile."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO citation_check_variants (
+                id, "citationCheckId", "intentProfileId",
+                "userCited", "userCitedPosition", "userCitedSegment",
+                "citedSources", "responseText", "searchQueries",
+                "contextPromptUsed", "createdAt"
+            ) VALUES (
+                gen_random_uuid(), %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, NOW()
+            )
+            ON CONFLICT ("citationCheckId", "intentProfileId") DO UPDATE SET
+                "userCited" = EXCLUDED."userCited",
+                "userCitedPosition" = EXCLUDED."userCitedPosition",
+                "userCitedSegment" = EXCLUDED."userCitedSegment",
+                "citedSources" = EXCLUDED."citedSources",
+                "responseText" = EXCLUDED."responseText",
+                "searchQueries" = EXCLUDED."searchQueries",
+                "contextPromptUsed" = EXCLUDED."contextPromptUsed"
+            """,
+            (
+                citation_check_id,
+                intent_profile_id,
+                result.get("user_cited", False),
+                result.get("user_cited_position"),
+                result.get("user_cited_segment"),
+                _json.dumps(result.get("cited_sources", [])),
+                result.get("response_text"),
+                _json.dumps(result.get("search_queries", [])),
+                context_prompt_used,
+            ),
+        )
+    conn.commit()
+
+
+async def run_citation_check_enriched(
+    conn,
+    project_id: str,
+    target_query_id: str,
+    query_text: str,
+    user_domain: str,
+    target_language: str,
+    target_country: str,
+    intent_profiles: list[dict],
+    known_competitor_domains: list[str] | None = None,
+    max_variants: int = 3,
+) -> dict:
+    """
+    Run citation check base + context variants for each intent profile.
+
+    intent_profiles: list of dicts with keys: id, name, slug, contextPrompt
+    Returns summary dict with base result and variant results.
+    """
+    if not _gemini:
+        log.warning(f"[{project_id}] Gemini not configured — skipping enriched citation check")
+        return {}
+
+    user_domain_clean = _extract_domain(user_domain) or user_domain.lstrip("www.")
+    competitor_domains = set(known_competitor_domains or [])
+
+    # 1. Base check
+    base_result = await _check_single_query(
+        query_text=query_text,
+        target_query_id=target_query_id,
+        user_domain=user_domain_clean,
+        competitor_domains=competitor_domains,
+        target_language=target_language,
+        target_country=target_country,
+    )
+
+    # Save base check, get citation_check_id
+    citation_check_id = save_citation_check_single(
+        conn, project_id, target_query_id, base_result
+    )
+
+    status = "CITED ✓" if base_result["user_cited"] else "NOT CITED ✗"
+    log.info(f"[{project_id}] Enriched citation base '{query_text[:50]}': {status}")
+
+    # 2. Context variants
+    variants: list[dict] = []
+    for profile in intent_profiles[:max_variants]:
+        context_prompt = profile.get("contextPrompt") or ""
+        if not context_prompt:
+            continue
+
+        enriched_prompt = _build_enriched_system_prompt(
+            base_language=target_language,
+            base_country=target_country,
+            context_addendum=context_prompt,
+        )
+
+        try:
+            variant_result = await _check_single_query(
+                query_text=query_text,
+                target_query_id=target_query_id,
+                user_domain=user_domain_clean,
+                competitor_domains=competitor_domains,
+                target_language=target_language,
+                target_country=target_country,
+                system_prompt_override=enriched_prompt,
+            )
+        except Exception as exc:
+            log.warning(
+                f"[{project_id}] Variant check failed for profile {profile.get('slug')}: {exc}"
+            )
+            continue
+
+        save_citation_check_variant(
+            conn,
+            citation_check_id=citation_check_id,
+            intent_profile_id=profile["id"],
+            result=variant_result,
+            context_prompt_used=enriched_prompt,
+        )
+
+        v_status = "CITED ✓" if variant_result["user_cited"] else "NOT CITED ✗"
+        log.info(
+            f"[{project_id}] Variant '{profile.get('slug')}' '{query_text[:40]}': {v_status}"
+        )
+
+        variants.append({
+            "profileName": profile.get("name"),
+            "profileSlug": profile.get("slug"),
+            "userCited": variant_result["user_cited"],
+            "userCitedPosition": variant_result.get("user_cited_position"),
+            "citedSources": variant_result.get("cited_sources", []),
+        })
+
+    return {
+        "citationCheckId": citation_check_id,
+        "base": base_result,
+        "variants": variants,
+    }

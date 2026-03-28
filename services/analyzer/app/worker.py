@@ -18,12 +18,14 @@ warnings.filterwarnings("ignore", message=".*end of life.*", category=FutureWarn
 import psycopg2
 import psycopg2.extras
 
+from .citation_check import run_citation_check_enriched
 from .config import config
 from .competitor_pipeline import run_competitor_pipeline
 from .discovery import discover_content
 from .email import send_preview_report
 from .fetcher import fetch_url
 from .full_pipeline import run_full_pipeline
+from .gsc_sync import run_gsc_sync
 from .pipeline import run_preview_pipeline
 from .segmenter import segment_html
 
@@ -51,7 +53,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -87,7 +89,7 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                 ORDER BY "createdAt"
@@ -681,6 +683,187 @@ async def process_competitor_analysis_job(job: dict) -> None:
         conn.close()
 
 
+async def process_citation_check_enriched_job(job: dict) -> None:
+    """Run enriched citation check (base + intent profile variants) for a single query."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+    payload = job.get("payload") or {}
+
+    if not project_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing projectId in citation_check_enriched job")
+        finally:
+            conn.close()
+        return
+
+    target_query_id = payload.get("targetQueryId") if isinstance(payload, dict) else None
+    max_variants = payload.get("maxVariants", 3) if isinstance(payload, dict) else 3
+
+    if not target_query_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing targetQueryId in citation_check_enriched job payload")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running enriched citation check for query {target_query_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        # Load project + query
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p."websiteUrl", p."brandName", p."targetLanguage", p."targetCountry"
+                FROM projects p
+                WHERE p.id = %s
+                """,
+                (project_id,),
+            )
+            project = cur.fetchone()
+
+        if not project:
+            fail_job(conn, job_id, "Project not found")
+            return
+
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT id, "queryText" FROM target_queries WHERE id = %s',
+                (target_query_id,),
+            )
+            tq = cur.fetchone()
+
+        if not tq:
+            fail_job(conn, job_id, "Target query not found")
+            return
+
+        # Load competitor domains
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT "websiteUrl" FROM competitors WHERE "projectId" = %s',
+                (project_id,),
+            )
+            competitor_domains = [
+                row["websiteUrl"].lstrip("https://").lstrip("http://").lstrip("www.").split("/")[0]
+                for row in cur.fetchall()
+                if row.get("websiteUrl")
+            ]
+
+        # Load active intent profiles
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name, slug, "contextPrompt"
+                FROM intent_profiles
+                WHERE "projectId" = %s AND "isActive" = true
+                ORDER BY "totalImpressions" DESC
+                LIMIT %s
+                """,
+                (project_id, max_variants),
+            )
+            intent_profiles = [dict(row) for row in cur.fetchall()]
+
+        target_language = project.get("targetLanguage") or "en"
+        target_country = project.get("targetCountry") or "US"
+        user_domain = project.get("websiteUrl") or ""
+
+        result = await asyncio.wait_for(
+            run_citation_check_enriched(
+                conn=conn,
+                project_id=project_id,
+                target_query_id=target_query_id,
+                query_text=tq["queryText"],
+                user_domain=user_domain,
+                target_language=target_language,
+                target_country=target_country,
+                intent_profiles=intent_profiles,
+                known_competitor_domains=competitor_domains,
+                max_variants=max_variants,
+            ),
+            timeout=180,
+        )
+
+        complete_job(conn, job_id)
+        log.info(
+            f"Enriched citation check job {job_id} done: "
+            f"base={'CITED' if result.get('base', {}).get('user_cited') else 'NOT CITED'}, "
+            f"{len(result.get('variants', []))} variants"
+        )
+
+    except asyncio.TimeoutError:
+        log.error(f"Enriched citation check job {job_id} timed out after 180s")
+        try:
+            fail_job(conn, job_id, "Citation check enriched timed out after 180s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Enriched citation check job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
+async def process_gsc_sync_job(job: dict) -> None:
+    """Pull GSC data, classify intent, generate suggestions + profiles."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+    payload = job.get("payload") or {}
+
+    if not project_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing projectId in gsc_sync job")
+        finally:
+            conn.close()
+        return
+
+    sync_type = payload.get("syncType", "incremental") if isinstance(payload, dict) else "incremental"
+    date_range = payload.get("dateRange", {}) if isinstance(payload, dict) else {}
+    start_date = date_range.get("startDate", "")
+    end_date = date_range.get("endDate", "")
+
+    if not start_date or not end_date:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing dateRange in gsc_sync job payload")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running GSC sync ({sync_type}) for project {project_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        result = await asyncio.wait_for(
+            run_gsc_sync(conn, project_id, sync_type, start_date, end_date),
+            timeout=180,
+        )
+        complete_job(conn, job_id)
+        log.info(
+            f"GSC sync job {job_id} completed: "
+            f"{result['rows_synced']} rows, "
+            f"{result['suggestions_inserted']} suggestions, "
+            f"{result['profiles_upserted']} profiles"
+        )
+    except asyncio.TimeoutError:
+        log.error(f"GSC sync job {job_id} timed out after 180s")
+        try:
+            fail_job(conn, job_id, "GSC sync timed out after 180s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"GSC sync job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -713,6 +896,10 @@ async def run_worker() -> None:
                 await process_full_analysis_job(job)
             elif job_type == "competitor_analysis":
                 await process_competitor_analysis_job(job)
+            elif job_type == "gsc_sync":
+                await process_gsc_sync_job(job)
+            elif job_type == "citation_check_enriched":
+                await process_citation_check_enriched_job(job)
             else:
                 await process_job(job)
         else:

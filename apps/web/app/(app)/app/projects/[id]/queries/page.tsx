@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { QueriesClient } from '@/components/features/queries-client';
+import { GscQuerySuggestions } from '@/components/gsc/gsc-query-suggestions';
 
 interface QueriesPageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +19,7 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
 
   const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
 
-  const [queries, latestSnapshot, activeJob] = await Promise.all([
+  const [queries, latestSnapshot, activeJob, gscSuggestions] = await Promise.all([
     db.targetQuery.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'asc' },
@@ -39,6 +40,16 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
             citedSources: true,
             searchQueries: true,
             checkedAt: true,
+            variants: {
+              select: {
+                intentProfileId: true,
+                userCited: true,
+                userCitedPosition: true,
+                intentProfile: {
+                  select: { name: true, slug: true },
+                },
+              },
+            },
           },
         },
       },
@@ -52,6 +63,23 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
       where: { projectId: id, type: 'full_analysis', status: { in: ['pending', 'running'] } },
       select: { id: true },
     }),
+    process.env.NEXT_PUBLIC_GSC_ENABLED === 'true'
+      ? db.gscQuerySuggestion.findMany({
+          where: { projectId: id, status: 'pending' },
+          orderBy: { impressions: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            query: true,
+            reason: true,
+            intentType: true,
+            impressions: true,
+            clicks: true,
+            avgPosition: true,
+            similarityScore: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   // 4-week trend data for all queries
@@ -97,28 +125,42 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
             userCitedPosition: check.userCitedPosition,
             userCitedSegment: check.userCitedSegment,
             responseText: check.responseText,
-            citedSources: check.citedSources as CitedSource[],
-            searchQueries: check.searchQueries as string[],
+            citedSources: check.citedSources as unknown as CitedSource[],
+            searchQueries: check.searchQueries as unknown as string[],
             checkedAt: check.checkedAt.toISOString(),
             trend: {
               citedWeeks: weeklySlots.filter(Boolean).length,
               totalWeeks: 4,
               history: [...weeklySlots].reverse(),
             },
+            variants: (check.variants ?? []).map((v) => ({
+              intentProfileId: v.intentProfileId,
+              profileName: v.intentProfile.name,
+              profileSlug: v.intentProfile.slug,
+              userCited: v.userCited,
+              userCitedPosition: v.userCitedPosition,
+            })),
           }
         : null,
     };
   });
 
   return (
-    <QueriesClient
-      projectId={id}
-      initialQueries={serialized}
-      initialActiveCount={activeCount}
-      snapshotCreatedAt={lastSnapshotAt?.toISOString() ?? null}
-      initialAnalysisRunning={!!activeJob}
-      initialPendingChanges={initialPendingChanges}
-    />
+    <>
+      {gscSuggestions.length > 0 && (
+        <div className="px-6 pt-6">
+          <GscQuerySuggestions projectId={id} suggestions={gscSuggestions} />
+        </div>
+      )}
+      <QueriesClient
+        projectId={id}
+        initialQueries={serialized}
+        initialActiveCount={activeCount}
+        snapshotCreatedAt={lastSnapshotAt?.toISOString() ?? null}
+        initialAnalysisRunning={!!activeJob}
+        initialPendingChanges={initialPendingChanges}
+      />
+    </>
   );
 }
 

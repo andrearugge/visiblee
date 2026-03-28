@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useJobPolling } from '@/hooks/use-job-polling';
 import { StepLoader } from '@/components/ui/step-loader';
+import { CitationVariantsPanel } from '@/components/gsc/citation-variants-panel';
 
 const QUERY_LIMIT = 15;
 
@@ -35,6 +36,14 @@ interface CitationTrend {
   history: boolean[]; // index 0 = oldest week, last = most recent
 }
 
+interface CitationVariant {
+  profileName: string;
+  profileSlug: string;
+  intentProfileId: string;
+  userCited: boolean;
+  userCitedPosition: number | null;
+}
+
 interface CitationData {
   userCited: boolean;
   userCitedPosition: number | null;
@@ -44,6 +53,7 @@ interface CitationData {
   searchQueries: string[];
   checkedAt: string;
   trend: CitationTrend;
+  variants: CitationVariant[];
 }
 
 interface TargetQuery {
@@ -209,6 +219,11 @@ function CitationCard({
             </ul>
           )}
         </div>
+      )}
+
+      {/* Intent profile citation variants */}
+      {citation.variants.length > 0 && (
+        <CitationVariantsPanel variants={citation.variants} />
       )}
 
       {/* Footer: date + CTA */}
