@@ -48,8 +48,8 @@ export function PreviewPolling({ previewId }: PreviewPollingProps) {
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       {/* Spinner */}
       <div className="relative mb-8">
-        <div className="absolute inset-0 rounded-full bg-amber-100/60 blur-2xl" />
-        <Loader2 className="relative size-14 animate-spin text-amber-500" />
+        <div className="absolute inset-0 rounded-full bg-visiblee-green-100/60 blur-2xl" />
+        <Loader2 className="relative size-14 animate-spin text-visiblee-green-500" />
       </div>
 
       <h1 className="mb-3 text-2xl font-bold text-zinc-900">{t('loadingTitle')}</h1>
@@ -62,7 +62,7 @@ export function PreviewPolling({ previewId }: PreviewPollingProps) {
             {i < stepIndex ? (
               <CheckCircle2 className="size-4 shrink-0 text-green-500" />
             ) : i === stepIndex ? (
-              <Loader2 className="size-4 shrink-0 animate-spin text-amber-500" />
+              <Loader2 className="size-4 shrink-0 animate-spin text-visiblee-green-500" />
             ) : (
               <div className="size-4 shrink-0 rounded-full border-2 border-zinc-200" />
             )}

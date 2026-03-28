@@ -37,8 +37,8 @@ interface SetupStatusData {
 function StepIndicator({ status, index }: { status: StepStatus; index: number }) {
   if (status === 'done') {
     return (
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
-        <Check className="size-4 text-amber-600" strokeWidth={2.5} />
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-visiblee-green-100">
+        <Check className="size-4 text-visiblee-green-600" strokeWidth={2.5} />
       </div>
     );
   }
@@ -83,7 +83,7 @@ function StepRow({
     <div
       className={cn(
         'rounded-xl border p-4 transition-all duration-200',
-        status === 'done' && 'border-amber-100 bg-amber-50/50',
+        status === 'done' && 'border-visiblee-green-100 bg-visiblee-green-50/50',
         status === 'active' && 'border-zinc-200 bg-white shadow-sm',
         status === 'locked' && 'border-zinc-100 bg-zinc-50/40',
       )}
@@ -103,7 +103,7 @@ function StepRow({
               <StepIcon
                 className={cn(
                   'mr-1.5 inline size-3.5 -mt-px',
-                  status === 'done' && 'text-amber-500',
+                  status === 'done' && 'text-visiblee-green-500',
                   status === 'active' && 'text-zinc-500',
                   status === 'locked' && 'text-zinc-300',
                 )}
@@ -111,7 +111,7 @@ function StepRow({
               {title}
             </p>
             {status === 'done' && doneLabel && (
-              <span className="shrink-0 text-xs font-medium text-amber-600">{doneLabel}</span>
+              <span className="shrink-0 text-xs font-medium text-visiblee-green-600">{doneLabel}</span>
             )}
           </div>
           {status === 'locked' && lockedLabel && (
@@ -237,7 +237,7 @@ function DiscoveryAction({
       <p className="text-xs leading-relaxed text-zinc-500">{t('step2Description')}</p>
       {discoveryStatus === 'running' ? (
         <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-          <Loader2 className="size-3.5 animate-spin text-amber-500" />
+          <Loader2 className="size-3.5 animate-spin text-visiblee-green-500" />
           {t('step2Running')}
         </div>
       ) : (
@@ -292,7 +292,7 @@ function AnalysisAction({
       <p className="text-xs leading-relaxed text-zinc-500">{t('step4Description')}</p>
       {analysisStatus === 'running' ? (
         <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-          <Loader2 className="size-3.5 animate-spin text-amber-500" />
+          <Loader2 className="size-3.5 animate-spin text-visiblee-green-500" />
           {t('step4Running')}
         </div>
       ) : (
@@ -300,7 +300,7 @@ function AnalysisAction({
           size="sm"
           onClick={onStart}
           disabled={analysisStatus === 'starting'}
-          className="h-8 gap-1.5 bg-amber-500 text-xs text-white hover:bg-amber-600"
+          className="h-8 gap-1.5 bg-visiblee-green-500 text-xs text-white hover:bg-visiblee-green-600"
         >
           {analysisStatus === 'starting' && <Loader2 className="size-3 animate-spin" />}
           <BarChart3 className="size-3" />

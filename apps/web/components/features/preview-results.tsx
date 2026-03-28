@@ -172,7 +172,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
   return (
     <div className="relative overflow-hidden">
       {/* Background blob */}
-      <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 -z-10 h-[500px] w-[500px] rounded-full bg-amber-100/30 blur-[100px]" />
+      <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 -z-10 h-[500px] w-[500px] rounded-full bg-visiblee-green-100/30 blur-[100px]" />
 
       <div className="mx-auto max-w-4xl px-4 py-12">
         {/* Header */}
@@ -232,7 +232,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
                 <ul className="space-y-3">
                   {data.insights.map((insight, i) => (
                     <li key={i} className="flex gap-2.5 text-sm text-zinc-700">
-                      <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-amber-400 mt-1.5" />
+                      <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-visiblee-green-400 mt-1.5" />
                       {insight}
                     </li>
                   ))}
@@ -263,7 +263,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
             <ul className="mb-6 space-y-1.5 text-left text-sm text-zinc-600">
               {LOCKED_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <CheckCircle2 className="size-3.5 shrink-0 text-amber-500" />
+                  <CheckCircle2 className="size-3.5 shrink-0 text-visiblee-green-500" />
                   {t(f)}
                 </li>
               ))}

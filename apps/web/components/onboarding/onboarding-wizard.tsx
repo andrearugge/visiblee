@@ -26,8 +26,8 @@ function StepIcon({ step, size = 'md' }: { step: number; size?: 'sm' | 'md' }) {
 function Step1({ t }: { t: ReturnType<typeof useTranslations<'onboarding'>> }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-amber-50">
-        <Brain className="size-8 text-amber-500" />
+      <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-visiblee-green-50">
+        <Brain className="size-8 text-visiblee-green-500" />
       </div>
       <h2 className="mb-3 text-xl font-bold text-zinc-900">{t('step1Title')}</h2>
       <p className="mb-4 text-sm leading-relaxed text-zinc-500">{t('step1Description')}</p>
@@ -207,7 +207,7 @@ export function OnboardingWizard({ projectId }: OnboardingWizardProps) {
               className={cn(
                 'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                 isLast
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
+                  ? 'bg-visiblee-green-500 text-white hover:bg-visiblee-green-600'
                   : 'bg-zinc-900 text-white hover:bg-zinc-700',
               )}
             >

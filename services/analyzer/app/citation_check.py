@@ -165,10 +165,15 @@ async def _check_single_query(
         web = getattr(chunk, "web", None)
         if not web or not web.uri:
             continue
+        title = getattr(web, "title", None) or ""
         domain = _extract_domain(web.uri)
+        # Gemini grounding returns redirect URLs (vertexaisearch.cloud.google.com).
+        # The actual source domain is in web.title — use it as fallback.
+        if not domain or "vertexaisearch.cloud.google.com" in domain:
+            domain = _extract_domain(title) or title.lower().strip()
         cited_sources.append({
             "url": web.uri,
-            "title": getattr(web, "title", None) or "",
+            "title": title,
             "domain": domain,
             "is_user": _domain_matches(domain, user_domain),
             "is_competitor": any(_domain_matches(domain, cd) for cd in competitor_domains),

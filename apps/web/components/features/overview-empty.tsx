@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { FileText, Zap, Brain, Calculator } from 'lucide-react';
 import { StepLoader } from '@/components/ui/step-loader';
 import { SetupChecklist } from '@/components/features/setup-checklist';
+import { useJobPolling } from '@/hooks/use-job-polling';
 
 interface OverviewEmptyProps {
   projectId: string;
@@ -112,6 +113,13 @@ export function OverviewEmpty({
     icon,
     label: t(`analysisStep${i + 1}` as 'analysisStep1'),
   }));
+
+  useJobPolling({
+    active: analysisQueued,
+    url: `/api/projects/${projectId}/setup-status`,
+    isDone: (data) => !(data as { analysisRunning: boolean }).analysisRunning,
+    interval: 3500,
+  });
 
   // Analysis running → full step loader
   if (analysisQueued) {

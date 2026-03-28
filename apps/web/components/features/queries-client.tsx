@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useFormatter } from 'next-intl';
 import {
   Search, Trash2, Plus, AlertCircle, Loader2, RefreshCw,
   MessageSquare, TriangleAlert, CheckCircle2, XCircle,
-  ChevronDown, ChevronRight, Quote, ExternalLink, Sparkles,
+  ChevronDown, ChevronRight, Quote, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,16 +86,15 @@ function TrendDots({ trend }: { trend: CitationTrend }) {
 function CitationCard({
   citation,
   projectId,
-  locale,
 }: {
   citation: CitationData;
   projectId: string;
-  locale?: string;
 }) {
   const t = useTranslations('citations');
+  const format = useFormatter();
   const [searchQueriesOpen, setSearchQueriesOpen] = useState(false);
 
-  const checkedDate = new Date(citation.checkedAt).toLocaleDateString(locale, {
+  const checkedDate = format.dateTime(new Date(citation.checkedAt), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -112,8 +111,8 @@ function CitationCard({
           : 'border-red-100 bg-red-50/30',
       )}
     >
-      {/* Status row */}
-      <div className="flex items-start justify-between gap-3">
+      {/* Status + trend row */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {citation.userCited ? (
             <>
@@ -132,8 +131,6 @@ function CitationCard({
             </>
           )}
         </div>
-
-        {/* Trend */}
         <div className="flex shrink-0 items-center gap-1.5">
           <TrendDots trend={citation.trend} />
           <span className="text-xs text-zinc-400">
@@ -155,55 +152,35 @@ function CitationCard({
         </div>
       )}
 
-      {/* Cited sources list */}
+      {/* Cited sources — compact chip list */}
       {totalSources > 0 && (
         <div className="mt-3">
           <p className="mb-2 text-xs font-medium text-zinc-500">
             {t('sourcesTitle', { count: totalSources })}
           </p>
-          <ol className="space-y-1.5">
-            {citation.citedSources.map((src) => (
-              <li
-                key={src.url}
-                className={cn(
-                  'flex items-start gap-2 rounded-lg px-2 py-1.5',
-                  src.is_user && 'bg-green-100/60',
-                )}
-              >
-                <span className="mt-0.5 w-4 shrink-0 text-center text-xs font-bold tabular-nums text-zinc-400">
-                  {src.position}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium text-zinc-700 truncate">
-                      {src.domain}
-                    </span>
-                    {src.is_user && (
-                      <span className="rounded-full bg-green-200 px-1.5 py-0.5 text-xs font-semibold text-green-800">
-                        ★ You
-                      </span>
-                    )}
-                    {src.is_competitor && !src.is_user && (
-                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                        {t('competitor')}
-                      </span>
-                    )}
-                  </div>
-                  {src.title && (
-                    <p className="mt-0.5 truncate text-xs text-zinc-400">{src.title}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {citation.citedSources.map((src) => {
+              const displayDomain = src.title || src.domain;
+              return (
+                <span
+                  key={src.url}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
+                    src.is_user
+                      ? 'border-green-200 bg-green-100 font-medium text-green-800'
+                      : 'border-zinc-100 bg-zinc-50 text-zinc-500',
                   )}
-                </div>
-                <a
-                  href={src.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-zinc-300 hover:text-zinc-500 transition-colors"
                 >
-                  <ExternalLink className="size-3" />
-                </a>
-              </li>
-            ))}
-          </ol>
+                  <span className="tabular-nums text-zinc-300">{src.position}.</span>
+                  {displayDomain}
+                  {src.is_user && <span className="text-green-600">★</span>}
+                  {src.is_competitor && !src.is_user && (
+                    <span className="text-amber-500">⚑</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -234,35 +211,25 @@ function CitationCard({
         </div>
       )}
 
-      {/* CTAs */}
+      {/* Footer: date + CTA */}
       <div className="mt-3 flex items-center justify-between gap-2">
-        <p className="text-xs text-zinc-400">
-          {t('checkedAt', { date: checkedDate })}
-        </p>
-        <div className="flex items-center gap-3">
-          {!citation.userCited && (
-            <Link
-              href={`/app/projects/${projectId}/competitors`}
-              className="text-xs text-zinc-500 transition-colors hover:text-zinc-800"
-            >
-              {t('seeCompetitors')}
-            </Link>
-          )}
-          {citation.userCited && (
-            <Link
-              href={`/app/projects/${projectId}/optimization`}
-              className="text-xs text-zinc-500 transition-colors hover:text-zinc-800"
-            >
-              {t('howToRankHigher')}
-            </Link>
-          )}
-        </div>
+        <p className="text-xs text-zinc-400">{t('checkedAt', { date: checkedDate })}</p>
+        {!citation.userCited ? (
+          <Link
+            href={`/app/projects/${projectId}/competitors`}
+            className="text-xs text-zinc-500 transition-colors hover:text-zinc-800"
+          >
+            {t('seeCompetitors')}
+          </Link>
+        ) : (
+          <Link
+            href={`/app/projects/${projectId}/optimization`}
+            className="text-xs text-zinc-500 transition-colors hover:text-zinc-800"
+          >
+            {t('howToRankHigher')}
+          </Link>
+        )}
       </div>
-
-      {/* Volatility note */}
-      <p className="mt-2 text-xs text-zinc-400 italic">
-        {t('volatilityNote', { date: checkedDate })}
-      </p>
     </div>
   );
 }
@@ -412,7 +379,7 @@ export function QueriesClient({
             size="sm"
             onClick={handleRunAnalysis}
             disabled={analysisStatus === 'loading'}
-            className="shrink-0 gap-2 bg-amber-500 text-white hover:bg-amber-600"
+            className="shrink-0 gap-2 bg-visiblee-green-500 text-white hover:bg-visiblee-green-600"
           >
             <RefreshCw className={cn('size-3.5', analysisStatus === 'loading' && 'animate-spin')} />
             {t('runAnalysisNow')}
@@ -547,7 +514,7 @@ export function QueriesClient({
       <div className="rounded-2xl border border-zinc-200/80 bg-white shadow-sm">
         <div className="border-b border-zinc-100 px-6 py-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-amber-500" />
+            <Sparkles className="size-4 text-visiblee-green-500" />
             <h2 className="text-sm font-semibold text-zinc-900">{tc('sectionTitle')}</h2>
           </div>
           <p className="mt-0.5 text-xs text-zinc-400">{tc('sectionSubtitle')}</p>
