@@ -76,11 +76,9 @@ function ScoreRow({ label, description, value }: ScoreRowProps) {
 function RunAnalysisButton({
   projectId,
   initialRunning,
-  snapshotCreatedAt,
 }: {
   projectId: string;
   initialRunning: boolean;
-  snapshotCreatedAt: string;
 }) {
   const t = useTranslations('overview');
   const router = useRouter();
@@ -88,14 +86,11 @@ function RunAnalysisButton({
     initialRunning ? 'queued' : 'idle',
   );
 
-  // Poll for a snapshot newer than the current one
+  // Poll job status directly — avoids race condition where snapshot is already the new one
   useJobPolling({
     active: status === 'queued',
-    url: `/api/projects/${projectId}/snapshot/latest`,
-    isDone: (data) => {
-      const d = data as Record<string, unknown>;
-      return !!d?.createdAt && d.createdAt !== snapshotCreatedAt;
-    },
+    url: `/api/projects/${projectId}/setup-status`,
+    isDone: (data) => !(data as { analysisRunning: boolean }).analysisRunning,
     onDone: () => {
       setStatus('idle');
       router.refresh();
@@ -212,7 +207,6 @@ export function OverviewDashboard({ projectId, initialAnalysisRunning, snapshot 
           <RunAnalysisButton
             projectId={projectId}
             initialRunning={initialAnalysisRunning}
-            snapshotCreatedAt={snapshot.createdAt}
           />
         </div>
       </div>

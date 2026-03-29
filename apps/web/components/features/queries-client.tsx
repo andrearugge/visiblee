@@ -68,7 +68,6 @@ interface QueriesClientProps {
   projectId: string;
   initialQueries: TargetQuery[];
   initialActiveCount: number;
-  snapshotCreatedAt: string | null;
   initialAnalysisRunning: boolean;
   initialPendingChanges: boolean;
 }
@@ -255,7 +254,6 @@ export function QueriesClient({
   projectId,
   initialQueries,
   initialActiveCount,
-  snapshotCreatedAt,
   initialAnalysisRunning,
   initialPendingChanges,
 }: QueriesClientProps) {
@@ -271,7 +269,6 @@ export function QueriesClient({
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'loading' | 'queued' | 'error'>(
     initialAnalysisRunning ? 'queued' : 'idle',
   );
-  const [currentSnapshotCreatedAt, setCurrentSnapshotCreatedAt] = useState(snapshotCreatedAt);
   const [pendingChanges, setPendingChanges] = useState(initialPendingChanges);
   const [expandedCitations, setExpandedCitations] = useState<Set<string>>(new Set());
 
@@ -279,14 +276,9 @@ export function QueriesClient({
 
   useJobPolling({
     active: analysisStatus === 'queued',
-    url: `/api/projects/${projectId}/snapshot/latest`,
-    isDone: (data) => {
-      const d = data as Record<string, unknown>;
-      return !!d?.createdAt && d.createdAt !== currentSnapshotCreatedAt;
-    },
-    onDone: (data) => {
-      const d = data as Record<string, unknown>;
-      setCurrentSnapshotCreatedAt(d.createdAt as string);
+    url: `/api/projects/${projectId}/setup-status`,
+    isDone: (data) => !(data as { analysisRunning: boolean }).analysisRunning,
+    onDone: () => {
       setAnalysisStatus('idle');
       setPendingChanges(false);
       router.refresh();

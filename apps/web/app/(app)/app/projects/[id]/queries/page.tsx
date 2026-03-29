@@ -156,7 +156,6 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
         projectId={id}
         initialQueries={serialized}
         initialActiveCount={activeCount}
-        snapshotCreatedAt={lastSnapshotAt?.toISOString() ?? null}
         initialAnalysisRunning={!!activeJob}
         initialPendingChanges={initialPendingChanges}
       />
