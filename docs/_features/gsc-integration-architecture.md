@@ -1,8 +1,9 @@
 # Architettura: Integrazione Google Search Console — Visiblee v2
 
 > **Data**: Marzo 2026
-> **Scopo**: specifica completa per l'integrazione GSC in Visiblee. Questo documento è progettato per essere dato a Claude Code come istruzione di implementazione.
-> **Prerequisito**: leggere `product-state-v1.md` e `architectural-decisions.md` prima di iniziare.
+> **Stato**: ✅ IMPLEMENTATO (Fasi A–F complete)
+> **Scopo**: specifica completa per l'integrazione GSC in Visiblee. Usare come riferimento per manutenzione ed evoluzioni future.
+> **Prerequisito**: leggere `product-state.md` e `architectural-decisions.md` prima di proporre modifiche.
 
 ---
 

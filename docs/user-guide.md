@@ -37,7 +37,7 @@ Questi due parametri sono fondamentali per ottenere risultati rilevanti.
 
 **Target language** (ISO 639-1): la lingua in cui vuoi essere citato nei risultati AI. Se il tuo pubblico principale è italiano, usa `it`. Se vuoi analizzare la visibilità in inglese, usa `en`. Questa scelta determina la lingua delle sotto-query generate dall'AI durante l'analisi — misurare la copertura italiana con query inglesi darebbe risultati sbagliati.
 
-**Target country** (ISO 3166-1 alpha-2): il paese del mercato target. `IT` per l'Italia, `US` per gli Stati Uniti, `DE` per la Germania. Questo parametro influenza le ricerche effettuate durante la discovery (vengono cercati contenuti rilevanti per quel mercato) e la simulazione della citation verification (viene simulato AI Mode nel contesto geografico scelto).
+**Target country** (ISO 3166-1 alpha-2): il paese del mercato target. `IT` per l'Italia, `US` per gli Stati Uniti, `DE` per la Germania. Questo parametro influenza le ricerche effettuate durante la discovery e la simulazione della citation verification.
 
 **Come sceglierli**: scegli il mercato principale dove vuoi ottenere visibilità AI. Se sei un'agenzia italiana che lavora solo per clienti italiani, usa `it` + `IT`. Se sei un SaaS B2B che vuole espandersi in Europa, valuta di creare progetti separati per ogni lingua target.
 
@@ -58,6 +58,8 @@ Le query target sono le domande per cui vuoi apparire nelle risposte AI. Sono il
 - "come scegliere un CRM per un team commerciale di 10 persone"
 - "differenza tra fatturazione elettronica e e-invoicing B2B"
 - "come ottimizzare il budget Google Ads per e-commerce"
+
+**Suggerimenti da Google Search Console**: se hai connesso GSC (vedi sezione 10), Visiblee suggerisce automaticamente nuove query target basandosi sulle query reali con cui gli utenti trovano già il tuo sito. Queste compaiono come banner nella sezione Queries.
 
 ---
 
@@ -193,8 +195,6 @@ La Citation Simulation risponde alla domanda: "se qualcuno cerca [mia query targ
 
 Il sistema usa la Gemini API con Google Search Grounding: invia la tua query a Gemini con ricerca web reale attivata, raccoglie le fonti citate nella risposta, e verifica se tra queste fonti compare il tuo sito.
 
-Questo processo viene eseguito automaticamente ogni settimana per ogni query target del tuo progetto.
-
 ### 6.2 Come leggere i trend
 
 Per ogni query target vedi:
@@ -204,7 +204,20 @@ Per ogni query target vedi:
 - **Fonti citate**: i domini che Google ha usato per rispondere (i tuoi competitor diretti per quella query)
 - **Sotto-query interne**: le ricerche che Gemini ha fatto internamente per rispondere (il fan-out reale)
 
-### 6.3 Cosa fare con i dati
+### 6.3 Citation per profilo audience (se GSC connesso)
+
+Se hai connesso Google Search Console e Visiblee ha generato profili audience, sotto ogni risultato di citation trovi il **pannello varianti**: mostra come cambia la citation in base al profilo di chi cerca.
+
+Esempio:
+```
+✓ Citato per "Evaluator"     — posizione 1
+✗ Non citato per "Researcher"
+✓ Citato per "AI Explorer"   — posizione 3
+```
+
+Questo rivela un dato cruciale: potresti essere citato in modo eccellente per gli utenti in fase di valutazione, ma completamente assente per chi cerca informazioni più approfondite. Ogni profilo usa un system prompt diverso che simula il contesto e le aspettative di quell'audience.
+
+### 6.4 Cosa fare con i dati
 
 **Se sei citato in modo stabile** (3-4 settimane su 4): ottimo. Monitora che non scenda. Usa i dati del competitor analysis per capire cosa ha chi ti supera in posizione.
 
@@ -275,7 +288,46 @@ Ordine di priorità raccomandato per un brand che parte da zero:
 
 ---
 
-## 9. Notifiche
+## 9. Audience Insights (Google Search Console)
+
+### 9.1 Cos'è e perché è utile
+
+La sezione **Audience** mostra chi cerca realmente il tuo brand su Google e come diversi tipi di utenti vengono serviti (o non serviti) dall'AI.
+
+Visiblee importa le query reali dal tuo account Google Search Console, le classifica per tipo di intento, e raggruppa gli utenti in 2-4 **profili audience**. Ogni profilo rappresenta un segmento di utenti con aspettative diverse — ad esempio "Evaluator" (chi sta confrontando opzioni), "Researcher" (chi cerca informazioni approfondite), o "AI Explorer" (chi usa già AI Mode abitualmente).
+
+### 9.2 Connettere Google Search Console
+
+Dalla pagina **Settings** del progetto, trovi la card "Google Search Console":
+
+1. Clicca **"Connetti Google Search Console"** — vieni reindirizzato all'autorizzazione Google.
+2. Dopo l'autorizzazione, selezioni quale **proprietà GSC** associare al progetto (Visiblee suggerisce automaticamente quella che corrisponde all'URL del progetto).
+3. Clicca **"Connetti e sincronizza"** — parte il job di importazione dati.
+
+La sincronizzazione importa i dati degli ultimi 90 giorni di ricerca organica. Al termine genera automaticamente i profili audience e i suggerimenti di nuove query target.
+
+### 9.3 Profili audience
+
+Per ogni profilo vedi:
+- **Nome e intent dominante**: es. "Evaluator — Decisional intent"
+- **% del traffico**: quanta parte delle tue query GSC ricade in questo profilo
+- **Device dominante**: mobile o desktop, che influenza le aspettative di risposta
+- **Query di esempio**: 3-5 query reali tipiche di questo profilo
+- **Citation impact**: percentuale delle tue query target per cui sei citato quando Gemini simula il contesto di questo profilo
+
+### 9.4 Suggerimenti di nuove query target
+
+Nella sezione **Queries**, Visiblee mostra un banner con le query GSC più promettenti da aggiungere come query target. Ogni suggerimento mostra:
+- La query originale dal tuo GSC
+- Il numero di impressioni (indica quanto traffico potenziale ha)
+- Il tipo di intent (informational, comparative, decisional, ecc.)
+- Badge "AI query" se è una query che gli utenti tipicamente pongono in modalità AI Mode
+
+Puoi **accettare** (aggiunge automaticamente la query come target) o **ignorare** (rimuove il suggerimento).
+
+---
+
+## 10. Notifiche
 
 Il sistema invia notifiche automatiche per:
 
@@ -287,46 +339,49 @@ Le notifiche sono visibili nel pannello bell in alto a destra. Puoi anche vedere
 
 ---
 
-## 10. Monitoraggio continuativo
+## 11. Monitoraggio continuativo
 
-### 10.1 Con quale frequenza rieseguire l'analisi
+### 11.1 Con quale frequenza rieseguire l'analisi
 
-La citation simulation viene eseguita automaticamente ogni settimana. L'analisi completa dei contenuti va rieseguita:
+L'analisi completa dei contenuti va rieseguita:
 
 - **Dopo ogni aggiornamento significativo** dei tuoi contenuti (nuova pagina, riscrittura di un articolo)
 - **Mensilmente** come check di routine per monitorare il trend dello score
 - **Dopo un aggiornamento algoritmo** di Google (quando senti di un cambiamento a AI Overviews, riesegui l'analisi entro 1-2 settimane)
 
-### 10.2 Cosa monitorare nel tempo
+La citation simulation si avvia manualmente dalla sezione Queries per ogni query target.
 
-Le metriche da seguire settimana per settimana:
+### 11.2 Cosa monitorare nel tempo
+
+Le metriche da seguire:
 
 | Metrica | Frequenza | Segnale d'allarme |
 |---|---|---|
-| Citation rate per query | Settimanale (automatico) | Scende sotto il 50% di consistenza |
+| Citation rate per query | Ad ogni simulazione | Scende sotto il 50% di consistenza |
 | AI Readiness Score | A ogni analisi | Calo > 5 punti senza modifiche ai contenuti |
 | Freshness multiplier | A ogni analisi | Scende sotto 0.85 (contenuti > 60 giorni) |
 | Query Reach | A ogni analisi | Sub-score < 40 su una query prioritaria |
-| Nuovi competitor citati | Settimanale (automatico) | Nuovo player che appare stabilmente |
+| Nuovi competitor citati | A ogni simulazione | Nuovo player che appare stabilmente |
+| Citation impact per profilo | Dopo ogni sync GSC | Un profilo chiave con citation impact < 30% |
 
-### 10.3 Il ciclo operativo raccomandato
+### 11.3 Il ciclo operativo raccomandato
 
-**Ogni settimana** (5-10 minuti):
-- Controlla le notifiche
-- Guarda i risultati delle citation simulation
-- Nota nuovi competitor rilevati
+**Dopo ogni modifica ai contenuti** (5 min):
+- Esegui un'analisi completa per vedere l'impatto sullo score
+- Controlla se il passaggio modificato ha migliorato il Citation Power
 
 **Ogni mese** (30-45 minuti):
 - Esegui un'analisi completa
 - Guarda il trend dello score nel grafico storico
 - Aggiorna i contenuti con freshness > 60 giorni
 - Implementa 2-3 raccomandazioni dalla sezione Optimization
+- Sincronizza GSC per aggiornare i profili audience
 
 **Ogni trimestre** (1-2 ore):
 - Rivedi le query target (sono ancora quelle giuste per il tuo business?)
 - Aggiungi nuovi contenuti per le query non coperte
 - Rivedi il competitor monitoring (ci sono nuovi player nel tuo settore?)
-- Esporta i dati per un report interno o per il cliente (se sei in un'agenzia)
+- Controlla i profili audience: l'intent distribution è cambiata?
 
 ---
 

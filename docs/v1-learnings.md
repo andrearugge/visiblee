@@ -16,13 +16,17 @@ La decisione di non usare LLM per lo scoring dei passaggi (AD-02) si è rivelata
 - I sub-criteri (position, entity density, statistical specificity, answer-first, source citation) sono interpretabili dall'utente — non black box.
 - Nessun LLM "allucinante" valori falsi per passaggi su cui non ha contesto.
 
+**Lo stesso principio si è applicato alla classificazione intent GSC**: regex euristiche IT+EN per `classify_intent()` producono risultati coerenti e deterministici su migliaia di query, a costo zero.
+
 ### 1.2 Il competitor gap analysis è il differenziatore vero
 
 Il flow automatico "citation check → fetch competitor → analisi con stessa pipeline → confronto strutturale" è la funzione che genera il maggior "aha moment" negli utenti. È anche quella che nessun competitor accessibile fa oggi. Va protetta e migliorata, non semplificata.
 
 ### 1.3 StepLoader + useJobPolling come primitivi condivisi
 
-Avere un pattern standardizzato per tutti i job asincroni (discovery, analisi, competitor) ha eliminato inconsistenze nell'UX dei loading states e ridotto il codice duplicato. Ogni nuovo job che verrà aggiunto dovrebbe usare gli stessi primitivi.
+Avere un pattern standardizzato per tutti i job asincroni (discovery, analisi, competitor, GSC sync) ha eliminato inconsistenze nell'UX dei loading states e ridotto il codice duplicato. Ogni nuovo job che verrà aggiunto dovrebbe usare gli stessi primitivi.
+
+**Nota tecnica**: `useJobPolling` usa `useRef` internamente per `isDone`/`onDone` — garantisce che le callback usino sempre i valori più recenti senza richiedere la ricreazione dell'interval. I componenti che tracciano il completamento di un job devono interrogare lo status del job direttamente (es. `!data.analysisRunning`), non comparare timestamp snapshot — quel pattern è soggetto a race condition.
 
 ### 1.4 targetLanguage + targetCountry espliciti
 
@@ -31,6 +35,14 @@ Chiedere la lingua e il paese al setup, invece di auto-detectarli, ha prodotto a
 ### 1.5 La preview landing-page come funnel top-of-funnel
 
 Permettere all'utente di vedere un punteggio reale prima di registrarsi (con sezioni bloccate come CTA) è il flow di acquisizione più efficace. L'utente arriva già con un'aspettativa calibrata e i dati di "quanto sono lontano dall'ottimale" creano urgenza reale.
+
+### 1.6 OAuth separato per GSC (AD-13)
+
+Tenere il login OAuth (Auth.js) separato dalla connessione GSC si è rivelata la scelta corretta: gli utenti con account email/password possono comunque connettere GSC, e i token GSC hanno un lifecycle indipendente dalla sessione. Progettare l'integrazione come "secondo grant OAuth" distinto è il pattern corretto per qualsiasi futura integrazione (GA4, Search Ads, ecc.).
+
+### 1.7 Crypto cross-compatible TypeScript/Python per token sensibili
+
+Implementare AES-256-GCM con lo stesso formato in TypeScript (`lib/crypto.ts`) e Python (`crypto_utils.py`) prima di scrivere qualsiasi codice che tocchi i token ha evitato problemi di compatibilità. La chiave è in env var; il formato `<ivHex>:<authTagHex>:<ciphertextHex>` è autodescrittivo.
 
 ---
 
@@ -71,9 +83,11 @@ Le raccomandazioni generate (Claude/Gemini in `optimization`) tendono a essere t
 
 Il grafico storico è implementato (Recharts LineChart con toggle sub-score) ma richiede minimo 2 snapshot per essere utile. Nella pratica, molti utenti eseguono l'analisi una volta e poi non la rieseguono — il grafico resta vuoto.
 
-**Causa**: nessun trigger automatico per rieseguire l'analisi. La citation simulation è manuale, non settimanale automatica.
+**Causa**: nessun trigger automatico per rieseguire l'analisi. La citation simulation è manuale.
 
 **Fix v2 critico**: scheduled jobs per citation check settimanale + prompt al rientro "hai aggiornato contenuti? Riesegui l'analisi".
+
+**La feature GSC parzialmente mitiga questo**: i profili audience e i suggerimenti di query creano un motivo ricorrente di visita all'app. Ma il problema alla radice (analisi mai riavviate) richiede auto-scheduling.
 
 ### 2.6 Il competitor analysis manca di sub-score strutturati
 
@@ -84,6 +98,15 @@ Il grafico storico è implementato (Recharts LineChart con toggle sub-score) ma 
 ### 2.7 Non c'è rate limiting sul microservizio Python
 
 Un utente (o bug) potrebbe triggerare centinaia di job in loop. Il Python non ha rate limiting per utente. In v1 con pochi utenti non è un problema; a scala diventa un rischio.
+
+### 2.8 OAuth GSC setup richiede configurazione manuale fuori dall'app
+
+Per usare GSC, l'utente deve:
+1. Attivare "Google Search Console API" nella Google Cloud Console Library
+2. Aggiungere `http://localhost:3000/api/gsc/callback` agli **Authorized redirect URIs** (non alle JavaScript Origins — campo diverso)
+3. Aggiungere il scope `webmasters.readonly` negli scopes dell'OAuth consent screen
+
+Questo setup è necessario solo in ambiente di sviluppo locale. In produzione va pre-configurato una volta sola sul Google Cloud project dell'app. Il problema emerge per sviluppatori che clonano il repo — la documentazione di setup deve essere molto esplicita su questi passaggi.
 
 ---
 
@@ -105,7 +128,7 @@ In v1, le regole dei piani (max 5 query free, no competitor analysis free) sono 
 
 ### 3.4 Test di integrazione sulla pipeline Python
 
-La pipeline Python non ha test automatici. Ogni refactoring (es. la transizione v1→v2 dello scoring engine, Fase 4) è stata eseguita "a mano" verificando i risultati manualmente. Un test suite con contenuti fixture + expected scores avrebbe reso i refactoring molto più sicuri.
+La pipeline Python non ha test automatici. Ogni refactoring è stata eseguita "a mano" verificando i risultati manualmente. Un test suite con contenuti fixture + expected scores avrebbe reso i refactoring molto più sicuri.
 
 ---
 
@@ -113,10 +136,12 @@ La pipeline Python non ha test automatici. Ogni refactoring (es. la transizione 
 
 - **FastAPI separato**: la separazione frontend/backend è corretta. Non bundlare il Python in Next.js.
 - **Gemini per citation check**: finché non esistono alternative ufficiali, è l'unica scelta sensata.
-- **Voyage AI per embedding**: le performance su query-passage matching giustificano la scelta.
+- **Voyage AI per embedding**: le performance su query-passage matching giustificano la scelta. Usato anche per i suggerimenti GSC (similarità tra query GSC e query target esistenti).
 - **No LLM scoring**: la deterministica è un requisito non negoziabile per lo score history.
 - **No URL prefix i18n**: routes in inglese, lingua da cookie. Funziona, non crea problemi.
 - **Primitive condivise (StepLoader, useJobPolling)**: il pattern di astrazione è corretto e va mantenuto.
+- **OAuth GSC separato da login OAuth**: pattern corretto da mantenere per qualsiasi futura integrazione.
+- **AES-256-GCM per token OAuth**: non salvare mai token in chiaro in DB.
 
 ---
 
@@ -131,3 +156,4 @@ Questi sono pattern osservati nel comportamento utente che dovrebbero guidare le
 | La discovery manuale (conferma/scarta) è un attrito | Migliorare la classificazione automatica riduce l'abbandono nel setup |
 | Le raccomandazioni sono percepite come "generiche" | Servono esempio concreto + collegamento al passaggio specifico |
 | Il free tier (5 query) è troppo limitato per valutare il prodotto | Considerare 7-10 query nel free, con competitor analysis limitata invece che assente |
+| I profili audience GSC creano engagement ricorrente | L'integrazione GSC è un driver di retention più forte dello score history da solo |

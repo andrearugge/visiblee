@@ -46,6 +46,8 @@
 - Citation simulation con `TrendDots`, badge "Citato/Non citato", posizione, storico 4 settimane
 - Fonti citate espandibili (`CitationCard`), quote supportata, sotto-query Gemini toggle
 - Dati da `CitationCheck`: `citedSources`, `userCited`, `userCitedPosition`, `userCitedSegment`, `responseText`, `searchQueries`
+- **GSC Query Suggestions**: banner con max 3 query suggerite dal GSC (visibile se GSC connesso e ci sono suggestion pendenti). Ogni suggerimento mostra query, impressioni, intent type, badge "AI query" per query `query_ai_mode`. Azioni: "Accetta" (crea query target) o "Ignora".
+- **Citation Variants Panel**: sotto ogni `CitationCard`, pannello collassabile che mostra il risultato della simulazione per ogni profilo audience (es. "Citato per Evaluator pos. 1 / Non citato per Decision Maker").
 
 **Contents (content management)**
 - Tab "Da confermare" / "Confermati" / "Scartati"
@@ -64,7 +66,6 @@
 - Chip colorate (verde/giallo/rosso) per coverage tier
 - Header con stat card (totale, coperti, gap)
 - Legenda e sort toggle
-- Bug "11 11 gap" fixato (5.7)
 
 **Competitors**
 - Aggiunta manuale competitor (URL)
@@ -77,6 +78,12 @@
 - Ordinate per priorità e impatto stimato
 - Status: `pending` | `in_progress` | `completed` | `dismissed`
 - Sprint groups
+
+**Audience (sezione GSC — feature flag `NEXT_PUBLIC_GSC_ENABLED`)**
+- Nuovo item in sidebar tra "Queries" e "Opportunities"
+- **Stato 1 — No GSC connesso**: pagina educativa con 4 profili audience statici in anteprima (opacity ridotta), vantaggi elencati, CTA "Connetti Google Search Console" → rimanda a Settings.
+- **Stato 2 — Sync in corso**: `StepLoader` mentre il job `gsc_sync` elabora i dati. Polling via `useJobPolling`.
+- **Stato 3 — Profili generati**: card deck per ogni `IntentProfile` con: nome, intent dominante, % del traffico GSC, device dominante, query di esempio, barra "citation impact" (% di varianti con `userCited = true`).
 
 **Notifiche**
 - Bell badge nella navbar
@@ -93,6 +100,7 @@
 **Settings**
 - Edit `targetLanguage` e `targetCountry` su progetti esistenti
 - `SearchableSelect` — combobox con live filter, zero dipendenze extra
+- **GSC Connection Card** (visibile se `NEXT_PUBLIC_GSC_ENABLED=true`): 3 stati — non connesso (lista vantaggi + bottone connect OAuth), connesso senza property selezionata (radio list proprietà con badge "match"), connesso e attivo (stats: property URL, ultimo sync, query importate, profili generati, bottone "Sync ora", link "Disconnetti"). Polling `useJobPolling` mentre job `gsc_sync` è attivo.
 
 **Admin panel**
 - Lista utenti, gestione ruoli, seed superadmin
@@ -116,6 +124,7 @@
 | Fan-out | Gemini API (`gemini-2.0-flash`) |
 | Citation check | Gemini API + Google Search Grounding |
 | Discovery | Brave Search API + Gemini classificazione |
+| GSC sync | Google Search Console API (`webmasters.readonly`) |
 | Email | MailerSend (report PDF + transazionali) |
 | Analytics | GA4 solo su `(marketing)` route group |
 | Deploy | Vercel (frontend) + Hetzner via Ploi (2 server: DB + Python) |
@@ -134,18 +143,20 @@ api/             → API routes Next.js
 ### 2.3 Primitive condivise (non negoziabili)
 
 - **`StepLoader`** (`components/ui/step-loader.tsx`): loader per tutti i job asincroni. Props: `title`, `subtitle`, `steps[]`, `pollingText?`, `skeleton` (`score-rows` | `content-rows`). Usare sempre, non inventare loader custom.
-- **`useJobPolling`** (`hooks/use-job-polling.ts`): polling loop standardizzato. Accetta `onDone` override. Sempre `router.refresh()` dopo creazione job.
+- **`useJobPolling`** (`hooks/use-job-polling.ts`): polling loop standardizzato. Usa `useRef` internamente per `isDone`/`onDone` — nessun stale closure. Accetta `onDone` override. Sempre `router.refresh()` dopo creazione job. Nota: i componenti che tracciano job completion devono interrogare lo stato del job (es. `/setup-status?analysisRunning`), non comparare timestamp snapshot (anti-pattern che causa race condition).
 - **`SearchableSelect`** (`components/ui/searchable-select.tsx`): combobox con live filter, no deps extra.
 
 ### 2.4 Job types nel DB
 
 ```
-'preview_analysis'    → micro-analisi dalla landing
-'discovery'           → Brave + Gemini classificazione
-'fetch_content'       → crawl + segmentazione
-'full_analysis'       → pipeline completa scoring
-'citation_check'      → Gemini Grounding per query
-'competitor_analysis' → analisi pagina competitor
+'preview_analysis'         → micro-analisi dalla landing
+'discovery'                → Brave + Gemini classificazione
+'fetch_content'            → crawl + segmentazione
+'full_analysis'            → pipeline completa scoring
+'citation_check'           → Gemini Grounding per query
+'competitor_analysis'      → analisi pagina competitor
+'gsc_sync'                 → pull dati GSC + classificazione intent + generazione profili
+'citation_check_enriched'  → citation check con varianti per profilo audience
 ```
 
 ### 2.5 Schema DB — tabelle principali
@@ -163,11 +174,30 @@ api/             → API routes Next.js
 | `project_score_snapshots` | snapshot storico dei 5 score |
 | `content_scores` | score per contenuto per snapshot |
 | `citation_checks` | risultati verifica citazione Gemini |
+| `citation_check_variants` | varianti del citation check per profilo audience (GSC) |
 | `competitors` | competitor rilevati/manuali |
 | `competitor_contents` | pagine analizzate dei competitor |
 | `recommendations` | raccomandazioni con status |
 | `jobs` | job queue asincrona |
 | `notifications` | notifiche in-app |
+| `gsc_connections` | token OAuth GSC (AES-256-GCM), property selezionata, status |
+| `gsc_query_data` | query reali da GSC API (90 gg): click, impressioni, CTR, position, intent classificato |
+| `intent_profiles` | profili audience generati dal GSC data (2-4 per progetto): nome, slug, context prompt |
+| `gsc_query_suggestions` | query suggerite basate su similarità con target esistenti; status: `pending`/`accepted`/`dismissed` |
+
+### 2.6 API routes GSC (feature-flag `NEXT_PUBLIC_GSC_ENABLED`)
+
+```
+GET  /api/gsc/connect?projectId=...        → redirect OAuth Google
+GET  /api/gsc/callback                     → token exchange, salva tokens criptati
+GET  /api/gsc/properties?projectId=...     → lista proprietà GSC dell'utente
+POST /api/gsc/select-property              → seleziona property, lancia gsc_sync job
+POST /api/gsc/sync                         → lancia manualmente gsc_sync job
+GET  /api/gsc/status?projectId=...         → stato connessione + pendingJobId
+POST /api/gsc/disconnect                   → revoca e cancella connessione
+GET  /api/gsc/suggestions?projectId=...   → lista suggestion pending
+PATCH /api/gsc/suggestions/[id]            → accetta o ignora un suggerimento
+```
 
 ---
 
@@ -177,8 +207,9 @@ api/             → API routes Next.js
 - Lo scoring euristico sui passaggi: deterministico, senza LLM, ~$0.002 per analisi. Non va convertito a LLM-based.
 - La citation verification via Gemini Grounding: l'unica fonte ufficiale per citazioni Google strutturate. Non sostituire con scraping.
 - Il competitor analysis automatico dai citation checks: il differenziatore principale del prodotto.
-- Il limite di 15 query target: computazionalmente motivato (vedi commercial-strategy.md § 4.3).
+- Il limite di 15 query target: computazionalmente motivato.
 - `StepLoader` e `useJobPolling` come standard per tutti i job.
+- La classificazione intent GSC con euristiche (regex IT+EN): deterministica, zero costi LLM.
 
 ---
 
@@ -192,16 +223,17 @@ api/             → API routes Next.js
 - **No multi-user per progetto**: i progetti appartengono a un singolo utente. Sharing/team non implementato.
 - **No export CSV**: nella roadmap commerciale ma non implementato.
 - **No white-label**: nella roadmap Agency tier ma non implementato.
-- **No scheduled citation checks automatici**: la citation simulation viene triggerata manualmente. Il "weekly automatic" del user guide è aspiration, non implementato.
+- **No scheduled citation checks automatici**: la citation simulation `citation_check_enriched` viene triggerata manualmente. Il GSC sync è anch'esso manuale (o triggerato alla selezione della property). Il "weekly automatic" del user guide è aspiration, non ancora implementato.
 - **No Share of Model tracking**: nella roadmap v2.
+- **GSC feature flag**: l'intera feature GSC è dietro `NEXT_PUBLIC_GSC_ENABLED=true`. Non attiva in produzione senza configurazione OAuth.
 
 ### 4.2 Debito tecnico
 
 - Il `Job` model non ha una priority queue: i job vengono processati in ordine di creazione, non per urgenza.
 - `rawHtml` salvato su DB per ogni contenuto: può diventare un problema di storage con molti contenuti.
 - `llmReasoning` in `PassageScore`: campo testo libero — non strutturato, difficile da indicizzare o aggregare.
-- Lo schema `Competitor` non ha sub-score separati come i `Content`: solo `avgPassageScore`. Un competitor analysis completo produrrebbe i 5 sub-score ma non c'è dove salvarli strutturalmente.
-- I `FanoutQuery` vengono rigenerati ad ogni analisi (`batchId` per tracciare il batch), ma i vecchi non vengono eliminati — crescita indefinita della tabella.
+- Lo schema `Competitor` non ha sub-score separati come i `Content`: solo `avgPassageScore`.
+- I `FanoutQuery` vengono rigenerati ad ogni analisi senza eliminare i vecchi — crescita indefinita della tabella.
 
 ---
 
@@ -214,5 +246,6 @@ api/             → API routes Next.js
 | URL prefix per i18n | Scelta architetturale: routes sempre in inglese, lingua da cookie |
 | Scraping ChatGPT/Perplexity | ToS violation + inaffidabile |
 | Auto-scheduling citation checks | Non ancora implementato (infra non pronta) |
+| LLM per classificazione intent GSC | Costo + non deterministico: regex euristiche IT+EN sufficienti |
 | Dashboard analytics usage | Non priorità v1 |
 | Multi-tenant / team | Non in scope v1 |
