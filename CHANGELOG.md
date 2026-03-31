@@ -8,6 +8,10 @@
 - Created `.env.staging.example` with all required variables for `visiblee_dev` staging database
 - Added Staging Setup section to `README.md` documenting the staging database, OAuth, and Vercel configuration
 
+#### 0.4 — Scheduler placeholder
+- Created `services/analyzer/app/scheduler.py` — connects to DB, logs "no jobs to create yet", exits
+- Documents Ploi cron command inline; full setup in `docs/staging-setup.md` (Task 0.5)
+
 #### 0.3 — Worker/FastAPI separation
 - Removed job worker from FastAPI lifespan — `uvicorn app.main:app` starts with no background tasks
 - Created `services/analyzer/run_worker.py` as standalone worker entrypoint (`python run_worker.py`)
