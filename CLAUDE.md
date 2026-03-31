@@ -187,7 +187,7 @@ api/             → Next.js API routes
 | 0.2 — Vercel staging docs | ✅ Done | README Staging section espansa con step-by-step Vercel |
 | 0.3 — Worker/FastAPI separation | ✅ Done | `run_worker.py` standalone, lifespan rimosso da FastAPI |
 | 0.4 — Scheduler placeholder | ✅ Done | `app/scheduler.py` — connette al DB, logga, esce |
-| 0.5 — `docs/staging-setup.md` | ⏳ Pending | |
+| 0.5 — `docs/staging-setup.md` | ✅ Done | DNS, Hetzner, OAuth, Ploi, Vercel, smoke test checklist |
 | 0.6 — Smoke test checklist | ⏳ Pending | |
 
 ---

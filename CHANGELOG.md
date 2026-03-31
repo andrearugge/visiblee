@@ -8,6 +8,9 @@
 - Created `.env.staging.example` with all required variables for `visiblee_dev` staging database
 - Added Staging Setup section to `README.md` documenting the staging database, OAuth, and Vercel configuration
 
+#### 0.5 — Staging setup documentation
+- Created `docs/staging-setup.md` covering DNS, Hetzner DB, Google OAuth, Ploi processes/cron, Vercel project setup, env variables table, smoke test checklist (6 sections), and troubleshooting table
+
 #### 0.4 — Scheduler placeholder
 - Created `services/analyzer/app/scheduler.py` — connects to DB, logs "no jobs to create yet", exits
 - Documents Ploi cron command inline; full setup in `docs/staging-setup.md` (Task 0.5)
