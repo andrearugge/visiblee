@@ -53,9 +53,18 @@ Technical names in code/DB/API. User-friendly names ONLY in i18n translation fil
 | `source_authority_score` | Source Authority | 10% |
 
 ### Git
-- Branches: `feature/name`, `fix/name`, `refactor/name`
+- **Main branches**: `main` (production), `dev` (integration)
+- **Feature branches**: create from `dev`, named `feature/v2-fase-N` (e.g. `feature/v2-fase-1`)
+- **Workflow per fase**:
+  1. Checkout `dev` e pull
+  2. Crea branch `feature/phase-name`
+  3. Lavora sulla fase — tutti i task della fase vanno su questo branch
+  4. Al completamento: merge su `dev` (squash o merge commit, a discrezione)
+  5. Nuova fase: ripeti da step 1
+- **Fix/refactor durante una fase**: se il fix è dentro la fase corrente, resta nel branch fase. Se è trasversale, usa `fix/name` da `dev`.
 - Commits: conventional (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`)
-- One commit = one logical unit of work.
+- One commit = one logical unit of work. Never multi-feature commits.
+- At the end of each phase, compact CLAUDE.md: replace completed task bodies with one-line summaries.
 
 ### i18n rules
 - No language prefix in URLs. Ever. Routes always in English.
@@ -188,7 +197,7 @@ api/             → Next.js API routes
 | 0.3 — Worker/FastAPI separation | ✅ Done | `run_worker.py` standalone, lifespan rimosso da FastAPI |
 | 0.4 — Scheduler placeholder | ✅ Done | `app/scheduler.py` — connette al DB, logga, esce |
 | 0.5 — `docs/staging-setup.md` | ✅ Done | DNS, Hetzner, OAuth, Ploi, Vercel, smoke test checklist |
-| 0.6 — Smoke test checklist | ⏳ Pending | |
+| 0.6 — Smoke test checklist | ✅ Done | In `docs/staging-setup.md` §6, /health aggiornato con check DB |
 
 ---
 

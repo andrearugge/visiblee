@@ -194,7 +194,7 @@ Run through this checklist manually after every staging deployment. Check off ea
 ### 6.1 — Infrastructure
 
 - [ ] `https://dev.visiblee.ai` loads (no 404, no SSL error)
-- [ ] `http://<hetzner-host>:8001/api/v1/health` returns `{"status":"ok"}`
+- [ ] `http://<hetzner-host>:8001/api/v1/health` returns `{"status":"ok","db":"ok"}`
 - [ ] `python -m app.scheduler` exits cleanly on the Hetzner server
 
 ### 6.2 — Auth
