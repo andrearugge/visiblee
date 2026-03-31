@@ -165,7 +165,9 @@ visiblee/
 
 The staging environment runs on the `dev` branch and is deployed to `dev.visiblee.ai`.
 
-**Database**: `visiblee_dev` (separate from `visiblee` in production).
+### Database
+
+`visiblee_dev` — separate from `visiblee` (production).
 
 ```bash
 # On the Hetzner DB server, create the staging database:
@@ -176,13 +178,40 @@ psql -U postgres -c "CREATE EXTENSION IF NOT EXISTS vector;" visiblee_dev
 DATABASE_URL=postgresql://postgres:<pass>@<host>:5432/visiblee_dev npx prisma migrate deploy
 ```
 
-**Environment variables**: copy `.env.staging.example` to `apps/web/.env` and `services/analyzer/.env` for the staging deployment, filling in the staging values.
+### Vercel
 
-**Google OAuth**: add `https://dev.visiblee.ai/api/auth/callback/google` as an authorized redirect URI in Google Cloud Console.
+The staging frontend is a **separate Vercel project** connected to the `dev` branch of this repository. It does NOT share the production Vercel project.
 
-**Vercel**: configure a separate Vercel deployment (or preview deployment) targeting the `dev` branch. Set the staging environment variables in the Vercel dashboard.
+**Step-by-step:**
 
-For the complete staging setup procedure, see `docs/staging-setup.md` (created in Phase 0, Task 0.5).
+1. In the [Vercel dashboard](https://vercel.com/), create a new project → import this repository.
+2. Set the **Root Directory** to `apps/web`.
+3. In **Git settings**, configure the project to only deploy from the `dev` branch (disable production branch / set `dev` as the production branch for this project).
+4. Under **Settings → Domains**, add `dev.visiblee.ai` and point the DNS CNAME to `cname.vercel-dns.com`.
+5. Under **Settings → Environment Variables**, add all variables from `.env.staging.example` with staging values. Mark them as **Production** (since `dev` is treated as production in this project).
+
+Key variables that differ from local `.env`:
+
+| Variable | Staging value |
+|---|---|
+| `DATABASE_URL` | `postgresql://...@<hetzner-host>:5432/visiblee_dev` |
+| `NEXTAUTH_URL` | `https://dev.visiblee.ai` |
+| `APP_URL` | `https://dev.visiblee.ai` |
+| `ANALYZER_API_URL` | `http://<hetzner-python-host>:8000` |
+| `NEXT_PUBLIC_GSC_ENABLED` | `true` |
+
+### Google OAuth
+
+Add the staging callback URL to the Google Cloud Console OAuth credentials (same project as production):
+
+- **Authorized redirect URI**: `https://dev.visiblee.ai/api/auth/callback/google`
+- **GSC OAuth redirect URI**: `https://dev.visiblee.ai/api/gsc/callback`
+
+### Python microservice
+
+The staging Python service runs on the same Hetzner server as production but on a **different port** (e.g., `8001`). Configure Ploi to run a second site/service for the `dev` branch. Point `ANALYZER_API_URL` in the Vercel staging environment to the staging port.
+
+For the complete staging setup procedure (including DNS and Ploi config), see `docs/staging-setup.md` (created in Phase 0, Task 0.5).
 
 ---
 

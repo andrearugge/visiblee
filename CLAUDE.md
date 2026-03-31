@@ -184,7 +184,7 @@ api/             → Next.js API routes
 | Task | Status | Notes |
 |---|---|---|
 | 0.1 — Staging DB config | ✅ Done | `.env.staging.example` + README Staging section |
-| 0.2 — Vercel staging docs | ⏳ Pending | |
+| 0.2 — Vercel staging docs | ✅ Done | README Staging section espansa con step-by-step Vercel |
 | 0.3 — Worker/FastAPI separation | ⏳ Pending | |
 | 0.4 — Scheduler placeholder | ⏳ Pending | |
 | 0.5 — `docs/staging-setup.md` | ⏳ Pending | |
