@@ -14,6 +14,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="urllib3")
 warnings.filterwarnings("ignore", message=".*NotOpenSSLWarning.*")
 warnings.filterwarnings("ignore", message=".*end of life.*", category=FutureWarning)
 
+import psycopg2
+
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -53,9 +55,17 @@ app = FastAPI(
 
 
 @app.get("/api/v1/health")
-async def health() -> dict:
-    """Health check endpoint."""
-    return {"status": "ok"}
+def health() -> dict:
+    """Health check endpoint — verifies DB connectivity."""
+    try:
+        conn = psycopg2.connect(config.DATABASE_URL)
+        conn.close()
+        db_status = "ok"
+    except Exception as e:
+        log.error(f"Health check DB error: {e}")
+        db_status = str(e)
+
+    return {"status": "ok", "db": db_status}
 
 
 @app.post("/api/v1/preview-analyze", response_model=PreviewAnalyzeResponse)
