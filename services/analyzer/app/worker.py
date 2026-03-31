@@ -89,9 +89,10 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
+                  AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())
                 ORDER BY "createdAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED

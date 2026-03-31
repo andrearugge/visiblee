@@ -507,6 +507,7 @@ model Job {
   error       String?
   attempts    Int      @default(0)
   maxAttempts Int      @default(3)
+  scheduledAt DateTime?
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime @default(now())
