@@ -161,6 +161,31 @@ visiblee/
 - **[docs/visiblee-project-description.md](./docs/visiblee-project-description.md)** — product vision and UX flows
 - **[docs/visiblee-theory.md](./docs/visiblee-theory.md)** — Google AI Mode mechanisms and scoring rationale
 
+## Staging Setup
+
+The staging environment runs on the `dev` branch and is deployed to `dev.visiblee.ai`.
+
+**Database**: `visiblee_dev` (separate from `visiblee` in production).
+
+```bash
+# On the Hetzner DB server, create the staging database:
+psql -U postgres -c "CREATE DATABASE visiblee_dev;"
+psql -U postgres -c "CREATE EXTENSION IF NOT EXISTS vector;" visiblee_dev
+
+# Apply migrations (from apps/web):
+DATABASE_URL=postgresql://postgres:<pass>@<host>:5432/visiblee_dev npx prisma migrate deploy
+```
+
+**Environment variables**: copy `.env.staging.example` to `apps/web/.env` and `services/analyzer/.env` for the staging deployment, filling in the staging values.
+
+**Google OAuth**: add `https://dev.visiblee.ai/api/auth/callback/google` as an authorized redirect URI in Google Cloud Console.
+
+**Vercel**: configure a separate Vercel deployment (or preview deployment) targeting the `dev` branch. Set the staging environment variables in the Vercel dashboard.
+
+For the complete staging setup procedure, see `docs/staging-setup.md` (created in Phase 0, Task 0.5).
+
+---
+
 ## Known Issues / Notes
 
 | Issue | Status | Notes |
