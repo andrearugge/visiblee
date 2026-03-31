@@ -5,10 +5,8 @@ Visiblee — Python Analyzer Microservice
 Handles AI analysis, scoring, embedding, and content processing.
 """
 
-import asyncio
 import logging
 import warnings
-from contextlib import asynccontextmanager
 from typing import Optional
 
 # Suppress known harmless warnings on macOS with Python 3.9 / LibreSSL
@@ -34,7 +32,6 @@ from .models import (
 )
 from .pipeline import run_preview_pipeline
 from .segmenter import segment_html
-from .worker import run_worker
 
 log = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -48,25 +45,10 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials]) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    log.info("Analyzer microservice starting up.")
-    worker_task = asyncio.create_task(run_worker())
-    log.info("Job worker started as background task.")
-    yield
-    worker_task.cancel()
-    try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
-    log.info("Analyzer microservice shutting down.")
-
-
 app = FastAPI(
     title="Visiblee Analyzer",
     description="AI analysis, scoring, and embedding microservice for Visiblee",
     version="0.2.0",
-    lifespan=lifespan,
 )
 
 

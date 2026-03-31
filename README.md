@@ -117,11 +117,11 @@ cd services/analyzer
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 3 — Python job worker (processes preview analysis jobs from DB)
+# Terminal 3 — Job worker (separate process — processes jobs from the DB)
 # Same venv as Terminal 2
 cd services/analyzer
 source .venv/bin/activate
-python -m app.worker
+python run_worker.py
 ```
 
 Health checks:
