@@ -7,6 +7,15 @@ interface CompetitorsPageProps {
   params: Promise<{ id: string }>;
 }
 
+interface CitedSource {
+  url: string;
+  domain: string;
+  title: string;
+  is_user: boolean;
+  is_competitor: boolean;
+  position: number;
+}
+
 export default async function CompetitorsPage({ params }: CompetitorsPageProps) {
   const [session, { id }] = await Promise.all([auth(), params]);
 
@@ -16,11 +25,20 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
   });
   if (!project) notFound();
 
-  const [competitors, latestSnapshot] = await Promise.all([
+  const [competitors, appearances, latestSnapshot] = await Promise.all([
     db.competitor.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'asc' },
       include: { contents: { select: { id: true } } },
+    }),
+    db.competitorQueryAppearance.findMany({
+      where: { competitor: { projectId: id } },
+      select: {
+        competitorId: true,
+        targetQuery: { select: { id: true, queryText: true } },
+        citationCheck: { select: { citedSources: true } },
+      },
+      orderBy: { checkedAt: 'desc' },
     }),
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
@@ -28,6 +46,41 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
       select: { citationPowerScore: true },
     }),
   ]);
+
+  // Build per-competitor URL and query sets
+  const urlsByCompetitor = new Map<string, Set<string>>();
+  const queriesByCompetitor = new Map<string, Set<string>>();
+
+  for (const app of appearances) {
+    const comp = competitors.find((c) => c.id === app.competitorId);
+    if (!comp) continue;
+
+    let compDomain: string | null = null;
+    if (comp.websiteUrl) {
+      try {
+        compDomain = new URL(comp.websiteUrl).hostname.replace(/^www\./, '');
+      } catch {}
+    }
+
+    const sources = app.citationCheck.citedSources as unknown as CitedSource[];
+    const compSources = sources.filter((s) => {
+      if (s.is_user) return false;
+      if (!s.is_competitor) return false;
+      if (compDomain) {
+        const srcDomain = s.domain.replace(/^www\./, '');
+        return srcDomain.includes(compDomain) || compDomain.includes(srcDomain);
+      }
+      return true;
+    });
+
+    const urlSet = urlsByCompetitor.get(app.competitorId) ?? new Set<string>();
+    for (const s of compSources) urlSet.add(s.url);
+    urlsByCompetitor.set(app.competitorId, urlSet);
+
+    const querySet = queriesByCompetitor.get(app.competitorId) ?? new Set<string>();
+    querySet.add(app.targetQuery.queryText);
+    queriesByCompetitor.set(app.competitorId, querySet);
+  }
 
   const serialized = competitors.map((c) => ({
     id: c.id,
@@ -37,6 +90,8 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
     avgPassageScore: c.avgPassageScore,
     contentCount: c.contents.length,
     createdAt: c.createdAt.toISOString(),
+    citationUrls: [...(urlsByCompetitor.get(c.id) ?? [])],
+    queriesWithCitations: [...(queriesByCompetitor.get(c.id) ?? [])],
   }));
 
   return (

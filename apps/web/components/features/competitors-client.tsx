@@ -11,6 +11,7 @@ import {
   Globe,
   ExternalLink,
   BarChart2,
+  Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,8 @@ interface Competitor {
   avgPassageScore: number | null;
   contentCount: number;
   createdAt: string;
+  citationUrls: string[];
+  queriesWithCitations: string[];
 }
 
 interface CompetitorsClientProps {
@@ -91,7 +94,7 @@ function CompetitorCard({
     }
   }
 
-  const displayUrl = competitor.websiteUrl
+  const displayDomain = competitor.websiteUrl
     ? (() => { try { return new URL(competitor.websiteUrl).hostname; } catch { return competitor.websiteUrl; } })()
     : null;
 
@@ -104,11 +107,11 @@ function CompetitorCard({
             <p className="font-semibold text-zinc-900 truncate">{competitor.name}</p>
             {competitor.isConfirmed && (
               <span className="shrink-0 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
-                Analyzed
+                {t('analyzed')}
               </span>
             )}
           </div>
-          {displayUrl && (
+          {displayDomain && (
             <a
               href={competitor.websiteUrl!}
               target="_blank"
@@ -116,7 +119,7 @@ function CompetitorCard({
               className="mt-0.5 flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
             >
               <Globe className="size-3" />
-              {displayUrl}
+              {displayDomain}
               <ExternalLink className="size-2.5" />
             </a>
           )}
@@ -150,17 +153,47 @@ function CompetitorCard({
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mb-4 flex items-center gap-4 text-xs text-zinc-400">
-        {competitor.contentCount > 0 && (
-          <span>{format(competitor.contentCount)} pages crawled</span>
-        )}
-        {!competitor.isConfirmed && (
-          <span className="text-zinc-300 italic">{t('notAnalyzed')}</span>
-        )}
-      </div>
+      {/* Citation URLs */}
+      {competitor.citationUrls.length > 0 ? (
+        <div className="mb-4 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              {t('citationUrlsTitle')}
+            </p>
+            {competitor.queriesWithCitations.length > 0 && (
+              <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-500 tabular-nums">
+                {t('appearedInQueries', { count: competitor.queriesWithCitations.length })}
+              </span>
+            )}
+          </div>
+          <ul className="space-y-1.5">
+            {competitor.citationUrls.map((url, i) => {
+              let display = url;
+              try { display = new URL(url).pathname || url; } catch {}
+              return (
+                <li key={i} className="flex items-start gap-1.5 min-w-0">
+                  <Link2 className="mt-0.5 size-3 shrink-0 text-zinc-400" />
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={url}
+                    className="truncate text-xs text-zinc-600 hover:text-zinc-900 hover:underline transition-colors"
+                  >
+                    {display}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : (
+        <div className="mb-4 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2.5">
+          <p className="text-xs text-zinc-400">{t('noCitationsTracked')}</p>
+        </div>
+      )}
 
-      {/* Comparison */}
+      {/* Content quality comparison */}
       {competitor.isConfirmed && competitor.avgPassageScore !== null && (
         <div className="space-y-2.5 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
@@ -180,6 +213,11 @@ function CompetitorCard({
           />
           <p className="pt-0.5 text-xs text-zinc-400">{t('avgPassageScore')}</p>
         </div>
+      )}
+
+      {/* Not analyzed note */}
+      {!competitor.isConfirmed && competitor.contentCount === 0 && (
+        <p className="text-xs italic text-zinc-300">{t('notAnalyzed')}</p>
       )}
     </div>
   );
@@ -210,8 +248,8 @@ export function CompetitorsClient({
     });
 
     if (res.ok) {
-      const newCompetitor: Competitor = await res.json();
-      setCompetitors((prev) => [...prev, newCompetitor]);
+      const newCompetitor = await res.json();
+      setCompetitors((prev) => [...prev, { ...newCompetitor, citationUrls: [], queriesWithCitations: [] }]);
       setNameInput('');
       setUrlInput('');
     } else {
@@ -226,8 +264,8 @@ export function CompetitorsClient({
     setCompetitors((prev) => prev.filter((c) => c.id !== id));
   }
 
-  function handleAnalysisQueued(id: string) {
-    // No-op: competitor card manages its own state
+  function handleAnalysisQueued(_id: string) {
+    // competitor card manages its own state
   }
 
   return (
