@@ -255,6 +255,76 @@ def _empty_result(target_query_id: str) -> dict:
 
 # ── Persistence ────────────────────────────────────────────────────────────────
 
+def save_competitor_appearances(
+    conn,
+    project_id: str,
+    target_query_id: str,
+    citation_check_id: str,
+    cited_sources: list[dict[str, Any]],
+) -> None:
+    """
+    For every non-user cited source in a citation check:
+      1. Upsert a Competitor row (source='citation', isConfirmed=False)
+      2. Insert a CompetitorQueryAppearance row
+
+    Idempotent per (citationCheckId) — safe to call multiple times.
+    """
+    competitor_sources = [s for s in cited_sources if not s.get("is_user")]
+    if not competitor_sources:
+        return
+
+    with conn.cursor() as cur:
+        for src in competitor_sources:
+            domain = src.get("domain") or _extract_domain(src.get("url", ""))
+            if not domain:
+                continue
+
+            url = src.get("url") or f"https://{domain}"
+            name = src.get("title") or domain
+            position = src.get("position")
+
+            # Upsert competitor (do nothing if already exists for this project+domain)
+            cur.execute(
+                """
+                INSERT INTO competitors (id, "projectId", name, "websiteUrl", source, "isConfirmed", "createdAt")
+                VALUES (gen_random_uuid(), %(project_id)s, %(name)s, %(url)s, 'citation', false, NOW())
+                ON CONFLICT DO NOTHING
+                """,
+                {"project_id": project_id, "name": name, "url": url},
+            )
+
+            # Get competitor id (just inserted or already existing)
+            cur.execute(
+                """
+                SELECT id FROM competitors
+                WHERE "projectId" = %(project_id)s AND "websiteUrl" = %(url)s
+                LIMIT 1
+                """,
+                {"project_id": project_id, "url": url},
+            )
+            row = cur.fetchone()
+            if not row:
+                continue
+            competitor_id = row["id"]
+
+            # Insert appearance (skip if already recorded for this citation check)
+            cur.execute(
+                """
+                INSERT INTO competitor_query_appearances
+                    (id, "competitorId", "targetQueryId", "citationCheckId", position, "checkedAt")
+                VALUES
+                    (gen_random_uuid(), %(competitor_id)s, %(query_id)s, %(check_id)s, %(position)s, NOW())
+                ON CONFLICT DO NOTHING
+                """,
+                {
+                    "competitor_id": competitor_id,
+                    "query_id": target_query_id,
+                    "check_id": citation_check_id,
+                    "position": position,
+                },
+            )
+
+
 def save_citation_checks(
     conn,
     project_id: str,
@@ -262,17 +332,19 @@ def save_citation_checks(
     results: list[dict[str, Any]],
 ) -> None:
     """Persist citation check results. Replaces previous check for the same query."""
-    with conn.cursor() as cur:
-        for r in results:
-            if not r.get("target_query_id"):
-                continue
+    for r in results:
+        if not r.get("target_query_id"):
+            continue
 
+        target_query_id = r["target_query_id"]
+        cited_sources = r.get("cited_sources", [])
+
+        with conn.cursor() as cur:
             # Replace previous check for this query (keep only latest)
             cur.execute(
                 'DELETE FROM citation_checks WHERE "projectId" = %s AND "targetQueryId" = %s',
-                (project_id, r["target_query_id"]),
+                (project_id, target_query_id),
             )
-
             cur.execute(
                 """
                 INSERT INTO citation_checks (
@@ -286,21 +358,28 @@ def save_citation_checks(
                     %s, %s, %s,
                     %s, %s, NOW()
                 )
+                RETURNING id
                 """,
                 (
                     project_id,
-                    r["target_query_id"],
+                    target_query_id,
                     snapshot_id,
-                    _json.dumps(r["cited_sources"]),
+                    _json.dumps(cited_sources),
                     r["user_cited"],
                     r.get("user_cited_position"),
                     r.get("user_cited_segment"),
                     r.get("response_text"),
-                    _json.dumps(r["search_queries"]),
+                    _json.dumps(r.get("search_queries", [])),
                     r.get("raw_response"),
                 ),
             )
-    conn.commit()
+            row = cur.fetchone()
+
+        conn.commit()
+
+        if row:
+            save_competitor_appearances(conn, project_id, target_query_id, row["id"], cited_sources)
+            conn.commit()
 
 
 def save_citation_check_single(
@@ -349,7 +428,13 @@ def save_citation_check_single(
         )
         row = cur.fetchone()
     conn.commit()
-    return row["id"]
+
+    check_id = row["id"]
+    cited_sources = result.get("cited_sources", [])
+    save_competitor_appearances(conn, project_id, target_query_id, check_id, cited_sources)
+    conn.commit()
+
+    return check_id
 
 
 def save_citation_check_variant(

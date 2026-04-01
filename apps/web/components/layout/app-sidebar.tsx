@@ -13,9 +13,9 @@ import {
   FileText,
   Map,
   Lightbulb,
-  Bot,
   ChevronLeft,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +52,13 @@ const PROJECT_BOTTOM_LINKS = [
   { segment: 'settings', i18nKey: 'settings' as const, icon: Settings },
 ];
 
+const QUERY_SUB_LINKS = [
+  { segment: 'coverage',        i18nKey: 'queryCoverage'         as const, icon: Map },
+  { segment: 'citations',       i18nKey: 'queryCitations'        as const, icon: Sparkles },
+  { segment: 'competitors',     i18nKey: 'queryCompetitors'      as const, icon: Users },
+  { segment: 'recommendations', i18nKey: 'queryRecommendations'  as const, icon: Lightbulb },
+];
+
 function NavLink({
   href,
   label,
@@ -83,9 +90,11 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
 
-  // Detect project ID from pathname
+  // Detect project ID and optional query ID from pathname
   const projectMatch = pathname.match(/^\/app\/projects\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
+  const queryMatch = pathname.match(/^\/app\/projects\/[^/]+\/queries\/([^/]+)/);
+  const activeQueryId = queryMatch?.[1] ?? null;
 
   const [project, setProject] = useState<ProjectData | null>(null);
 
@@ -123,12 +132,32 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
             </Link>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1 p-3">
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
             {PROJECT_MAIN_LINKS.map(({ segment, i18nKey, icon: Icon }) => {
               const href = `/app/projects/${projectId}/${segment}`;
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
-                <NavLink key={href} href={href} label={t(i18nKey)} icon={Icon} active={active} />
+                <div key={href}>
+                  <NavLink href={href} label={t(i18nKey)} icon={Icon} active={active} />
+                  {/* Query sub-links: shown when inside a query page */}
+                  {segment === 'queries' && activeQueryId && (
+                    <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-700">
+                      {QUERY_SUB_LINKS.map(({ segment: sub, i18nKey: subKey, icon: SubIcon }) => {
+                        const subHref = `/app/projects/${projectId}/queries/${activeQueryId}/${sub}`;
+                        const subActive = pathname === subHref || pathname.startsWith(subHref + '/');
+                        return (
+                          <NavLink
+                            key={subHref}
+                            href={subHref}
+                            label={t(subKey)}
+                            icon={SubIcon}
+                            active={subActive}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>

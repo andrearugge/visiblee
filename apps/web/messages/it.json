@@ -25,7 +25,11 @@
     "signOut": "Esci",
     "users": "Utenti",
     "adminPanel": "Pannello Admin",
-    "audience": "Pubblico"
+    "audience": "Pubblico",
+    "queryCoverage": "Copertura",
+    "queryCitations": "Citazioni",
+    "queryCompetitors": "Competitor",
+    "queryRecommendations": "Raccomandazioni"
   },
   "footer": {
     "allRightsReserved": "Tutti i diritti riservati.",
@@ -278,7 +282,17 @@
     "runAnalysisError": "Impossibile avviare l'analisi",
     "scoreBreakdown": "Dettaglio punteggi",
     "lastUpdated": "Aggiornato il",
-    "reRunAnalysis": "Riesegui analisi"
+    "reRunAnalysis": "Riesegui analisi",
+    "topCompetitorsTitle": "Top Competitor",
+    "topCompetitorsSubtitle": "Domini citati più frequentemente da Google AI su tutte le tue query.",
+    "topCompetitorsEmpty": "Nessun dato competitor. Esegui citation check per vedere chi appare insieme a te.",
+    "topCompetitorsQueries": "{count} {count, plural, one {query} other {query}}",
+    "topCompetitorsAppearances": "{count}×",
+    "citationGapsTitle": "Citation Gap",
+    "citationGapsSubtitle": "Query in cui non sei stato citato nell'ultimo check.",
+    "citationGapsEmpty": "Nessun gap rilevato — o nessun citation check ancora eseguito.",
+    "citationGapsRunCheck": "Esegui check →",
+    "citationGapsCited": "Citato"
   },
   "contents": {
     "emptyStateTitle": "Nessun contenuto trovato",
@@ -514,7 +528,10 @@
       "stable": "Stabile",
       "learning": "In apprendimento",
       "uncertain": "Incerto"
-    }
+    },
+    "runCheck": "Esegui check",
+    "checkRunning": "In esecuzione…",
+    "checkError": "Impossibile avviare. Riprova."
   },
   "competitors": {
     "title": "Competitor",
@@ -537,6 +554,14 @@
     "analysisError": "Impossibile avviare l'analisi. Riprova.",
     "analysisQueued": "Analisi in coda",
     "deleteError": "Impossibile rimuovere il competitor"
+  },
+  "queryCompetitors": {
+    "title": "Competitor per questa query",
+    "subtitle": "Domini citati da Google AI per questa query in tutti i citation check.",
+    "emptyTitle": "Nessun competitor rilevato",
+    "emptySubtitle": "Esegui almeno un citation check per questa query per vedere quali competitor compaiono nelle risposte AI.",
+    "avgPosition": "Pos. media",
+    "appearances": "Apparizioni"
   },
   "placeholder": {
     "pageTitle": "{page}",

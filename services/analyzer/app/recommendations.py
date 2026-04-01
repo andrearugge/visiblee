@@ -47,6 +47,7 @@ async def generate_recommendations(
     brand_name: str,
     scores: dict[str, float],
     language: str,
+    target_query_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Generate 5–10 prioritized recommendations based on scores.
@@ -101,13 +102,13 @@ async def generate_recommendations(
     try:
         data = json.loads(raw)
         recs = data.get("recommendations", [])
-        return [_normalize(r) for r in recs if isinstance(r, dict)][:8]
+        return [_normalize(r, target_query_id) for r in recs if isinstance(r, dict)][:8]
     except (json.JSONDecodeError, KeyError) as e:
         log.warning(f"Failed to parse recommendations JSON: {e}")
-        return _fallback_recommendations(scores, language)
+        return _fallback_recommendations(scores, language, target_query_id)
 
 
-def _normalize(r: dict) -> dict:
+def _normalize(r: dict, target_query_id: str | None = None) -> dict:
     """Ensure all required fields are present with valid values."""
     valid_types = {"quick_win", "content_gap", "platform_opportunity"}
     valid_priorities = {"high", "medium", "low"}
@@ -124,10 +125,11 @@ def _normalize(r: dict) -> dict:
         "description": str(r.get("description", "")),
         "suggestedAction": str(r.get("suggestedAction", "")),
         "targetScore": r.get("targetScore") if r.get("targetScore") in valid_scores else None,
+        "targetQueryId": target_query_id,
     }
 
 
-def _fallback_recommendations(scores: dict[str, float], language: str) -> list[dict]:
+def _fallback_recommendations(scores: dict[str, float], language: str, target_query_id: str | None = None) -> list[dict]:
     """Return generic recommendations when LLM generation fails."""
     it = language == "it"
     recs = []
@@ -148,6 +150,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
                 "Create content that answers related questions your audience is asking."
             ),
             "targetScore": "fanout_coverage_score",
+            "targetQueryId": target_query_id,
         })
     if scores.get("source_authority_score", 1.0) < 0.5:
         recs.append({
@@ -166,6 +169,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
                 "Publish on LinkedIn, Reddit, or Medium to increase authority."
             ),
             "targetScore": "source_authority_score",
+            "targetQueryId": target_query_id,
         })
     return recs or [{
         "type": "quick_win",
@@ -183,6 +187,7 @@ def _fallback_recommendations(scores: dict[str, float], language: str) -> list[d
             "Rewrite your weakest passages to make them more self-contained and informative."
         ),
         "targetScore": "citation_power_score",
+        "targetQueryId": target_query_id,
     }]
 
 
@@ -202,20 +207,20 @@ def save_recommendations(
             cur.execute(
                 """
                 INSERT INTO recommendations (
-                    id, "projectId", "snapshotId",
+                    id, "projectId", "snapshotId", "targetQueryId",
                     type, priority, effort,
                     title, description, "suggestedAction",
                     "targetScore", status, "createdAt", "updatedAt"
                 )
                 VALUES (
-                    gen_random_uuid(), %s, %s,
+                    gen_random_uuid(), %s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s,
                     %s, 'pending', NOW(), NOW()
                 )
                 """,
                 (
-                    project_id, snapshot_id,
+                    project_id, snapshot_id, rec.get("targetQueryId"),
                     rec["type"], rec["priority"], rec["effort"],
                     rec["title"], rec["description"], rec.get("suggestedAction"),
                     rec.get("targetScore"),

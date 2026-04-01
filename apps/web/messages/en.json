@@ -25,7 +25,11 @@
     "signOut": "Sign out",
     "users": "Users",
     "adminPanel": "Admin Panel",
-    "audience": "Audience"
+    "audience": "Audience",
+    "queryCoverage": "Coverage",
+    "queryCitations": "Citations",
+    "queryCompetitors": "Competitors",
+    "queryRecommendations": "Recommendations"
   },
   "footer": {
     "allRightsReserved": "All rights reserved.",
@@ -278,7 +282,17 @@
     "runAnalysisError": "Failed to queue analysis",
     "scoreBreakdown": "Score breakdown",
     "lastUpdated": "Last updated",
-    "reRunAnalysis": "Re-run analysis"
+    "reRunAnalysis": "Re-run analysis",
+    "topCompetitorsTitle": "Top Competitors",
+    "topCompetitorsSubtitle": "Domains most frequently cited by Google AI across all your queries.",
+    "topCompetitorsEmpty": "No competitor data yet. Run citation checks to see who appears alongside you.",
+    "topCompetitorsQueries": "{count} {count, plural, one {query} other {queries}}",
+    "topCompetitorsAppearances": "{count}×",
+    "citationGapsTitle": "Citation Gaps",
+    "citationGapsSubtitle": "Queries where you were not cited in the last check.",
+    "citationGapsEmpty": "No gaps detected — or no citation checks run yet.",
+    "citationGapsRunCheck": "Run check →",
+    "citationGapsCited": "Cited"
   },
   "contents": {
     "emptyStateTitle": "No content discovered yet",
@@ -515,7 +529,10 @@
       "stable": "Stable",
       "learning": "Learning",
       "uncertain": "Uncertain"
-    }
+    },
+    "runCheck": "Run check",
+    "checkRunning": "Running…",
+    "checkError": "Could not start. Try again."
   },
   "competitors": {
     "title": "Competitors",
@@ -538,6 +555,14 @@
     "analysisError": "Could not start analysis. Try again.",
     "analysisQueued": "Analysis queued",
     "deleteError": "Failed to remove competitor"
+  },
+  "queryCompetitors": {
+    "title": "Competitors for this query",
+    "subtitle": "Domains cited by Google AI for this query across all citation checks.",
+    "emptyTitle": "No competitors detected",
+    "emptySubtitle": "Run at least one citation check for this query to see which competitors appear in AI responses.",
+    "avgPosition": "Avg. position",
+    "appearances": "Appearances"
   },
   "placeholder": {
     "pageTitle": "{page}",

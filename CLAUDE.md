@@ -213,6 +213,21 @@ api/             → Next.js API routes
 
 > ⚠️ **Azione manuale pendente**: applicare migration `scheduledAt` sul DB con superuser. Vedi `docs/_features/v2-azioni-manuali.md`.
 
+### Phase B — Query-centric navigation (`feature/v2-fase-b`)
+
+| Task | Status | Notes |
+|---|---|---|
+| B.1 — `targetQueryId` su Recommendation | ✅ Done | Campo nullable + FK + index + migration SQL |
+| B.2 — `CompetitorQueryAppearance` | ✅ Done | Tabella con FK a Competitor/TargetQuery/CitationCheck + migration SQL |
+| B.3 — Query route layout + sub-nav | ✅ Done | `layout.tsx` con ownership check + `QuerySubNav` a 4 tab |
+| B.4 — Coverage sub-page | ✅ Done | `OpportunityMapClient` filtrato su `targetQueryId` |
+| B.5 — Citations sub-page | ✅ Done | `QueryCitationsClient` con citazione, rate bar, run-check button |
+| B.6 — Competitors sub-page | ✅ Done | `CompetitorQueryAppearance` aggregato per competitor |
+| B.7 — Recommendations sub-page | ✅ Done | `OptimizationClient` filtrato per `targetQueryId` |
+| B.8 — Overview aggregator | ✅ Done | Top competitor widget + citation gaps widget |
+
+> ⚠️ **Azioni manuali pendenti** (B.1 + B.2): vedi `docs/_features/v2-azioni-manuali.md`.
+
 ---
 
 ## Notes for Claude Code
