@@ -673,5 +673,24 @@
       "citedQueries": "Cited for {cited}/{total} target queries",
       "noVariants": "Run an analysis to see citation results per profile"
     }
+  },
+  "expert": {
+    "title": "GEO Expert",
+    "subtitle": "AI-powered chat for optimizing your content for AI citation",
+    "newConversation": "New conversation",
+    "noConversations": "No conversations yet",
+    "noConversationsHint": "Start a conversation from any recommendation — click \"Optimize with GEO Expert\".",
+    "conversationLimit": "You have reached the limit of {limit} conversations (Free plan). Archive some conversations to create new ones.",
+    "messageLimit": "This conversation has reached the maximum of {limit} messages.",
+    "messagePlaceholder": "Ask a question or request a revision...",
+    "send": "Send",
+    "backToList": "Back to GEO Expert",
+    "messages": "{count} messages",
+    "archived": "Archived",
+    "active": "Active",
+    "you": "You",
+    "assistant": "GEO Expert",
+    "errorSending": "Failed to send message. Please try again.",
+    "emptyConversation": "Start by sending a message below."
   }
 }

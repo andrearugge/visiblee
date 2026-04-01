@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   HelpCircle,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ const PROJECT_MAIN_LINKS = [
   { segment: 'opportunities', i18nKey: 'opportunityMap' as const, icon: Map },
   { segment: 'competitors', i18nKey: 'competitors' as const, icon: Users },
   { segment: 'optimization', i18nKey: 'optimizationTips' as const, icon: Lightbulb },
+  { segment: 'expert', i18nKey: 'geoExpert' as const, icon: MessageSquare },
 ];
 
 const PROJECT_BOTTOM_LINKS = [

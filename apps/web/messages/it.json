@@ -672,5 +672,24 @@
       "citedQueries": "Citato per {cited}/{total} query target",
       "noVariants": "Esegui un'analisi per vedere i risultati per profilo"
     }
+  },
+  "expert": {
+    "title": "GEO Expert",
+    "subtitle": "Chat AI per ottimizzare i tuoi contenuti per la citazione AI",
+    "newConversation": "Nuova conversazione",
+    "noConversations": "Nessuna conversazione",
+    "noConversationsHint": "Avvia una conversazione da qualsiasi raccomandazione — clicca \"Ottimizza con GEO Expert\".",
+    "conversationLimit": "Hai raggiunto il limite di {limit} conversazioni (piano Free). Archivia alcune conversazioni per crearne di nuove.",
+    "messageLimit": "Questa conversazione ha raggiunto il massimo di {limit} messaggi.",
+    "messagePlaceholder": "Fai una domanda o chiedi una revisione...",
+    "send": "Invia",
+    "backToList": "Torna a GEO Expert",
+    "messages": "{count} messaggi",
+    "archived": "Archiviata",
+    "active": "Attiva",
+    "you": "Tu",
+    "assistant": "GEO Expert",
+    "errorSending": "Impossibile inviare il messaggio. Riprova.",
+    "emptyConversation": "Inizia inviando un messaggio qui sotto."
   }
 }
