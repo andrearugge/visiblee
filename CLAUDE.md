@@ -182,7 +182,7 @@ api/             → Next.js API routes
 - `Competitor` schema lacks sub-scores — only `avgPassageScore`, gap report needs granularity.
 - `llmReasoning` in `PassageScore` is free text — not structured, hard to aggregate.
 - No `Plan` model in DB — needed before activating billing.
-- Job queue will need Redis/BullMQ when scheduled jobs (automatic weekly citation checks) are implemented at scale.
+- Job queue will need Redis/BullMQ when scheduled job volume grows significantly (Phase A implements scheduling via DB polling, adequate for current scale).
 
 ---
 
@@ -198,6 +198,20 @@ api/             → Next.js API routes
 | 0.4 — Scheduler placeholder | ✅ Done | `app/scheduler.py` — connette al DB, logga, esce |
 | 0.5 — `docs/staging-setup.md` | ✅ Done | DNS, Hetzner, OAuth, Ploi, Vercel, smoke test checklist |
 | 0.6 — Smoke test checklist | ✅ Done | In `docs/staging-setup.md` §6, /health aggiornato con check DB |
+
+### Phase A — Fondamenta del loop continuo (`feature/v2-fase-a`)
+
+| Task | Status | Notes |
+|---|---|---|
+| A.1 — `scheduledAt` su Job | ✅ Done | Campo `DateTime?` + migration SQL + `claim_job()` aggiornato |
+| A.2 — Scheduler citation daily | ✅ Done | `create_daily_citation_jobs()` con limiti piano e anti-duplicato |
+| A.3 — Worker job schedulati | ✅ Done | `scheduled_citation_daily/burst` → `process_citation_check_enriched_job` |
+| A.4 — Booster mode | ✅ Done | Dopo `full_analysis`: 3/giorno × 7 giorni di burst job per query |
+| A.5 — Scheduler GSC + analysis | ✅ Done | GSC sync domenicale + full analysis giorno 1 del mese |
+| A.6 — Endpoint citation-stats | ✅ Done | `GET /api/projects/[id]/citation-stats?queryId=` — Beta(α,β) bayesiano |
+| A.7 — UI citation rate bar | ✅ Done | `CitationRateBar` con banda confidenza, trend, label in `CitationCard` |
+
+> ⚠️ **Azione manuale pendente**: applicare migration `scheduledAt` sul DB con superuser. Vedi `docs/_features/v2-azioni-manuali.md`.
 
 ---
 
