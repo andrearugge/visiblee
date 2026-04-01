@@ -641,6 +641,11 @@ model IntentProfile {
   // Contesto per citation check
   contextPrompt    String?             // system prompt addendum per simulare questo profilo
 
+  // Provenienza: 'gsc' (auto-generated) | 'manual' (user-created)
+  source              String   @default("gsc")
+  manualDescription   String?           // "chi è questa persona?" — solo per source='manual'
+  manualSampleQueries String[]          // query esempio manuali — solo per source='manual'
+
   // Stato
   isActive         Boolean  @default(true)
   generatedAt      DateTime @default(now())
