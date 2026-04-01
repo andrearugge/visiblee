@@ -39,16 +39,23 @@ export default async function ContentsPage({ params }: { params: Promise<{ id: s
     lastFetchedAt: c.lastFetchedAt?.toISOString() ?? null,
   }));
 
-  const activeDiscovery = await db.job.findFirst({
-    where: { projectId: id, type: 'discovery', status: { in: ['pending', 'running'] } },
-    select: { id: true },
-  });
+  const [activeDiscovery, activeSitemapImport] = await Promise.all([
+    db.job.findFirst({
+      where: { projectId: id, type: 'discovery', status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    }),
+    db.job.findFirst({
+      where: { projectId: id, type: 'sitemap_import', status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    }),
+  ]);
 
   return (
     <ContentsClient
       projectId={id}
       initialContents={serialized}
       initialDiscoveryRunning={!!activeDiscovery}
+      initialSitemapRunning={!!activeSitemapImport}
     />
   );
 }

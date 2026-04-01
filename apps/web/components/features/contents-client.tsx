@@ -17,6 +17,7 @@ import {
   Search,
   Brain,
   Filter,
+  Map,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ interface ContentsClientProps {
   projectId: string;
   initialContents: ContentItem[];
   initialDiscoveryRunning?: boolean;
+  initialSitemapRunning?: boolean;
 }
 
 type Tab = 'all' | 'toVerify' | 'own' | 'mentions';
@@ -335,12 +337,15 @@ function BulkBar({
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function ContentsClient({ projectId, initialContents, initialDiscoveryRunning = false }: ContentsClientProps) {
+export function ContentsClient({ projectId, initialContents, initialDiscoveryRunning = false, initialSitemapRunning = false }: ContentsClientProps) {
   const t = useTranslations('contents');
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>(
     initialDiscoveryRunning ? 'queued' : 'idle',
+  );
+  const [sitemapStatus, setSitemapStatus] = useState<'idle' | 'running' | 'error'>(
+    initialSitemapRunning ? 'running' : 'idle',
   );
   const [pendingContents, setPendingContents] = useState<ContentItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -357,6 +362,15 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
       setDiscoveryStatus('idle');
       // No router.refresh() — we show a "results ready" banner instead
     },
+  });
+
+  // Polling per sitemap import — quando il job finisce, router.refresh() (default)
+  useJobPolling({
+    active: sitemapStatus === 'running',
+    url: `/api/projects/${projectId}/sitemap-import`,
+    interval: POLL_INTERVAL,
+    isDone: (data) => !(data as { running: boolean }).running,
+    onDone: () => setSitemapStatus('idle'),
   });
 
   // ── Derived state ────────────────────────────────────────────────────────────
@@ -398,6 +412,15 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
       setDiscoveryStatus('queued');
     } else {
       setDiscoveryStatus('error');
+    }
+  }
+
+  async function handleRunSitemapImport() {
+    const res = await fetch(`/api/projects/${projectId}/sitemap-import`, { method: 'POST' });
+    if (res.ok) {
+      setSitemapStatus('running');
+    } else {
+      setSitemapStatus('error');
     }
   }
 
@@ -504,7 +527,12 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
             <RefreshCw className="size-4" />
             {t('runDiscovery')}
           </Button>
+          <Button variant="outline" onClick={handleRunSitemapImport} className="gap-2">
+            <Map className="size-4" />
+            {t('sitemapImport')}
+          </Button>
           {discoveryStatus === 'error' && <p className="text-sm text-red-500">{t('discoveryError')}</p>}
+          {sitemapStatus === 'error' && <p className="text-sm text-red-500">{t('sitemapImportError')}</p>}
           <AddUrlForm projectId={projectId} onAdded={handleAdded} />
         </div>
       </div>
@@ -519,6 +547,13 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <RefreshCw className="size-4 shrink-0 animate-spin text-amber-600" />
           <p className="text-sm font-medium text-amber-800">{t('discoveryRunning')}</p>
+        </div>
+      )}
+      {/* Sitemap import in-progress banner */}
+      {sitemapStatus === 'running' && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <Map className="size-4 shrink-0 animate-pulse text-blue-600" />
+          <p className="text-sm font-medium text-blue-800">{t('sitemapImportRunning')}</p>
         </div>
       )}
       {/* Results ready banner */}
@@ -552,13 +587,25 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
         </div>
 
         <div className="flex items-center gap-2">
+          {sitemapStatus === 'running' ? (
+            <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+              <Map className="size-3.5 animate-pulse" />
+              {t('sitemapImportRunning')}
+            </span>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleRunSitemapImport} disabled={discoveryStatus === 'queued'} className="gap-1.5">
+              <Map className="size-3.5" />
+              {t('sitemapImport')}
+            </Button>
+          )}
+          {sitemapStatus === 'error' && <p className="text-xs text-red-500">{t('sitemapImportError')}</p>}
           {discoveryStatus === 'queued' ? (
             <span className="flex items-center gap-1.5 text-sm text-zinc-500">
               <RefreshCw className="size-3.5 animate-spin" />
               {t('discoveryRunning')}
             </span>
           ) : (
-            <Button variant="outline" size="sm" onClick={handleRunDiscovery} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={handleRunDiscovery} disabled={sitemapStatus === 'running'} className="gap-1.5">
               <RefreshCw className="size-3.5" />
               {t('runDiscovery')}
             </Button>
