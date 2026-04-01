@@ -63,9 +63,9 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-3xl px-5 pb-10">
           <p className="mb-4 text-center text-xs font-medium text-zinc-400">{t('trustedBy')}</p>
           <div className="flex flex-wrap items-center justify-center gap-y-6">
-            {BRANDS.map(({ name, href, src, height }) => (
+            {BRANDS.map(({ name, href, src, height }, i) => (
               <a
-                key={name}
+                key={i}
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
