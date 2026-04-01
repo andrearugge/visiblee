@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Phase E — Personas manuali
+
+#### E.1 — Schema IntentProfile + migration
+- Schema: aggiunto `source String @default("gsc")`, `manualDescription String?`, `manualSampleQueries String[]` a `IntentProfile`
+- Migration SQL manuale: `20260401000004_add_intent_profile_manual`
+- `gsc_sync.py`: upsert aggiornato con `source='gsc'` esplicito + `WHERE source='gsc'` nel `ON CONFLICT DO UPDATE` — i profili manuali sopravvivono al sync
+
+#### E.2 — UI personas manuali in sezione Audience
+- Form "Aggiungi persona manuale" (3 campi: nome, descrizione "chi è?", query di esempio multi-riga)
+- Form disponibile in tutti gli stati della pagina Audience (con GSC, senza GSC, no-data)
+- `ManualProfileCard`: card distinta con badge viola "Manual", sample queries come chip, pulsante delete con conferma
+- `IntentProfileCard`: delega a `ManualProfileCard` se `source='manual'`
+- `AudienceInsightsProfiles`: sezione separata "Persone manuali" + sezione "Persone GSC"
+- i18n EN + IT: 17 nuove chiavi nel namespace `gsc.audience`
+
+#### E.3 — API endpoints intent-profiles
+- `POST /api/projects/[id]/intent-profiles`: crea profilo manuale, genera `contextPrompt` con Gemini Flash (fallback euristico se no API key), slug `manual-{name}` unico
+- `DELETE /api/projects/[id]/intent-profiles/[profileId]`: elimina solo profili `source='manual'`, ownership check
+
+---
+
 ### Phase D — GEO Expert
 
 #### D.1 — Modelli Prisma ExpertConversation + ExpertMessage

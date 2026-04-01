@@ -421,6 +421,23 @@ Nella sezione **Queries**, Visiblee mostra un banner con le query GSC più prome
 
 Puoi **accettare** (aggiunge automaticamente la query come target) o **ignorare** (rimuove il suggerimento).
 
+### 10.5 Personas manuali
+
+Non hai GSC? O vuoi testare un segmento di utenti che il tuo GSC non copre? Puoi aggiungere **personas manuali** direttamente dalla sezione Audience.
+
+Clicca **"Aggiungi persona"** e compila 3 campi:
+
+1. **Nome persona** — un nome descrittivo (es. "SEO Manager in agenzia")
+2. **Chi è questa persona?** — una frase libera che descrive chi è e cosa cerca (es. "Un professionista SEO che cerca tool per monitorare le citazioni AI dei suoi clienti")
+3. **Cosa cerca di solito?** — 2-3 query di esempio, una per riga
+
+Visiblee genera automaticamente un **context prompt** per simulare questo tipo di utente nei citation check variant. Il funzionamento è identico ai profili GSC: la pipeline `citation_check_enriched` usa i profili manuali insieme a quelli GSC.
+
+Le personas manuali:
+- Sono contrassegnate con un badge **"Manual"** viola nella lista
+- **Sopravvivono alla risincronizzazione GSC** — non vengono mai sovrascritte dal sync
+- Possono essere eliminate con il pulsante cestino (i profili GSC non sono eliminabili manualmente)
+
 ---
 
 ## 11. Notifiche
