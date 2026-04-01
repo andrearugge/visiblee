@@ -53,7 +53,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -978,6 +978,10 @@ async def run_worker() -> None:
                 await process_citation_check_enriched_job(job)
             elif job_type in ("scheduled_citation_daily", "scheduled_citation_burst"):
                 await process_citation_check_enriched_job(job)
+            elif job_type == "scheduled_gsc_sync":
+                await process_gsc_sync_job(job)
+            elif job_type == "scheduled_analysis":
+                await process_full_analysis_job(job)
             else:
                 await process_job(job)
         else:
