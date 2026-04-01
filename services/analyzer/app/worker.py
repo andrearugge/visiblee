@@ -959,7 +959,7 @@ async def process_sitemap_import_job(job: dict) -> None:
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT "websiteUrl" FROM projects WHERE id = %s', (project_id,))
+            cur.execute('SELECT "websiteUrl", "targetLanguage" FROM projects WHERE id = %s', (project_id,))
             project = cur.fetchone()
 
         if not project:
@@ -971,14 +971,44 @@ async def process_sitemap_import_job(job: dict) -> None:
             fail_job(conn, job_id, "Project has no websiteUrl")
             return
 
+        target_language = (project.get("targetLanguage") or "").lower()
+
         urls = await asyncio.wait_for(
             run_sitemap_import(website_url),
             timeout=60,
         )
 
+        # Language codes commonly found as path segments or subdomains
+        LANG_CODES = {"en", "it", "fr", "de", "es", "pt", "nl", "pl", "ru", "zh", "ja", "ar"}
+
+        def _detect_url_language(url: str) -> str | None:
+            """Return ISO 639-1 code if the URL clearly indicates a specific language, else None."""
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            # Check subdomain: e.g. en.example.com
+            subdomain = parsed.hostname.split(".")[0] if parsed.hostname else ""
+            if subdomain in LANG_CODES:
+                return subdomain
+            # Check first path segment: e.g. /en/page or /en-US/page
+            segments = [s for s in parsed.path.split("/") if s]
+            if segments:
+                seg = segments[0].lower()
+                if seg in LANG_CODES:
+                    return seg
+                # Handle regional variants like en-us, it-it
+                base = seg.split("-")[0]
+                if base in LANG_CODES:
+                    return base
+            return None
+
         inserted = 0
+        skipped = 0
         with conn.cursor() as cur:
             for url in urls:
+                url_lang = _detect_url_language(url)
+                if url_lang and target_language and url_lang != target_language:
+                    skipped += 1
+                    continue
                 cur.execute(
                     """
                     INSERT INTO contents (
@@ -1000,7 +1030,7 @@ async def process_sitemap_import_job(job: dict) -> None:
         conn.commit()
 
         complete_job(conn, job_id)
-        log.info(f"Sitemap import job {job_id}: {inserted} new content items from {len(urls)} sitemap URLs")
+        log.info(f"Sitemap import job {job_id}: {inserted} new content items from {len(urls)} sitemap URLs ({skipped} skipped — language mismatch)")
 
     except asyncio.TimeoutError:
         log.error(f"Sitemap import job {job_id} timed out")
