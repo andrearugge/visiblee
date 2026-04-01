@@ -435,6 +435,11 @@
     "step4Locked": "Prima conferma almeno un contenuto",
     "step4StartError": "Impossibile avviare l'analisi. Riprova."
   },
+  "setupBanner": {
+    "progress": "Setup in corso — {done} di {total} passaggi completati",
+    "cta": "Completa il setup",
+    "dismiss": "Chiudi"
+  },
   "notifications": {
     "title": "Notifiche",
     "empty": "Nessuna notifica ancora",

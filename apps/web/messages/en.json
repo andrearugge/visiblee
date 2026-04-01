@@ -436,6 +436,11 @@
     "step4Locked": "Confirm at least one content item first",
     "step4StartError": "Could not start analysis. Try again."
   },
+  "setupBanner": {
+    "progress": "Setup in progress — {done} of {total} steps done",
+    "cta": "Complete setup",
+    "dismiss": "Dismiss"
+  },
   "notifications": {
     "title": "Notifications",
     "empty": "No notifications yet",
