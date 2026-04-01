@@ -184,10 +184,11 @@ model TargetQuery {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project            Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fanoutQueries      FanoutQuery[]
   competitorContents CompetitorContent[]
   citationChecks     CitationCheck[]
+  recommendations    Recommendation[]
 
   @@index([projectId])
   @@map("target_queries")
@@ -468,6 +469,7 @@ model Recommendation {
   projectId       String
   contentId       String?
   passageId       String?
+  targetQueryId   String?  // null = global recommendation; set = query-specific
   type            String   // 'quick_win' | 'content_gap' | 'platform_opportunity'
   priority        String   @default("medium") // 'high' | 'medium' | 'low'
   effort          String?  // 'quick' | 'moderate' | 'significant'
@@ -482,13 +484,15 @@ model Recommendation {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  project  Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  content  Content?              @relation(fields: [contentId], references: [id], onDelete: SetNull)
-  passage  Passage?              @relation(fields: [passageId], references: [id], onDelete: SetNull)
-  snapshot ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  content     Content?              @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  passage     Passage?              @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  snapshot    ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
+  targetQuery TargetQuery?          @relation(fields: [targetQueryId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([contentId])
+  @@index([targetQueryId])
   @@map("recommendations")
 }
 
