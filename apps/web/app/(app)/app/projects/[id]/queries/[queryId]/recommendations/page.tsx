@@ -18,11 +18,11 @@ export default async function QueryRecommendationsPage({ params }: Props) {
 
   const targetQuery = await db.targetQuery.findFirst({
     where: { id: queryId, project: { id, userId: session!.user.id } },
-    select: { id: true },
+    select: { id: true, queryText: true },
   });
   if (!targetQuery) notFound();
 
-  const [recommendations, latestSnapshot] = await Promise.all([
+  const [recommendations, latestSnapshot, topCompetitorAppearance] = await Promise.all([
     db.recommendation.findMany({
       where: { projectId: id, targetQueryId: queryId },
       orderBy: { createdAt: 'desc' },
@@ -43,6 +43,11 @@ export default async function QueryRecommendationsPage({ params }: Props) {
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
+    }),
+    db.competitorQueryAppearance.findFirst({
+      where: { targetQueryId: queryId },
+      orderBy: { checkedAt: 'desc' },
+      select: { competitor: { select: { name: true } } },
     }),
   ]);
 
@@ -68,6 +73,11 @@ export default async function QueryRecommendationsPage({ params }: Props) {
     <OptimizationClient
       projectId={id}
       isStale={isStale}
+      queryContext={{
+        queryId,
+        queryText: targetQuery.queryText,
+        topCompetitorName: topCompetitorAppearance?.competitor.name,
+      }}
       recommendations={recommendations.map((r) => ({
         ...r,
         effort: r.effort ?? 'moderate',

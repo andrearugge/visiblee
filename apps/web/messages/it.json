@@ -474,7 +474,10 @@
     "markPending": "Rimetti in coda",
     "suggestedAction": "Azione suggerita",
     "targetScore": "Migliora",
-    "staleWarning": "Questi consigli sono stati generati da un'analisi precedente. Esegui una nuova analisi per ottenere consigli aggiornati."
+    "staleWarning": "Questi consigli sono stati generati da un'analisi precedente. Esegui una nuova analisi per ottenere consigli aggiornati.",
+    "optimizeWithExpert": "Ottimizza con GEO Expert",
+    "expertLimitReached": "Limite conversazioni raggiunto (piano Free)",
+    "expertOpening": "Apertura GEO Expert..."
   },
   "opportunities": {
     "pageTitle": "Mappa di Copertura Query",
