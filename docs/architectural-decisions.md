@@ -247,3 +247,19 @@
 - Determinismo: lo stesso corpus di query deve produrre gli stessi profili audience, per poter confrontare tra sync successivi.
 
 **Implicazione**: non introdurre chiamate LLM nella pipeline `gsc_sync` o `intent_engine`. La classificazione deve rimanere euristica.
+
+
+---
+
+## AD-18 — GEO Expert: LLM per chat/consulenza ≠ LLM per scoring
+
+**Decisione**: il GEO Expert usa Gemini Flash (`gemini-2.0-flash`) per generare messaggi di chat contestualizzati. Questo NON viola AD-02 (zero LLM nello scoring).
+
+**Motivazione**:
+- AD-02 vieta LLM nel loop di scoring (fan-out, embed, cosine similarity, heuristic scoring) perché richiederebbe ~$30/analisi, non è deterministico, e rende il punteggio non riproducibile.
+- Il GEO Expert è generazione di contenuti e consulenza testuale — lo stesso use case di `generate_recommendations()` e `generate_insights()` che già usano LLM. Il costo è ~$0.01-0.05 per conversazione (solo quando l'utente chiede).
+- Il GEO Expert non modifica lo scoring, non scrive nel DB di analisi, non influenza il `ai_readiness_score`. Produce solo testo che l'utente decide se usare.
+
+**Implementazione**: `@google/genai` JS SDK dal Next.js API route (chat sincrona, no job asincrono). System prompt include `contextPayload` completo. History completa a ogni messaggio. Max 30 messaggi/conversazione, 50 conversazioni/progetto (free).
+
+**Implicazione**: future feature di consulenza testuale (brief generator, content rewriter) possono usare LLM. Non possono toccare il loop di scoring.

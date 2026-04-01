@@ -163,10 +163,11 @@ model Project {
   jobs              Job[]
   previewAnalyses   PreviewAnalysis[]
   citationChecks    CitationCheck[]
-  gscConnection     GscConnection?
-  gscQueryData      GscQueryData[]
-  intentProfiles    IntentProfile[]
-  querySuggestions  GscQuerySuggestion[]
+  gscConnection         GscConnection?
+  gscQueryData          GscQueryData[]
+  intentProfiles        IntentProfile[]
+  querySuggestions      GscQuerySuggestion[]
+  expertConversations   ExpertConversation[]
 
   @@index([userId])
   @@map("projects")
@@ -700,6 +701,41 @@ model GscQuerySuggestion {
 
   @@unique([projectId, query])
   @@map("gsc_query_suggestions")
+}
+
+// ─────────────────────────────────────────────
+// GEO EXPERT
+// ─────────────────────────────────────────────
+
+model ExpertConversation {
+  id               String   @id @default(uuid())
+  projectId        String
+  recommendationId String?
+  targetQueryId    String?
+  title            String
+  contextPayload   Json     // snapshot: rec, content, competitor, query data
+  status           String   @default("active") // 'active' | 'archived'
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages ExpertMessage[]
+
+  @@index([projectId])
+  @@map("expert_conversations")
+}
+
+model ExpertMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String   // 'user' | 'assistant' | 'system'
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation ExpertConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("expert_messages")
 }
 
 // ─────────────────────────────────────────────

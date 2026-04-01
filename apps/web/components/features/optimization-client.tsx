@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, Zap, BookOpen, Globe, CheckCircle2, Clock, XCircle, Circle, AlertTriangle } from 'lucide-react';
+import { ChevronDown, Zap, BookOpen, Globe, CheckCircle2, Clock, XCircle, Circle, AlertTriangle, MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Recommendation {
@@ -17,10 +18,17 @@ interface Recommendation {
   status: string;
 }
 
+interface QueryContext {
+  queryId: string;
+  queryText: string;
+  topCompetitorName?: string;
+}
+
 interface OptimizationClientProps {
   projectId: string;
   recommendations: Recommendation[];
   isStale?: boolean;
+  queryContext?: QueryContext;
 }
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -85,12 +93,56 @@ function StatusIcon({ status }: { status: string }) {
   return <Circle className="size-4 text-zinc-300" />;
 }
 
-function RecommendationCard({ rec, projectId }: { rec: Recommendation; projectId: string }) {
+function RecommendationCard({
+  rec,
+  projectId,
+  queryContext,
+}: {
+  rec: Recommendation;
+  projectId: string;
+  queryContext?: QueryContext;
+}) {
   const t = useTranslations('optimization');
   const tScores = useTranslations('scores');
+  const router = useRouter();
   const [status, setStatus] = useState(rec.status);
   const [expanded, setExpanded] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [isOpeningExpert, startExpertTransition] = useTransition();
+
+  function handleOpenExpert() {
+    if (!queryContext) return;
+    startExpertTransition(async () => {
+      const contextPayload = {
+        recommendation: {
+          title: rec.title,
+          description: rec.description,
+          type: rec.type,
+          suggestedAction: rec.suggestedAction,
+        },
+        query: { queryText: queryContext.queryText },
+        ...(queryContext.topCompetitorName
+          ? { topCompetitor: { name: queryContext.topCompetitorName } }
+          : {}),
+      };
+      try {
+        const res = await fetch(`/api/projects/${projectId}/expert/conversations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recommendationId: rec.id,
+            targetQueryId: queryContext.queryId,
+            contextPayload,
+          }),
+        });
+        if (!res.ok) return;
+        const { conversation } = await res.json();
+        router.push(`/app/projects/${projectId}/expert/${conversation.id}`);
+      } catch {
+        // silent fail — user can navigate to expert manually
+      }
+    });
+  }
 
   async function updateStatus(newStatus: string) {
     setUpdating(true);
@@ -149,6 +201,29 @@ function RecommendationCard({ rec, projectId }: { rec: Recommendation; projectId
               {t('suggestedAction')}
             </p>
             <p className="text-sm text-zinc-700">{rec.suggestedAction}</p>
+          </div>
+        )}
+
+        {/* GEO Expert CTA — only in query-specific context */}
+        {queryContext && !isDismissed && (
+          <div className="mt-3 ml-7">
+            <button
+              onClick={handleOpenExpert}
+              disabled={isOpeningExpert}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500"
+            >
+              {isOpeningExpert ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {t('expertOpening')}
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="size-3.5" />
+                  {t('optimizeWithExpert')}
+                </>
+              )}
+            </button>
           </div>
         )}
 
@@ -232,10 +307,12 @@ function PrioritySection({
   priority,
   recs,
   projectId,
+  queryContext,
 }: {
   priority: string;
   recs: Recommendation[];
   projectId: string;
+  queryContext?: QueryContext;
 }) {
   const t = useTranslations('optimization');
   if (recs.length === 0) return null;
@@ -262,14 +339,14 @@ function PrioritySection({
       </div>
       <div className="space-y-3">
         {recs.map((rec) => (
-          <RecommendationCard key={rec.id} rec={rec} projectId={projectId} />
+          <RecommendationCard key={rec.id} rec={rec} projectId={projectId} queryContext={queryContext} />
         ))}
       </div>
     </div>
   );
 }
 
-export function OptimizationClient({ projectId, recommendations, isStale }: OptimizationClientProps) {
+export function OptimizationClient({ projectId, recommendations, isStale, queryContext }: OptimizationClientProps) {
   const t = useTranslations('optimization');
   const sorted = [...recommendations].sort(
     (a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1),
@@ -290,7 +367,7 @@ export function OptimizationClient({ projectId, recommendations, isStale }: Opti
         </div>
       )}
       {(['high', 'medium', 'low'] as const).map((p) => (
-        <PrioritySection key={p} priority={p} recs={byPriority[p]} projectId={projectId} />
+        <PrioritySection key={p} priority={p} recs={byPriority[p]} projectId={projectId} queryContext={queryContext} />
       ))}
     </div>
   );

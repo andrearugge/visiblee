@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Phase D — GEO Expert
+
+#### D.1 — Modelli Prisma ExpertConversation + ExpertMessage
+- Schema: aggiunto `ExpertConversation` (id, projectId, recommendationId?, targetQueryId?, title, contextPayload, status, timestamps) + `ExpertMessage` (id, conversationId, role, content, createdAt)
+- Migration SQL manuale: `20260401000003_add_expert_models`
+- Relazione `expertConversations` aggiunta a `Project`
+
+#### D.2 — API GEO Expert
+- `POST /api/projects/[id]/expert/conversations`: crea conversazione con `contextPayload` pre-caricato. Genera messaggio iniziale con Gemini Flash (best-effort fallback statico). Limite: 50 conversazioni per progetto (Free).
+- `GET /api/projects/[id]/expert/conversations`: lista conversazioni ordinate per `updatedAt`
+- `POST /api/projects/[id]/expert/conversations/[convId]/messages`: invia messaggio utente → Gemini Flash con history completa + system prompt → salva risposta. Limite: 30 messaggi per conversazione.
+- `GET /api/projects/[id]/expert/conversations/[convId]/messages`: recupera conversazione con tutti i messaggi
+- Dipendenza: `@google/genai` (JS SDK equivalente al `google-genai` Python già in uso)
+
+#### D.3 — UI GEO Expert
+- `expert/page.tsx`: lista conversazioni con titolo, data, conteggio messaggi, badge status
+- `expert/[convId]/page.tsx`: chat view con header (titolo + back link) e `ExpertChat` client
+- `ExpertChat`: componente chat con history messaggi, area input (Enter = invio, Shift+Enter = newline), invio ottimistico, gestione errori e limite messaggi
+- `app-sidebar.tsx`: aggiunto link "GEO Expert" (icona `MessageSquare`) nella sidebar di progetto
+- i18n EN + IT: namespace `expert` (12 chiavi)
+
+#### D.4 — CTA "Ottimizza con GEO Expert"
+- `OptimizationClient`: aggiunto prop opzionale `queryContext` (queryId, queryText, topCompetitorName). Pulsante "Ottimizza con GEO Expert" su ogni raccomandazione non dismissata quando `queryContext` è presente.
+- Il pulsante crea una nuova conversazione con `contextPayload` (rec + query + top competitor) e redirige alla chat
+- `QueryRecommendationsPage`: passa `queryContext` con testo query + top competitor da `CompetitorQueryAppearance`
+- i18n EN + IT: `optimizeWithExpert`, `expertLimitReached`, `expertOpening` nel namespace `optimization`
+
+---
+
 ### Phase C — Miglioramento setup
 
 #### C.1 — Sitemap Import
