@@ -251,6 +251,16 @@ api/             → Next.js API routes
 > ⚠️ **Azione manuale pendente** (D.1): migration `expert_conversations` + `expert_messages` su DB. Vedi `docs/_features/v2-azioni-manuali.md`.
 > ⚠️ **Variabile env richiesta**: `GOOGLE_AI_API_KEY` deve essere presente in Vercel (già usata nel Python service).
 
+### Phase E — Personas manuali (`feature/v2-fase-e`)
+
+| Task | Status | Notes |
+|---|---|---|
+| E.1 — Campi Prisma IntentProfile | ✅ Done | `source` (default `'gsc'`), `manualDescription`, `manualSampleQueries` + migration SQL + Python gsc_sync aggiornato (WHERE source='gsc') |
+| E.2 — UI form persona manuale | ✅ Done | Form 3 campi (nome/descrizione/query) in sezione Audience, badge "Manual" viola, pulsante delete, visibile in tutti gli stati (anche no-GSC) |
+| E.3 — API intent-profiles | ✅ Done | `POST /api/projects/[id]/intent-profiles` (crea + genera contextPrompt con Gemini Flash) + `DELETE /api/projects/[id]/intent-profiles/[profileId]` (solo source='manual') |
+
+> ⚠️ **Azione manuale pendente** (E.1): migration `source`/`manualDescription`/`manualSampleQueries` su DB produzione/staging. Vedi `docs/_features/v2-azioni-manuali.md`.
+
 ---
 
 ## Notes for Claude Code

@@ -162,3 +162,25 @@ VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000003_add_expert_mode
 La stessa chiave già usata dal Python service (`GOOGLE_AI_API_KEY`) deve essere aggiunta al progetto Vercel (Settings → Environment Variables).
 
 ---
+
+## Fase E
+
+### [ ] E.1 — Applicare migration `source`/`manualDescription`/`manualSampleQueries` su intent_profiles
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+ALTER TABLE "intent_profiles"
+  ADD COLUMN IF NOT EXISTS "source" TEXT NOT NULL DEFAULT 'gsc',
+  ADD COLUMN IF NOT EXISTS "manualDescription" TEXT,
+  ADD COLUMN IF NOT EXISTS "manualSampleQueries" TEXT[] NOT NULL DEFAULT '{}';
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000004_add_intent_profile_manual', NULL, NULL, NOW(), 1);
+```
+
+---

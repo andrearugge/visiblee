@@ -129,6 +129,12 @@
 - **GSC nel setup checklist**: step 0 opzionale "Connetti GSC" nel `SetupChecklist`, prima di "Aggiungi query". Se GSC connesso → suggestions da dati reali. Se l'utente salta → flag localStorage. Dipendente da `NEXT_PUBLIC_GSC_ENABLED`.
 - **Setup banner pervasivo**: `SetupBanner` nel `ProjectLayout` — appare su ogni pagina del progetto finché il setup non è completo. Barra compatta (amber) con progress N/M + link all'Overview. Auto-dismiss quando setup completato.
 
+**Personas manuali (Fase E)**
+- **Form aggiungi persona**: sezione Audience — form 3 campi (nome, descrizione "chi è?", query esempio). Disponibile in tutti gli stati della pagina (con GSC, senza GSC, no-data).
+- **Badge "Manual"**: profili manuali distinti con badge viola e card separata. Pulsante delete (solo `source='manual'`).
+- **Schema DB**: `IntentProfile` esteso con `source`, `manualDescription`, `manualSampleQueries`. Python gsc_sync preserva i profili manuali via `WHERE source='gsc'`.
+- **API**: `POST /api/projects/[id]/intent-profiles` genera `contextPrompt` con Gemini Flash. `DELETE /api/projects/[id]/intent-profiles/[profileId]` solo source='manual'.
+
 **GEO Expert (Fase D)**
 - **Chat contestuale AI**: sezione `/app/projects/[id]/expert` — lista conversazioni + chat view per ogni conversazione. Accessibile dalla sidebar (link "GEO Expert").
 - **Modelli DB**: `ExpertConversation` (titolo auto-generato, `contextPayload`, status active/archived) + `ExpertMessage` (role: user/assistant/system). Migration SQL manuale.

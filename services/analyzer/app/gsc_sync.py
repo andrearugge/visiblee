@@ -335,9 +335,9 @@ def _upsert_intent_profiles(
                     "dominantIntent", "dominantDevice", "dominantCountry",
                     "avgQueryLength", "queryCount", "totalImpressions",
                     "topPatterns", "sampleQueries", "contextPrompt",
-                    "isActive", "generatedAt"
+                    source, "isActive", "generatedAt"
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, NOW())
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'gsc', true, NOW())
                 ON CONFLICT ("projectId", slug) DO UPDATE SET
                     name = EXCLUDED.name,
                     description = EXCLUDED.description,
@@ -350,7 +350,9 @@ def _upsert_intent_profiles(
                     "topPatterns" = EXCLUDED."topPatterns",
                     "sampleQueries" = EXCLUDED."sampleQueries",
                     "contextPrompt" = EXCLUDED."contextPrompt",
+                    source = 'gsc',
                     "generatedAt" = NOW()
+                WHERE intent_profiles.source = 'gsc'
                 """,
                 (
                     row_id, project_id,
