@@ -205,7 +205,7 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 | D.3 | Creare la sezione GEO Expert: route `/app/projects/[id]/expert` con lista conversazioni (titolo, data, status) + link per aprire. Route `/app/projects/[id]/expert/[convId]` con chat view (bollette alternati user/assistant, textarea per nuovo messaggio, invio). Aggiungere link "GEO Expert" nella sidebar del progetto. | `apps/web/app/(app)/app/projects/[id]/expert/page.tsx`, `apps/web/app/(app)/app/projects/[id]/expert/[convId]/page.tsx`, `apps/web/components/features/expert-chat.tsx`, layout/sidebar | La sezione GEO Expert è accessibile dalla sidebar. La lista conversazioni mostra le conversazioni esistenti. La chat view mostra i messaggi e permette di inviarne di nuovi. |
 | D.4 | Aggiungere CTA "Ottimizza con GEO Expert" nelle raccomandazioni (sub-page recommendations di ogni query). Il CTA crea una nuova conversazione con `contextPayload` che include: dati della raccomandazione, dati della query, contenuto coinvolto, gap report del competitor migliore (se disponibile). Redirige alla chat aperta. Limits: max 50 conversazioni (free) / illimitate (pro). | `apps/web/app/(app)/app/projects/[id]/queries/[queryId]/recommendations/page.tsx`, `apps/web/components/features/optimization-client.tsx` | Cliccando "Ottimizza con GEO Expert" da una raccomandazione, si apre una nuova conversazione con contesto pre-caricato e un messaggio iniziale dell'assistente che analizza il gap. |
 
-**Alla fine della Fase D**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md`, `docs/architectural-decisions.md` (nuovo ADR: LLM per chat/consulenza vs zero-LLM per scoring — distinzione tra AD-02 e GEO Expert).
+**Alla fine della Fase D**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md`, `docs/architectural-decisions.md e chiedi all'utente di avviare una nuova sessione Claude Code (nuovo ADR: LLM per chat/consulenza vs zero-LLM per scoring — distinzione tra AD-02 e GEO Expert).
 
 ---
 
@@ -221,7 +221,7 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 | E.2 | Creare form "Aggiungi persona manuale" nella sezione Audience (3 campi: nome persona, descrizione, query esempio). I profili manuali appaiono nella lista affiancati a quelli GSC con badge "Manual". I profili manuali hanno un pulsante elimina; quelli GSC no (rigenerati ad ogni sync). | `apps/web/app/(app)/app/projects/[id]/audience/page.tsx`, componente form | Il form crea una persona manuale. La lista mostra sia profili GSC che manuali con badge distinti. |
 | E.3 | Aggiungere endpoint `POST /api/projects/[id]/intent-profiles` per creare profili manuali. Generare `contextPrompt` combinando `manualDescription` + `manualSampleQueries` (stesso formato dei profili GSC). I profili manuali sopravvivono al GSC sync (che non li tocca). | `apps/web/app/api/projects/[id]/intent-profiles/route.ts` | La creazione salva il profilo. Il sync GSC non cancella i profili manuali. Il `contextPrompt` generato è usabile dalla pipeline citation enriched. |
 
-**Alla fine della Fase E**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md` (sezione Audience aggiornata con personas manuali).
+**Alla fine della Fase E**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md` e chiedi all'utente di avviare una nuova sessione Claude Code (sezione Audience aggiornata con personas manuali).
 
 ---
 

@@ -389,13 +389,19 @@ export function ContentsClient({ projectId, targetLanguage, initialContents, ini
     },
   });
 
-  // Polling per sitemap import — quando il job finisce, router.refresh() (default)
+  // Polling per sitemap import — quando il job finisce, aggiorna il contenuto
   useJobPolling({
     active: sitemapStatus === 'running',
     url: `/api/projects/${projectId}/sitemap-import`,
     interval: POLL_INTERVAL,
     isDone: (data) => !(data as { running: boolean }).running,
-    onDone: () => setSitemapStatus('idle'),
+    onDone: () => {
+      setSitemapStatus('idle');
+      fetch(`/api/projects/${projectId}/contents`, { cache: 'no-store' })
+        .then((r) => r.ok ? r.json() : null)
+        .then((updated: ContentItem[] | null) => { if (updated) setContents(updated); })
+        .catch(() => {});
+    },
   });
 
   // ── Derived state ────────────────────────────────────────────────────────────
