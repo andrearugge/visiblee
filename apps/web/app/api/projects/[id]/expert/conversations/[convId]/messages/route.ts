@@ -41,32 +41,32 @@ export async function POST(
   const userText: string = body.content?.trim();
   if (!userText) return NextResponse.json({ error: 'content required' }, { status: 400 });
 
-  // Save user message
-  await db.expertMessage.create({
-    data: { conversationId: convId, role: 'user', content: userText },
-  });
-
-  // Build history for Gemini (exclude system messages — passed as systemInstruction)
+  // Build history for Gemini — exclude system messages (used as systemInstruction)
+  // and ensure alternating user/model turns to avoid invalid history errors.
   const systemMsg = conversation.messages.find((m) => m.role === 'system');
-  // Rename 'assistant' → 'model' for Gemini SDK
-  const geminiHistory = conversation.messages
-    .filter((m) => m.role !== 'system')
-    .map((m) => ({
-      role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
-      parts: [{ text: m.content }],
-    }));
+  const nonSystemMessages = conversation.messages.filter((m) => m.role !== 'system');
 
-  let assistantContent = 'I was unable to generate a response. Please try again.';
+  // Drop trailing user messages left over from previous failed requests
+  const cleanHistory = [...nonSystemMessages];
+  while (cleanHistory.length > 0 && cleanHistory[cleanHistory.length - 1].role === 'user') {
+    cleanHistory.pop();
+  }
+
+  const geminiHistory = cleanHistory.map((m) => ({
+    role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
+    parts: [{ text: m.content }],
+  }));
 
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'LLM not configured' }, { status: 503 });
   }
 
+  let assistantContent: string;
   try {
     const ai = new GoogleGenAI({ apiKey });
     const chat = ai.chats.create({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       history: geminiHistory,
       config: {
         systemInstruction: systemMsg?.content ?? '',
@@ -74,17 +74,23 @@ export async function POST(
     });
     const response = await chat.sendMessage({ message: userText });
     const text = response.text;
-    if (text) assistantContent = text;
+    if (!text) throw new Error('empty_response');
+    assistantContent = text;
   } catch (err) {
     console.error('[GEO Expert] Gemini error:', err);
     return NextResponse.json({ error: 'LLM error' }, { status: 502 });
   }
 
-  const assistantMessage = await db.expertMessage.create({
-    data: { conversationId: convId, role: 'assistant', content: assistantContent },
-  });
+  // Save both messages only after a successful Gemini response
+  const [, assistantMessage] = await db.$transaction([
+    db.expertMessage.create({
+      data: { conversationId: convId, role: 'user', content: userText },
+    }),
+    db.expertMessage.create({
+      data: { conversationId: convId, role: 'assistant', content: assistantContent },
+    }),
+  ]);
 
-  // Touch updatedAt on conversation
   await db.expertConversation.update({
     where: { id: convId },
     data: { updatedAt: new Date() },

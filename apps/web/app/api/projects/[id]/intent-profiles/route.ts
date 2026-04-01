@@ -45,7 +45,7 @@ Example searches: ${sampleQueries.slice(0, 3).join(', ')}
 Write in ${lang}, third person. Describe who the user is, what they are looking for, and how they typically search. Keep it concise and focused on search behavior. Do not include introductory phrases.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
 
