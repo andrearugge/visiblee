@@ -174,28 +174,10 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-500">
                         {i + 1}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-zinc-800">{c.name}</p>
-                        {c.websiteUrl && (
-                          <a
-                            href={c.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-0.5 text-xs text-zinc-400 hover:text-zinc-600"
-                          >
-                            <ExternalLink className="size-2.5" />
-                            {c.websiteUrl.replace(/^https?:\/\//, '')}
-                          </a>
-                        )}
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-semibold tabular-nums text-zinc-700">
-                          {t('topCompetitorsAppearances', { count: c.appearances })}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          {t('topCompetitorsQueries', { count: c.queryCount })}
-                        </p>
-                      </div>
+                      <p className="flex-1 truncate text-sm font-medium text-zinc-800">{c.name}</p>
+                      <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 tabular-nums">
+                        {t('topCompetitorsQueries', { count: c.queryCount })}
+                      </span>
                     </li>
                   ))}
                 </ul>

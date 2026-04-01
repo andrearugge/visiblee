@@ -472,6 +472,15 @@ export function QueriesClient({
                     </span>
                   )}
                   {q.isActive && (
+                    <Link
+                      href={`/app/projects/${projectId}/queries/${q.id}`}
+                      aria-label={t('viewDetail')}
+                      className="text-zinc-300 transition-colors hover:text-zinc-600"
+                    >
+                      <ChevronRight className="size-4" />
+                    </Link>
+                  )}
+                  {q.isActive && (
                     <button
                       onClick={() => handleDelete(q.id)}
                       aria-label={t('deleteAriaLabel')}

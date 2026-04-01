@@ -164,11 +164,6 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
 
   return (
     <>
-      {gscSuggestions.length > 0 && (
-        <div className="px-6 pt-6">
-          <GscQuerySuggestions projectId={id} suggestions={gscSuggestions} />
-        </div>
-      )}
       <QueriesClient
         projectId={id}
         initialQueries={serialized}
@@ -176,6 +171,11 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
         initialAnalysisRunning={!!activeJob}
         initialPendingChanges={initialPendingChanges}
       />
+      {gscSuggestions.length > 0 && (
+        <div className="px-6 pb-6">
+          <GscQuerySuggestions projectId={id} suggestions={gscSuggestions} />
+        </div>
+      )}
     </>
   );
 }
