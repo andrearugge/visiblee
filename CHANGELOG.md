@@ -2,6 +2,50 @@
 
 ## [Unreleased]
 
+### Phase B — Navigazione query-centrica
+
+#### B.1 — `targetQueryId` su Recommendation
+- Campo nullable `targetQueryId` aggiunto a `Recommendation` con FK → `TargetQuery` e index
+- `generate_recommendations()` in Python ora propaga `target_query_id` opzionale
+- ⚠️ Migration da applicare manualmente (vedi `docs/_features/v2-azioni-manuali.md`)
+
+#### B.2 — `CompetitorQueryAppearance`
+- Nuova tabella `competitor_query_appearances`: traccia ogni competitor citato per ogni query in ogni citation check
+- `save_competitor_appearances()` in `citation_check.py`: upsert competitor + insert appearance dopo ogni check
+- ⚠️ Migration da applicare manualmente (vedi `docs/_features/v2-azioni-manuali.md`)
+
+#### B.3 — Layout query + sub-nav
+- `queries/[queryId]/layout.tsx`: verifica ownership (progetto → query), header con back link, `QuerySubNav` a 4 tab
+- `QuerySubNav`: client component con tab bar (Coverage / Citations / Competitors / Recommendations)
+- Sidebar aggiornata: quando si è dentro una query, mostra sub-link annidati (Coverage, Citations, Competitors, Recommendations)
+
+#### B.4 — Sub-page Coverage
+- `queries/[queryId]/coverage/page.tsx`: `OpportunityMapClient` filtrato sul `targetQueryId` corrente
+- Stessa UX dell'Opportunity Map globale, ma scoped alla singola query
+
+#### B.5 — Sub-page Citations
+- `queries/[queryId]/citations/page.tsx`: citation detail completo (status, fonti, quote, varianti GSC, Bayesian rate bar)
+- `QueryCitationsClient`: client component con button "Run check" → `POST /api/projects/[id]/queries/[qId]/citation-check`
+- Nuova API `citation-check/route.ts`: crea job `citation_check` scoped per `targetQueryId`
+- i18n: `runCheck`, `checkRunning`, `checkError` (EN + IT)
+
+#### B.6 — Sub-page Competitors
+- `queries/[queryId]/competitors/page.tsx`: aggrega `CompetitorQueryAppearance` per competitor
+- Mostra rank, nome, dominio, posizione media, numero apparizioni
+- `queryCompetitors` namespace i18n (EN + IT)
+
+#### B.7 — Sub-page Recommendations
+- `queries/[queryId]/recommendations/page.tsx`: `OptimizationClient` filtrato per `targetQueryId`
+- Stessa UX dell'Optimization globale, ma mostra solo le raccomandazioni della query corrente
+
+#### B.8 — Overview aggregator
+- Due nuovi widget in fondo all'Overview (visibili solo se c'è uno snapshot):
+  - **Top Competitors**: competitor che compaiono più spesso tra tutte le query (da `CompetitorQueryAppearance`)
+  - **Citation Gaps**: query dove l'ultimo check non ha rilevato citazione, con link diretto alla sub-page Citations
+- i18n: `topCompetitors*` e `citationGaps*` nel namespace `overview` (EN + IT)
+
+---
+
 ### Phase A — Fondamenta del loop continuo
 
 #### A.1 — Campo `scheduledAt` su Job

@@ -113,6 +113,16 @@
 - `CitationRateBar`: barra con banda di confidenza visibile in ogni `CitationCard` della pagina Queries
 - `GET /api/projects/[id]/citation-stats?queryId=`: endpoint che espone le stats bayesiane per integrazioni future
 
+**Navigazione query-centrica (Fase B)**
+- Ogni query target ora ha una propria area dedicata: `/app/projects/[id]/queries/[queryId]` con 4 sub-tab
+- **Coverage**: `OpportunityMapClient` filtrato sul `targetQueryId` — mostra solo le sotto-query della query selezionata
+- **Citations**: citation detail completo (status citazione, fonti, quote AI, varianti GSC, Bayesian rate bar) + bottone "Run check" per lanciare un check manuale sulla singola query
+- **Competitors**: lista competitor rilevati nelle citation (da `CompetitorQueryAppearance`) con posizione media e frequenza
+- **Recommendations**: `OptimizationClient` filtrato per `targetQueryId` — solo le raccomandazioni di quella query
+- **Overview aggregator**: due widget nella pagina Overview — "Top Competitors" cross-query + "Citation Gaps" (query non citate con link diretto)
+- `CompetitorQueryAppearance`: nuova tabella che traccia ogni apparizione competitor per query e citation check
+- `targetQueryId` su `Recommendation`: le raccomandazioni generate con un `targetQueryId` sono associabili alla singola query
+
 ---
 
 ## 2. Architettura tecnica attuale
