@@ -12,6 +12,9 @@ import {
   ExternalLink,
   Monitor,
   Smartphone,
+  Plus,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StepLoader } from '@/components/ui/step-loader';
@@ -23,6 +26,7 @@ interface IntentProfile {
   name: string;
   slug: string;
   description: string | null;
+  source: string;
   dominantIntent: string;
   dominantDevice: string | null;
   dominantCountry: string | null;
@@ -50,6 +54,135 @@ interface AudienceInsightsPageProps {
   totalImpressions: number;
 }
 
+// ── Add manual persona form ───────────────────────────────────────────────────
+
+interface AddPersonaFormProps {
+  projectId: string;
+  onCreated: () => void;
+  onCancel: () => void;
+}
+
+function AddPersonaForm({ projectId, onCreated, onCancel }: AddPersonaFormProps) {
+  const t = useTranslations('gsc.audience');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [queriesRaw, setQueriesRaw] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    const sampleQueries = queriesRaw
+      .split('\n')
+      .map((q) => q.trim())
+      .filter(Boolean);
+
+    if (!name.trim() || !description.trim() || sampleQueries.length === 0) {
+      setError('All fields are required and at least one example query is needed.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/intent-profiles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), description: description.trim(), sampleQueries }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? 'Failed to create persona');
+      }
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-zinc-900">{t('addManualTitle')}</h3>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <p className="mb-4 text-xs text-zinc-500">{t('addManualSubtitle')}</p>
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-700">
+            {t('formNameLabel')}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('formNamePlaceholder')}
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            disabled={submitting}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-700">
+            {t('formDescriptionLabel')}
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('formDescriptionPlaceholder')}
+            rows={2}
+            className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            disabled={submitting}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-700">
+            {t('formQueriesLabel')}
+          </label>
+          <p className="mb-1.5 text-xs text-zinc-400">{t('formQueriesHelp')}</p>
+          <textarea
+            value={queriesRaw}
+            onChange={(e) => setQueriesRaw(e.target.value)}
+            placeholder={t('formQueriesPlaceholder')}
+            rows={3}
+            className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            disabled={submitting}
+          />
+        </div>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={submitting}>
+            {t('formCancel')}
+          </Button>
+          <Button type="submit" size="sm" disabled={submitting}>
+            {submitting ? (
+              <>
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                {t('formSubmitting')}
+              </>
+            ) : (
+              t('formSubmit')
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ── State 1: not connected ────────────────────────────────────────────────────
 
 const STATIC_PROFILES = [
@@ -59,8 +192,17 @@ const STATIC_PROFILES = [
   { key: 'profileAiExplorer', descKey: 'profileAiExplorerDesc' },
 ] as const;
 
-function AudienceInsightsEmpty({ projectId }: { projectId: string }) {
+function AudienceInsightsEmpty({
+  projectId,
+  manualProfiles,
+}: {
+  projectId: string;
+  manualProfiles: IntentProfile[];
+}) {
   const t = useTranslations('gsc.audience');
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div>
@@ -104,6 +246,41 @@ function AudienceInsightsEmpty({ projectId }: { projectId: string }) {
           </Button>
           <p className="text-xs text-zinc-400">{t('emptyTimeNote')}</p>
         </div>
+      </div>
+
+      {/* Manual personas section — available even without GSC */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">{t('manualPersonasTitle')}</h2>
+            <p className="text-xs text-zinc-500">{t('emptyManualSection')}</p>
+          </div>
+          {!showForm && (
+            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="mr-1.5 size-3.5" />
+              {t('addManualButton')}
+            </Button>
+          )}
+        </div>
+
+        {showForm && (
+          <AddPersonaForm
+            projectId={projectId}
+            onCreated={() => {
+              setShowForm(false);
+              router.refresh();
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {manualProfiles.length > 0 && (
+          <div className="mt-3 space-y-3">
+            {manualProfiles.map((p) => (
+              <ManualProfileCard key={p.id} profile={p} projectId={projectId} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -149,13 +326,16 @@ function AudienceInsightsSyncing({ projectId, jobId }: { projectId: string; jobI
 function AudienceInsightsNoData({
   projectId,
   lastSyncAt,
+  manualProfiles,
 }: {
   projectId: string;
   lastSyncAt: string | null;
+  manualProfiles: IntentProfile[];
 }) {
   const t = useTranslations('gsc.audience');
   const format = useFormatter();
   const [syncing, setSyncing] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const router = useRouter();
 
   async function handleSync() {
@@ -191,6 +371,109 @@ function AudienceInsightsNoData({
           {t('syncNow')}
         </Button>
       </div>
+
+      {/* Manual personas section */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900">{t('manualPersonasTitle')}</h2>
+          {!showForm && (
+            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="mr-1.5 size-3.5" />
+              {t('addManualButton')}
+            </Button>
+          )}
+        </div>
+
+        {showForm && (
+          <AddPersonaForm
+            projectId={projectId}
+            onCreated={() => {
+              setShowForm(false);
+              router.refresh();
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {manualProfiles.length > 0 ? (
+          <div className="mt-3 space-y-3">
+            {manualProfiles.map((p) => (
+              <ManualProfileCard key={p.id} profile={p} projectId={projectId} />
+            ))}
+          </div>
+        ) : (
+          !showForm && (
+            <p className="text-xs text-zinc-400">{t('manualPersonasEmpty')}</p>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Manual profile card (deletable) ──────────────────────────────────────────
+
+function ManualProfileCard({
+  profile,
+  projectId,
+}: {
+  profile: IntentProfile;
+  projectId: string;
+}) {
+  const t = useTranslations('gsc.audience');
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!confirm(t('deleteConfirm'))) return;
+    setDeleting(true);
+    await fetch(`/api/projects/${projectId}/intent-profiles/${profile.id}`, {
+      method: 'DELETE',
+    });
+    router.refresh();
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <div className="flex size-8 items-center justify-center rounded-full bg-purple-100">
+            <Users className="size-4 text-purple-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-zinc-900">{profile.name}</p>
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
+                {t('manualBadge')}
+              </span>
+            </div>
+            {profile.description && (
+              <p className="mt-0.5 text-xs text-zinc-500">{profile.description}</p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="shrink-0 rounded-md p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+          title={t('deleteButton')}
+        >
+          {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+        </button>
+      </div>
+      {profile.sampleQueries.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(profile.sampleQueries as string[]).slice(0, 3).map((q) => (
+            <span
+              key={q}
+              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 italic"
+            >
+              "{q}"
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -200,9 +483,11 @@ function AudienceInsightsNoData({
 function IntentProfileCard({
   profile,
   totalImpressions,
+  projectId,
 }: {
   profile: IntentProfile;
   totalImpressions: number;
+  projectId: string;
 }) {
   const t = useTranslations('gsc.audience');
   const trafficPct =
@@ -210,6 +495,10 @@ function IntentProfileCard({
   const citedCount = profile.citedCount ?? 0;
   const totalTQ = profile.totalTargetQueries ?? 0;
   const citedPct = totalTQ > 0 ? Math.round((citedCount / totalTQ) * 100) : 0;
+
+  if (profile.source === 'manual') {
+    return <ManualProfileCard profile={profile} projectId={projectId} />;
+  }
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -306,7 +595,11 @@ function AudienceInsightsProfiles({
   const t = useTranslations('gsc.audience');
   const format = useFormatter();
   const [syncing, setSyncing] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const router = useRouter();
+
+  const gscProfiles = profiles.filter((p) => p.source === 'gsc');
+  const manualProfiles = profiles.filter((p) => p.source === 'manual');
 
   async function handleSync() {
     setSyncing(true);
@@ -327,14 +620,57 @@ function AudienceInsightsProfiles({
         </span>
       </div>
 
-      <p className="text-sm font-medium text-zinc-700">
-        {t('profilesTitle', { count: profiles.length })}
-      </p>
+      {/* GSC profiles */}
+      {gscProfiles.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-zinc-700">
+            {t('profilesTitle', { count: gscProfiles.length })}
+          </p>
+          {gscProfiles.map((p) => (
+            <IntentProfileCard
+              key={p.id}
+              profile={p}
+              totalImpressions={totalImpressions}
+              projectId={projectId}
+            />
+          ))}
+        </div>
+      )}
 
-      <div className="space-y-3">
-        {profiles.map((p) => (
-          <IntentProfileCard key={p.id} profile={p} totalImpressions={totalImpressions} />
-        ))}
+      {/* Manual personas section */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900">{t('manualPersonasTitle')}</h2>
+          {!showForm && (
+            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="mr-1.5 size-3.5" />
+              {t('addManualButton')}
+            </Button>
+          )}
+        </div>
+
+        {showForm && (
+          <AddPersonaForm
+            projectId={projectId}
+            onCreated={() => {
+              setShowForm(false);
+              router.refresh();
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {manualProfiles.length > 0 ? (
+          <div className="space-y-3">
+            {manualProfiles.map((p) => (
+              <ManualProfileCard key={p.id} profile={p} projectId={projectId} />
+            ))}
+          </div>
+        ) : (
+          !showForm && (
+            <p className="text-xs text-zinc-400">{t('manualPersonasEmpty')}</p>
+          )
+        )}
       </div>
 
       <div className="flex items-center justify-between text-xs text-zinc-400">
@@ -368,20 +704,23 @@ export function AudienceInsightsPage({
 }: AudienceInsightsPageProps) {
   const isConnected = gscConnection?.status === 'active';
   const hasPendingJob = !!gscConnection?.pendingJobId;
+  const manualProfiles = intentProfiles.filter((p) => p.source === 'manual');
+  const gscProfiles = intentProfiles.filter((p) => p.source === 'gsc');
 
   if (!isConnected) {
-    return <AudienceInsightsEmpty projectId={projectId} />;
+    return <AudienceInsightsEmpty projectId={projectId} manualProfiles={manualProfiles} />;
   }
 
   if (hasPendingJob) {
     return <AudienceInsightsSyncing projectId={projectId} jobId={gscConnection.pendingJobId!} />;
   }
 
-  if (intentProfiles.length === 0) {
+  if (gscProfiles.length === 0) {
     return (
       <AudienceInsightsNoData
         projectId={projectId}
         lastSyncAt={gscConnection.lastSyncAt}
+        manualProfiles={manualProfiles}
       />
     );
   }

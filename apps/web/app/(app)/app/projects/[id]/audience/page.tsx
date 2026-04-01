@@ -35,12 +35,13 @@ export default async function AudiencePage({ params }: Props) {
   // Load intent profiles
   const intentProfiles = await db.intentProfile.findMany({
     where: { projectId: id, isActive: true },
-    orderBy: { totalImpressions: 'desc' },
+    orderBy: [{ source: 'asc' }, { totalImpressions: 'desc' }],
     select: {
       id: true,
       name: true,
       slug: true,
       description: true,
+      source: true,
       dominantIntent: true,
       dominantDevice: true,
       dominantCountry: true,
@@ -67,6 +68,7 @@ export default async function AudiencePage({ params }: Props) {
     name: p.name,
     slug: p.slug,
     description: p.description,
+    source: p.source,
     dominantIntent: p.dominantIntent,
     dominantDevice: p.dominantDevice,
     dominantCountry: p.dominantCountry,
