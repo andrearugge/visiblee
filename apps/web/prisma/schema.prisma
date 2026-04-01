@@ -184,11 +184,12 @@ model TargetQuery {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fanoutQueries      FanoutQuery[]
-  competitorContents CompetitorContent[]
-  citationChecks     CitationCheck[]
-  recommendations    Recommendation[]
+  project                  Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fanoutQueries            FanoutQuery[]
+  competitorContents       CompetitorContent[]
+  citationChecks           CitationCheck[]
+  recommendations          Recommendation[]
+  competitorAppearances    CompetitorQueryAppearance[]
 
   @@index([projectId])
   @@map("target_queries")
@@ -291,11 +292,30 @@ model Competitor {
   avgPassageScore  Float?
   createdAt        DateTime @default(now())
 
-  project  Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contents CompetitorContent[]
+  project     Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contents    CompetitorContent[]
+  appearances CompetitorQueryAppearance[]
 
   @@index([projectId])
   @@map("competitors")
+}
+
+model CompetitorQueryAppearance {
+  id              String   @id @default(uuid())
+  competitorId    String
+  targetQueryId   String
+  citationCheckId String
+  position        Int?     // position in the AI response (1-based)
+  checkedAt       DateTime @default(now())
+
+  competitor    Competitor    @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  targetQuery   TargetQuery   @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
+  citationCheck CitationCheck @relation(fields: [citationCheckId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId])
+  @@index([targetQueryId])
+  @@index([citationCheckId])
+  @@map("competitor_query_appearances")
 }
 
 model CompetitorContent {
@@ -435,10 +455,11 @@ model CitationCheck {
   rawResponse       String?  // full response for debug
   checkedAt         DateTime @default(now())
 
-  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  targetQuery TargetQuery           @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
-  snapshot    ProjectScoreSnapshot? @relation(fields: [snapshotId], references: [id])
-  variants    CitationCheckVariant[]
+  project               Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  targetQuery           TargetQuery                 @relation(fields: [targetQueryId], references: [id], onDelete: Cascade)
+  snapshot              ProjectScoreSnapshot?       @relation(fields: [snapshotId], references: [id])
+  variants              CitationCheckVariant[]
+  competitorAppearances CompetitorQueryAppearance[]
 
   @@index([projectId])
   @@index([targetQueryId])
