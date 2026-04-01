@@ -15,6 +15,8 @@ interface OverviewEmptyProps {
   initialContentCount: number;
   initialConfirmedCount: number;
   initialDiscoveryRunning: boolean;
+  initialGscConnected?: boolean;
+  gscEnabled?: boolean;
 }
 
 const ANALYSIS_STEPS_ICONS = [FileText, Zap, Brain, Calculator];
@@ -91,6 +93,8 @@ export function OverviewEmpty({
   initialContentCount,
   initialConfirmedCount,
   initialDiscoveryRunning,
+  initialGscConnected = false,
+  gscEnabled = false,
 }: OverviewEmptyProps) {
   const t = useTranslations('overview');
   const DISMISS_KEY = `setup_checklist_dismissed_${projectId}`;
@@ -149,6 +153,8 @@ export function OverviewEmpty({
             initialConfirmedCount={initialConfirmedCount}
             initialDiscoveryRunning={initialDiscoveryRunning}
             initialAnalysisRunning={false}
+            initialGscConnected={initialGscConnected}
+            gscEnabled={gscEnabled}
             onDismiss={handleDismiss}
             onAnalysisQueued={() => setAnalysisQueued(true)}
           />
