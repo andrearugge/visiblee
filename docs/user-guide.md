@@ -1,6 +1,6 @@
 # Guida Utente — Come funziona Visiblee
 
-> **Data**: Marzo 2026
+> **Data**: Aprile 2026
 > **Lingua**: Italiano
 > **Audience**: marketer, professionisti SEO, brand manager, consulenti GEO
 
@@ -41,7 +41,19 @@ Questi due parametri sono fondamentali per ottenere risultati rilevanti.
 
 **Come sceglierli**: scegli il mercato principale dove vuoi ottenere visibilità AI. Se sei un'agenzia italiana che lavora solo per clienti italiani, usa `it` + `IT`. Se sei un SaaS B2B che vuole espandersi in Europa, valuta di creare progetti separati per ogni lingua target.
 
-### 2.3 Query target
+### 2.3 Setup progressivo e banner di avanzamento
+
+Dopo aver creato il progetto, Visiblee guida il setup con una checklist progressiva visibile nella pagina Overview. La checklist mostra i passaggi da completare in ordine:
+
+1. **[Opzionale] Connetti Google Search Console** — se la funzione è abilitata, questo step appare per primo. Connettere GSC permette di ottenere suggerimenti di query basati su dati reali di ricerca. Puoi saltarlo e connetterlo in qualsiasi momento dalla sezione Settings.
+2. **Aggiungi query target** — inserisci le domande per cui vuoi apparire nelle risposte AI.
+3. **Avvia la content discovery** — trova automaticamente le tue pagine e menzioni.
+4. **Conferma i contenuti** — approva i contenuti rilevanti per l'analisi.
+5. **Avvia la prima analisi** — calcola il tuo AI Readiness Score.
+
+**Banner di avanzamento**: finché il setup non è completo, un banner color ambra appare in cima a ogni pagina del progetto (Contents, Queries, ecc.) con il progresso corrente (es. "2 di 4 passaggi completati") e un link diretto all'Overview dove si trova la checklist completa. Il banner scompare automaticamente quando tutti i passaggi base sono completati, o può essere chiuso manualmente.
+
+### 2.4 Query target
 
 Le query target sono le domande per cui vuoi apparire nelle risposte AI. Sono il cuore del progetto.
 
@@ -59,7 +71,7 @@ Le query target sono le domande per cui vuoi apparire nelle risposte AI. Sono il
 - "differenza tra fatturazione elettronica e e-invoicing B2B"
 - "come ottimizzare il budget Google Ads per e-commerce"
 
-**Suggerimenti da Google Search Console**: se hai connesso GSC (vedi sezione 10), Visiblee suggerisce automaticamente nuove query target basandosi sulle query reali con cui gli utenti trovano già il tuo sito. Queste compaiono come banner nella sezione Queries.
+**Suggerimenti da Google Search Console**: se hai connesso GSC (vedi sezione 11), Visiblee suggerisce automaticamente nuove query target basandosi sulle query reali con cui gli utenti trovano già il tuo sito. Queste compaiono come banner nella sezione Queries.
 
 ---
 
@@ -73,16 +85,36 @@ Prima di analizzare i tuoi contenuti, Visiblee deve trovarli. La discovery è au
 
 **Gemini Grounding**: per ogni pagina trovata, Gemini classifica se è un contenuto "tuo" (prodotto o controllato dal brand), un "mention" da terzi, o irrilevante. Vengono incluse anche varianti del nome del brand (abbreviazioni, typo comuni, nomi di prodotti correlati).
 
-### 3.2 Come interpretare i risultati
+### 3.2 Import da sitemap
 
-Dopo la discovery, vedi una lista di URL trovati con:
+Prima di avviare la discovery automatica, puoi importare contenuti direttamente dalla sitemap del tuo sito. Il pulsante **"Importa da sitemap"** nella sezione Contents:
+
+1. Scarica `sitemap.xml` (o `sitemap_index.xml`) dal tuo dominio
+2. Estrae tutti gli URL `<loc>` presenti
+3. Filtra gli URL dello stesso dominio, rimuovendo file media (immagini, PDF, CSS, JS, ecc.)
+4. Inserisce i contenuti come **già confermati** (`source: sitemap`, `isConfirmed: true`) — non richiedono revisione manuale
+
+Questo è il modo più veloce per portare dentro tutti i tuoi contenuti propri senza dover aspettare la discovery o confermare pagina per pagina. Un banner blu appare durante l'import; al termine, la lista si aggiorna automaticamente.
+
+### 3.3 Come interpretare i risultati della discovery
+
+Dopo la discovery automatica, vedi una lista di URL trovati con:
 - **Tipo**: "own" (contenuto tuo), "mention" (terzi che parlano di te), "review platform", ecc.
 - **URL e titolo**: la pagina trovata
 - **Piattaforma**: sito web, YouTube, LinkedIn, Reddit, media, ecc.
 
 È normale che la discovery trovi 20-50+ pagine. Non tutte sono utili per l'analisi.
 
-### 3.3 Confermare vs scartare i contenuti
+**Badge di attendibilità**: ogni contenuto non ancora confermato mostra un badge colorato che indica quanto Gemini è sicuro della classificazione:
+- 🟢 **Alta attendibilità** (≥ 70%): la classificazione è affidabile — procedi con fiducia
+- 🟡 **Media attendibilità** (40-69%): ricontrolla l'URL prima di confermare
+- 🔴 **Bassa attendibilità** (< 40%): dubbio significativo, verifica manualmente
+
+Il pulsante **"Solo bassa attendibilità"** nel toolbar filtra rapidamente i contenuti più incerti per una pulizia veloce.
+
+**Badge lingua**: se Visiblee rileva che la lingua del contenuto è diversa dalla lingua target del progetto, compare un badge viola (es. `EN — lingua diversa dal target`). Questi contenuti potrebbero distorcere l'analisi se il tuo pubblico è monolingue.
+
+### 3.4 Confermare vs scartare i contenuti
 
 Prima di procedere all'analisi, devi approvare i contenuti che vuoi includere. Questo passaggio è importante:
 
@@ -94,7 +126,7 @@ Prima di procedere all'analisi, devi approvare i contenuti che vuoi includere. Q
 **Scarta** i contenuti:
 - Mention da terzi (a meno che non siano molto rilevanti)
 - Pagine obsolete o deprecate
-- Contenuti in lingue diverse dal target language
+- Contenuti in lingue diverse dal target language (indicati dal badge viola)
 - Pagine duplicate o molto simili ad altre già confermate
 
 **Regola pratica**: è meglio avere 5-10 contenuti di qualità confermati che 30 contenuti eterogenei. L'analisi è più precisa e le raccomandazioni sono più azionabili.
