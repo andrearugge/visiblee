@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Sparkles,
   MessageSquare,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -99,16 +100,22 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
   const activeQueryId = queryMatch?.[1] ?? null;
 
   const [project, setProject] = useState<ProjectData | null>(null);
+  const [queryCount, setQueryCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!projectId) {
       setProject(null);
+      setQueryCount(null);
       return;
     }
     fetch(`/api/projects/${projectId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setProject(data ?? null))
       .catch(() => setProject(null));
+    fetch(`/api/projects/${projectId}/setup-status`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setQueryCount(data?.queryCount ?? null))
+      .catch(() => setQueryCount(null));
   }, [projectId]);
 
   return (
@@ -165,6 +172,27 @@ export function AppSidebar({ isSuperadmin = false }: AppSidebarProps) {
           </nav>
 
           <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+            {/* Plan widget */}
+            <div className="mb-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="size-3 text-amber-500" />
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    {t('planFree')}
+                  </span>
+                </div>
+                <span className="text-xs tabular-nums text-zinc-400">
+                  {queryCount ?? '—'}/15 {t('planQueries')}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-amber-400 transition-all"
+                  style={{ width: `${Math.min(100, ((queryCount ?? 0) / 15) * 100)}%` }}
+                />
+              </div>
+            </div>
+
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('show-onboarding'))}
               className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
