@@ -16,6 +16,7 @@ interface Recommendation {
   suggestedAction: string | null;
   targetScore: string | null;
   status: string;
+  targetQueryId?: string | null;
 }
 
 interface QueryContext {
@@ -111,7 +112,6 @@ function RecommendationCard({
   const [isOpeningExpert, startExpertTransition] = useTransition();
 
   function handleOpenExpert() {
-    if (!queryContext) return;
     startExpertTransition(async () => {
       const contextPayload = {
         recommendation: {
@@ -120,18 +120,23 @@ function RecommendationCard({
           type: rec.type,
           suggestedAction: rec.suggestedAction,
         },
-        query: { queryText: queryContext.queryText },
-        ...(queryContext.topCompetitorName
-          ? { topCompetitor: { name: queryContext.topCompetitorName } }
+        ...(queryContext
+          ? {
+              query: { queryText: queryContext.queryText },
+              ...(queryContext.topCompetitorName
+                ? { topCompetitor: { name: queryContext.topCompetitorName } }
+                : {}),
+            }
           : {}),
       };
+      const targetQueryId = queryContext?.queryId ?? rec.targetQueryId ?? undefined;
       try {
         const res = await fetch(`/api/projects/${projectId}/expert/conversations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recommendationId: rec.id,
-            targetQueryId: queryContext.queryId,
+            ...(targetQueryId ? { targetQueryId } : {}),
             contextPayload,
           }),
         });
@@ -204,8 +209,8 @@ function RecommendationCard({
           </div>
         )}
 
-        {/* GEO Expert CTA — only in query-specific context */}
-        {queryContext && !isDismissed && (
+        {/* GEO Expert CTA */}
+        {!isDismissed && (
           <div className="mt-3 ml-7">
             <button
               onClick={handleOpenExpert}

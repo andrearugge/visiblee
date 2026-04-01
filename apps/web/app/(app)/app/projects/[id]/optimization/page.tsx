@@ -37,6 +37,7 @@ export default async function OptimizationPage({ params }: Props) {
         targetScore: true,
         status: true,
         snapshotId: true,
+        targetQueryId: true,
       },
     }),
     db.projectScoreSnapshot.findFirst({
@@ -74,6 +75,7 @@ export default async function OptimizationPage({ params }: Props) {
         effort: r.effort ?? 'moderate',
         suggestedAction: r.suggestedAction ?? null,
         targetScore: r.targetScore ?? null,
+        targetQueryId: r.targetQueryId ?? null,
       }))}
     />
   );
