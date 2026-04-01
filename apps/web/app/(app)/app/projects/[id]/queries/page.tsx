@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { computeCitationStats, type CitationStats } from '@/lib/citation-stats';
 import { QueriesClient } from '@/components/features/queries-client';
 import { GscQuerySuggestions } from '@/components/gsc/gsc-query-suggestions';
 
@@ -19,7 +20,7 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
 
   const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
 
-  const [queries, latestSnapshot, activeJob, gscSuggestions] = await Promise.all([
+  const [queries, latestSnapshot, activeJob, gscSuggestions, allCitationChecks] = await Promise.all([
     db.targetQuery.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'asc' },
@@ -80,17 +81,32 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
           },
         })
       : Promise.resolve([]),
+    // All-time citation checks for Bayesian stats + trend computation
+    db.citationCheck.findMany({
+      where: { projectId: id },
+      select: { targetQueryId: true, userCited: true, checkedAt: true },
+      orderBy: { checkedAt: 'asc' },
+    }),
   ]);
 
-  // 4-week trend data for all queries
-  const trendChecks = await db.citationCheck.findMany({
-    where: { projectId: id, checkedAt: { gte: fourWeeksAgo } },
-    select: { targetQueryId: true, userCited: true, checkedAt: true },
-    orderBy: { checkedAt: 'asc' },
-  });
+  // Group all-time checks by query (used for trend dots + Bayesian stats)
+  const checksByQuery = new Map<string, { userCited: boolean; checkedAt: Date }[]>();
+  for (const c of allCitationChecks) {
+    const arr = checksByQuery.get(c.targetQueryId) ?? [];
+    arr.push({ userCited: c.userCited, checkedAt: c.checkedAt });
+    checksByQuery.set(c.targetQueryId, arr);
+  }
 
+  // Pre-compute Bayesian stats per query
+  const statsByQuery = new Map<string, CitationStats>();
+  for (const [qid, checks] of checksByQuery) {
+    statsByQuery.set(qid, computeCitationStats(checks));
+  }
+
+  // 4-week subset for trend dots
   const trendByQuery = new Map<string, { userCited: boolean; checkedAt: string }[]>();
-  for (const c of trendChecks) {
+  for (const c of allCitationChecks) {
+    if (c.checkedAt < fourWeeksAgo) continue;
     const arr = trendByQuery.get(c.targetQueryId) ?? [];
     arr.push({ userCited: c.userCited, checkedAt: c.checkedAt.toISOString() });
     trendByQuery.set(c.targetQueryId, arr);
@@ -119,6 +135,7 @@ export default async function QueriesPage({ params }: QueriesPageProps) {
       queryText: q.queryText,
       isActive: q.isActive,
       createdAt: q.createdAt.toISOString(),
+      citationStats: statsByQuery.get(q.id) ?? null,
       citation: check
         ? {
             userCited: check.userCited,
