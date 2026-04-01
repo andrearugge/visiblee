@@ -136,7 +136,7 @@ Al termine dell'analisi hai accesso a:
 
 ## 5. Leggere i risultati
 
-### 5.1 Overview: AI Readiness Score e i 5 sub-score
+### 5.1 Overview: AI Readiness Score, sub-score e widget aggregati
 
 L'**AI Readiness Score** (0-100) è il numero principale. Interpretazione:
 
@@ -159,6 +159,11 @@ I **5 sub-score** mostrano dove sono i punti di forza e i punti deboli:
 | **Source Authority** | Presenza su piattaforme rilevanti per AI | 10% |
 
 Il **moltiplicatore freshness** è visibile separatamente: mostra se i tuoi contenuti sono abbastanza recenti. Un contenuto aggiornato più di 120 giorni fa abbassa il composite score del 30%.
+
+**Widget aggregati nell'Overview** (in fondo alla pagina, quando ci sono dati):
+
+- **Top Competitors**: i domini che compaiono più frequentemente nelle risposte AI per le tue query, aggregati su tutto il progetto. Utile per capire chi è il vero competitor trasversale, non solo su una singola query.
+- **Citation Gaps**: le query in cui l'ultimo check non ha rilevato una citazione. Cliccando su una query si arriva direttamente alla sua pagina Citations per avviare un nuovo check.
 
 ### 5.2 Score history chart
 
@@ -187,15 +192,45 @@ Questo è il livello più operativo: sai esattamente quale paragrafo modificare 
 
 ---
 
-## 6. Citation Simulation (sezione Queries)
+## 6. Navigazione query-centrica
 
-### 6.1 Come funziona
+Ogni query target ha ora la sua area dedicata: clicca su una query nella lista per aprirla. Trovi 4 sotto-sezioni accessibili dai tab in cima alla pagina.
+
+### 6.1 Coverage (tab)
+
+La Coverage map filtrata sulla query selezionata. Mostra le sotto-query fan-out generate per questa specifica query e il loro stato di copertura. Identico all'Opportunity Map globale, ma scoped — vedi solo i gap rilevanti per questa query.
+
+### 6.2 Citations (tab)
+
+La pagina principale per monitorare la citazione di questa query. Contiene:
+- **Stato citazione**: citato o non citato nell'ultimo check, con posizione e segmento di contenuto supportato
+- **Fonti citate**: i domini nella risposta AI di Google
+- **Sotto-query interne di Gemini**: le ricerche fan-out che Gemini ha eseguito internamente
+- **Varianti per profilo audience** (se GSC connesso)
+- **Citation Rate bar** (vedi sezione 6.5)
+- **Bottone "Run check"**: avvia un nuovo citation check manuale per questa query
+
+### 6.3 Competitors (tab)
+
+Lista dei competitor rilevati nelle citation per questa specifica query. Ogni competitor mostra:
+- Posizione media nella risposta AI
+- Numero di volte che è apparso nei check storici
+
+### 6.4 Recommendations (tab)
+
+Le raccomandazioni di ottimizzazione contestualizzate per questa query. Filtrate per rilevanza — vedi solo i suggerimenti generati con il contesto di questa query.
+
+---
+
+## 7. Citation Simulation e Citation Rate
+
+### 7.1 Come funziona
 
 La Citation Simulation risponde alla domanda: "se qualcuno cerca [mia query target] su Google AI Mode, vengo citato?"
 
 Il sistema usa la Gemini API con Google Search Grounding: invia la tua query a Gemini con ricerca web reale attivata, raccoglie le fonti citate nella risposta, e verifica se tra queste fonti compare il tuo sito.
 
-### 6.2 Come leggere i trend
+### 7.2 Come leggere i trend
 
 Per ogni query target vedi:
 - **Badge "Citato" / "Non citato"**: il risultato dell'ultima simulazione
@@ -204,7 +239,7 @@ Per ogni query target vedi:
 - **Fonti citate**: i domini che Google ha usato per rispondere (i tuoi competitor diretti per quella query)
 - **Sotto-query interne**: le ricerche che Gemini ha fatto internamente per rispondere (il fan-out reale)
 
-### 6.3 Citation per profilo audience (se GSC connesso)
+### 7.3 Citation per profilo audience (se GSC connesso)
 
 Se hai connesso Google Search Console e Visiblee ha generato profili audience, sotto ogni risultato di citation trovi il **pannello varianti**: mostra come cambia la citation in base al profilo di chi cerca.
 
@@ -217,7 +252,36 @@ Esempio:
 
 Questo rivela un dato cruciale: potresti essere citato in modo eccellente per gli utenti in fase di valutazione, ma completamente assente per chi cerca informazioni più approfondite. Ogni profilo usa un system prompt diverso che simula il contesto e le aspettative di quell'audience.
 
-### 6.4 Cosa fare con i dati
+### 7.4 Citation Rate — stima bayesiana
+
+Sotto ogni risultato di citazione trovi la **Citation Rate bar**: una barra orizzontale che mostra la probabilità stimata di essere citato per questa query, con la banda di incertezza.
+
+**Come leggerla**:
+- Il **punto centrale** è la stima puntuale (es. 67%)
+- La **banda colorata** è l'intervallo di confidenza al 95% — più è stretta, più il dato è affidabile
+- La **label** indica il livello di confidenza attuale:
+
+| Label | Quando appare | Significato |
+|---|---|---|
+| Stabile | Tanti check, banda stretta | Dato affidabile, puoi prendere decisioni |
+| In apprendimento | Check sufficienti, banda media | Tendenza chiara, ma ancora in raccolta |
+| Incerto | Pochi check, banda ampia | Troppo presto per conclusioni |
+
+- La **freccia trend**: indica se il rate sta crescendo (↑), calando (↓) o stabile (→) rispetto alle ultime 2 settimane
+
+**Perché la barra si restringe nel tempo**: ogni citation check aggiunge un dato (citato = 1, non citato = 0). Più dati accumuli, minore è l'incertezza. Il sistema esegue check automatici giornalieri — la barra si restringe da sola senza che tu debba fare nulla.
+
+### 7.5 Monitoraggio automatico
+
+Il sistema esegue citation check automatici:
+- **1 check al giorno** per ogni query attiva (a regime)
+- **3 check al giorno per 7 giorni** subito dopo la prima analisi completa (booster mode) — cattura la varianza intra-day e accelera la raccolta dati
+- **Analisi completa mensile** — aggiorna i sub-score con i nuovi contenuti
+- **Sync GSC settimanale** (se connesso) — aggiorna i profili audience
+
+Non devi ricordarti di tornare. I dati crescono automaticamente.
+
+### 7.6 Cosa fare con i dati
 
 **Se sei citato in modo stabile** (3-4 settimane su 4): ottimo. Monitora che non scenda. Usa i dati del competitor analysis per capire cosa ha chi ti supera in posizione.
 
@@ -227,20 +291,20 @@ Questo rivela un dato cruciale: potresti essere citato in modo eccellente per gl
 
 ---
 
-## 7. Competitor monitoring
+## 8. Competitor monitoring
 
-### 7.1 Aggiungere competitor
+### 8.1 Aggiungere competitor
 
 Nella sezione Competitors puoi aggiungere i tuoi principali competitor. Visiblee li trova anche automaticamente durante la citation simulation: ogni fonte citata da Google per le tue query target che non appartiene al tuo sito viene tracciata come potenziale competitor.
 
-### 7.2 Run analysis
+### 8.2 Run analysis
 
 Puoi avviare un'analisi del competitor in qualsiasi momento. Il sistema:
 1. Fa fetch della pagina citata del competitor
 2. La analizza con la stessa pipeline dei tuoi contenuti
 3. Produce un Gap Report strutturale
 
-### 7.3 Confronto score e Gap Report
+### 8.3 Confronto score e Gap Report
 
 Per ogni competitor citato al posto tuo, vedi il Gap Report:
 
@@ -265,9 +329,9 @@ Questo è il dato più azionabile che Visiblee produce: non "il tuo score è bas
 
 ---
 
-## 8. Optimization & Recommendations
+## 9. Optimization & Recommendations
 
-### 8.1 Come usare i consigli generati
+### 9.1 Come usare i consigli generati
 
 La sezione Optimization mostra raccomandazioni prioritarie generate dal sistema basandosi sui risultati dell'analisi. Le raccomandazioni sono:
 
@@ -275,7 +339,7 @@ La sezione Optimization mostra raccomandazioni prioritarie generate dal sistema 
 - **Ordinate per impatto**: quelle che migliorano di più il tuo score compaiono per prime
 - **Con stato**: puoi marcarle come "in corso", "completata", "ignorata"
 
-### 8.2 Priorità degli interventi
+### 9.2 Priorità degli interventi
 
 Ordine di priorità raccomandato per un brand che parte da zero:
 
@@ -288,15 +352,15 @@ Ordine di priorità raccomandato per un brand che parte da zero:
 
 ---
 
-## 9. Audience Insights (Google Search Console)
+## 10. Audience Insights (Google Search Console)
 
-### 9.1 Cos'è e perché è utile
+### 10.1 Cos'è e perché è utile
 
 La sezione **Audience** mostra chi cerca realmente il tuo brand su Google e come diversi tipi di utenti vengono serviti (o non serviti) dall'AI.
 
 Visiblee importa le query reali dal tuo account Google Search Console, le classifica per tipo di intento, e raggruppa gli utenti in 2-4 **profili audience**. Ogni profilo rappresenta un segmento di utenti con aspettative diverse — ad esempio "Evaluator" (chi sta confrontando opzioni), "Researcher" (chi cerca informazioni approfondite), o "AI Explorer" (chi usa già AI Mode abitualmente).
 
-### 9.2 Connettere Google Search Console
+### 10.2 Connettere Google Search Console
 
 Dalla pagina **Settings** del progetto, trovi la card "Google Search Console":
 
@@ -306,7 +370,7 @@ Dalla pagina **Settings** del progetto, trovi la card "Google Search Console":
 
 La sincronizzazione importa i dati degli ultimi 90 giorni di ricerca organica. Al termine genera automaticamente i profili audience e i suggerimenti di nuove query target.
 
-### 9.3 Profili audience
+### 10.3 Profili audience
 
 Per ogni profilo vedi:
 - **Nome e intent dominante**: es. "Evaluator — Decisional intent"
@@ -315,7 +379,7 @@ Per ogni profilo vedi:
 - **Query di esempio**: 3-5 query reali tipiche di questo profilo
 - **Citation impact**: percentuale delle tue query target per cui sei citato quando Gemini simula il contesto di questo profilo
 
-### 9.4 Suggerimenti di nuove query target
+### 10.4 Suggerimenti di nuove query target
 
 Nella sezione **Queries**, Visiblee mostra un banner con le query GSC più promettenti da aggiungere come query target. Ogni suggerimento mostra:
 - La query originale dal tuo GSC
@@ -327,7 +391,7 @@ Puoi **accettare** (aggiunge automaticamente la query come target) o **ignorare*
 
 ---
 
-## 10. Notifiche
+## 11. Notifiche
 
 Il sistema invia notifiche automatiche per:
 
@@ -339,19 +403,23 @@ Le notifiche sono visibili nel pannello bell in alto a destra. Puoi anche vedere
 
 ---
 
-## 11. Monitoraggio continuativo
+## 12. Monitoraggio continuativo
 
-### 11.1 Con quale frequenza rieseguire l'analisi
+### 12.1 Con quale frequenza rieseguire l'analisi
 
-L'analisi completa dei contenuti va rieseguita:
+**La maggior parte del monitoraggio è automatica** — il sistema esegue:
+- Citation check giornaliero per ogni query attiva
+- Booster mode (3 check/giorno × 7 giorni) dopo la prima analisi
+- Full analysis mensile
+- Sync GSC settimanale (se connesso)
 
-- **Dopo ogni aggiornamento significativo** dei tuoi contenuti (nuova pagina, riscrittura di un articolo)
-- **Mensilmente** come check di routine per monitorare il trend dello score
-- **Dopo un aggiornamento algoritmo** di Google (quando senti di un cambiamento a AI Overviews, riesegui l'analisi entro 1-2 settimane)
+Devi rieseguire manualmente l'analisi completa solo:
+- **Dopo aggiornamenti significativi** ai tuoi contenuti (nuova pagina, riscrittura di un articolo)
+- **Dopo un aggiornamento algoritmo** di Google (riesegui entro 1-2 settimane)
 
-La citation simulation si avvia manualmente dalla sezione Queries per ogni query target.
+Puoi avviare un citation check manuale su una singola query dal tab Citations della query stessa.
 
-### 11.2 Cosa monitorare nel tempo
+### 12.2 Cosa monitorare nel tempo
 
 Le metriche da seguire:
 
@@ -364,7 +432,7 @@ Le metriche da seguire:
 | Nuovi competitor citati | A ogni simulazione | Nuovo player che appare stabilmente |
 | Citation impact per profilo | Dopo ogni sync GSC | Un profilo chiave con citation impact < 30% |
 
-### 11.3 Il ciclo operativo raccomandato
+### 12.3 Il ciclo operativo raccomandato
 
 **Dopo ogni modifica ai contenuti** (5 min):
 - Esegui un'analisi completa per vedere l'impatto sullo score
