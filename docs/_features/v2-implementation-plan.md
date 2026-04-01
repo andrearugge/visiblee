@@ -230,27 +230,19 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 Copia questo prompt all'inizio di ogni sessione:
 
 ```
-Leggi questi file prima di fare qualsiasi cosa:
+Leggi questi file prima di fare qualsiasi cosa:                                                                                                                      
 1. CLAUDE.md — convezioni, stato attuale, primitivi condivisi
 2. docs/v2-implementation-plan.md — piano di implementazione v2
 3. docs/v2-specs-ux-architecture.md — specifiche complete v2
 
-Siamo alla Fase [X], Task [Y]. 
-Implementa SOLO questo task. 
-Verifica che funzioni. 
-Commit. 
-Aggiorna CLAUDE.md. 
-Mostrami cosa hai fatto.
-```
-
-Se è la prima sessione di una nuova fase, aggiungi:
-
-```
 Prima di iniziare, leggi anche:
 - docs/product-state.md — per capire cosa esiste
 - docs/architectural-decisions.md — per rispettare i vincoli
 
-Crea il branch feature/v2-fase-[X] da dev.
+Dobbiamo sviluppare la fase E.
+Assicurati che l'ultimo branch sulla fase D sia mergiato in dev, e che su origin e local il branch non più necessario sia archiviato e cancellato.
+Poi 
+
 ```
 
 ---
