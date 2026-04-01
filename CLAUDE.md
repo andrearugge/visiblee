@@ -228,6 +228,17 @@ api/             → Next.js API routes
 
 > ⚠️ **Azioni manuali pendenti** (B.1 + B.2): vedi `docs/_features/v2-azioni-manuali.md`.
 
+### Phase C — Miglioramento setup (`feature/v2-fase-c`)
+
+| Task | Status | Notes |
+|---|---|---|
+| C.1 — Sitemap Import | ✅ Done | Python `sitemap_import.py` + job type `sitemap_import` + UI button + GET polling endpoint |
+| C.2 — Confidence badges | ✅ Done | `detectedLanguage` in schema + badge alta/media/bassa + filtro bassa confidence + lang mismatch badge |
+| C.3 — GSC nell'onboarding | ✅ Done | Step 0 opzionale in `SetupChecklist` + gscEnabled flag + overview page aggiornata |
+| C.4 — Setup banner pervasivo | ✅ Done | `SetupBanner` nel `ProjectLayout` — progress N/M + link Overview + auto-dismiss |
+
+> ⚠️ **Azione manuale pendente** (C.2): migration `detectedLanguage` su DB produzione/staging.
+
 ---
 
 ## Notes for Claude Code

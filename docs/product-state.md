@@ -123,6 +123,12 @@
 - `CompetitorQueryAppearance`: nuova tabella che traccia ogni apparizione competitor per query e citation check
 - `targetQueryId` su `Recommendation`: le raccomandazioni generate con un `targetQueryId` sono associabili alla singola query
 
+**Miglioramento setup (Fase C)**
+- **Sitemap import**: nuovo job type `sitemap_import` — scarica sitemap.xml (+ sitemap_index), estrae URL, inserisce contenuti `source='sitemap'`, `isConfirmed=true` senza necessità di conferma manuale. UI con pulsante "Importa da sitemap" nel toolbar della sezione Contents + banner mentre import in corso.
+- **Confidence badges**: badge alta/media/bassa attendibilità (`discoveryConfidence`) nei contenuti non confermati. Filtro rapido "Solo bassa attendibilità" per pulizia veloce. Badge viola se `detectedLanguage ≠ targetLanguage`. Nuovo campo `detectedLanguage` su `Content` (rilevato da Gemini durante discovery).
+- **GSC nel setup checklist**: step 0 opzionale "Connetti GSC" nel `SetupChecklist`, prima di "Aggiungi query". Se GSC connesso → suggestions da dati reali. Se l'utente salta → flag localStorage. Dipendente da `NEXT_PUBLIC_GSC_ENABLED`.
+- **Setup banner pervasivo**: `SetupBanner` nel `ProjectLayout` — appare su ogni pagina del progetto finché il setup non è completo. Barra compatta (amber) con progress N/M + link all'Overview. Auto-dismiss quando setup completato.
+
 ---
 
 ## 2. Architettura tecnica attuale
