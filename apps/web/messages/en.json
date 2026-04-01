@@ -25,7 +25,11 @@
     "signOut": "Sign out",
     "users": "Users",
     "adminPanel": "Admin Panel",
-    "audience": "Audience"
+    "audience": "Audience",
+    "queryCoverage": "Coverage",
+    "queryCitations": "Citations",
+    "queryCompetitors": "Competitors",
+    "queryRecommendations": "Recommendations"
   },
   "footer": {
     "allRightsReserved": "All rights reserved.",

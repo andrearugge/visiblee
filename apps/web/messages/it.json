@@ -25,7 +25,11 @@
     "signOut": "Esci",
     "users": "Utenti",
     "adminPanel": "Pannello Admin",
-    "audience": "Pubblico"
+    "audience": "Pubblico",
+    "queryCoverage": "Copertura",
+    "queryCitations": "Citazioni",
+    "queryCompetitors": "Competitor",
+    "queryRecommendations": "Raccomandazioni"
   },
   "footer": {
     "allRightsReserved": "Tutti i diritti riservati.",
