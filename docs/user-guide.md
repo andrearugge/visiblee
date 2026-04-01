@@ -486,3 +486,43 @@ Le metriche da seguire:
 ---
 
 > **Nota**: Visiblee misura la citabilità AI basandosi sui segnali documentati che predicono la citazione. Le citazioni AI sono per natura probabilistiche — non è possibile garantire che un contenuto venga citato. L'obiettivo è migliorare il potenziale e monitorare il trend nel tempo.
+
+---
+
+## 13. GEO Expert
+
+### 13.1 Cos'è il GEO Expert
+
+Il GEO Expert è una sezione di chat AI contestuale che ti aiuta a trasformare le raccomandazioni in azioni concrete. Non è un chatbot generico: ogni conversazione viene avviata con il contesto specifico di una raccomandazione, una query e i dati del tuo competitor principale.
+
+### 13.2 Come avviare una conversazione
+
+Il punto di ingresso naturale è la sezione **Recommendations** di ogni query:
+
+1. Apri una query target dalla sidebar
+2. Vai alla tab **Recommendations**
+3. Clicca **"Ottimizza con GEO Expert"** su qualsiasi raccomandazione
+4. Si apre automaticamente una chat con:
+   - Il testo della raccomandazione
+   - Il nome e la descrizione del problema
+   - La query di contesto
+   - Il competitor principale citato per quella query (se disponibile)
+   - Un messaggio iniziale dell'AI che analizza il gap e propone un punto di partenza
+
+### 13.3 Cosa puoi fare nella chat
+
+- **Chiedere una riscrittura**: "Riscrivimi il terzo paragrafo con più specificità statistica"
+- **Richiedere un brief**: "Genera un brief per un nuovo contenuto che copra questa sotto-query"
+- **Capire il perché**: "Perché il mio competitor viene citato e io no per questa query?"
+- **Approfondire**: "Quali entità devo includere per migliorare la Brand Authority?"
+- **Iterare**: la chat ricorda tutta la conversazione, puoi continuare dove hai lasciato
+
+### 13.4 Limiti
+
+- **30 messaggi** per conversazione (user + assistant). Superato il limite, la conversazione è in sola lettura.
+- **50 conversazioni** per progetto (piano Free). Puoi archiviare quelle vecchie dalla lista per recuperare spazio.
+- Il GEO Expert **non modifica direttamente** i tuoi contenuti — produce testo che copi e applichi tu. Questo è intenzionale: sei sempre tu a controllare cosa finisce online.
+
+### 13.5 Accedere alle conversazioni precedenti
+
+Tutte le conversazioni sono accessibili dalla sidebar → **GEO Expert**. Ogni conversazione mostra titolo (auto-generato dal contesto), data di aggiornamento e numero di messaggi.

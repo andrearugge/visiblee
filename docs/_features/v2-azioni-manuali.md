@@ -88,3 +88,77 @@ VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000000_add_target_quer
 ```
 
 ---
+
+## Fase C
+
+### [ ] C.2 — Applicare migration `detectedLanguage` su contents
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+ALTER TABLE "contents" ADD COLUMN IF NOT EXISTS "detectedLanguage" TEXT;
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000002_add_detected_language_to_content', NULL, NULL, NOW(), 1);
+```
+
+---
+
+## Fase D
+
+### [ ] D.1 — Applicare migration `expert_conversations` + `expert_messages`
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**: vedi file `apps/web/prisma/migrations/20260401000003_add_expert_models/migration.sql`
+
+```sql
+CREATE TABLE "expert_conversations" (
+    "id"               TEXT NOT NULL,
+    "project_id"       TEXT NOT NULL,
+    "recommendation_id" TEXT,
+    "target_query_id"  TEXT,
+    "title"            TEXT NOT NULL,
+    "context_payload"  JSONB NOT NULL,
+    "status"           TEXT NOT NULL DEFAULT 'active',
+    "created_at"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "expert_conversations_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "expert_messages" (
+    "id"              TEXT NOT NULL,
+    "conversation_id" TEXT NOT NULL,
+    "role"            TEXT NOT NULL,
+    "content"         TEXT NOT NULL,
+    "created_at"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "expert_messages_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "expert_conversations"
+    ADD CONSTRAINT "expert_conversations_project_id_fkey"
+    FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "expert_messages"
+    ADD CONSTRAINT "expert_messages_conversation_id_fkey"
+    FOREIGN KEY ("conversation_id") REFERENCES "expert_conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE INDEX "expert_conversations_project_id_idx" ON "expert_conversations"("project_id");
+CREATE INDEX "expert_messages_conversation_id_idx" ON "expert_messages"("conversation_id");
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000003_add_expert_models', NULL, NULL, NOW(), 1);
+```
+
+### [ ] D.1b — Aggiungere `GOOGLE_AI_API_KEY` alle variabili Vercel
+
+La stessa chiave già usata dal Python service (`GOOGLE_AI_API_KEY`) deve essere aggiunta al progetto Vercel (Settings → Environment Variables).
+
+---

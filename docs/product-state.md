@@ -129,6 +129,13 @@
 - **GSC nel setup checklist**: step 0 opzionale "Connetti GSC" nel `SetupChecklist`, prima di "Aggiungi query". Se GSC connesso → suggestions da dati reali. Se l'utente salta → flag localStorage. Dipendente da `NEXT_PUBLIC_GSC_ENABLED`.
 - **Setup banner pervasivo**: `SetupBanner` nel `ProjectLayout` — appare su ogni pagina del progetto finché il setup non è completo. Barra compatta (amber) con progress N/M + link all'Overview. Auto-dismiss quando setup completato.
 
+**GEO Expert (Fase D)**
+- **Chat contestuale AI**: sezione `/app/projects/[id]/expert` — lista conversazioni + chat view per ogni conversazione. Accessibile dalla sidebar (link "GEO Expert").
+- **Modelli DB**: `ExpertConversation` (titolo auto-generato, `contextPayload`, status active/archived) + `ExpertMessage` (role: user/assistant/system). Migration SQL manuale.
+- **API**: `POST /expert/conversations` (crea con contesto pre-caricato + messaggio iniziale Gemini) + `POST /expert/conversations/[convId]/messages` (continua chat con history completa). Limite: 50 conv per progetto (free), 30 msg per conversazione.
+- **Integrazione recommendations**: pulsante "Ottimizza con GEO Expert" in ogni raccomandazione della pagina query-specifica. Crea conversazione con `contextPayload` (raccomandazione + query + top competitor) e redirige alla chat aperta.
+- **LLM**: Gemini Flash (`gemini-2.0-flash`) tramite `@google/genai` JS SDK. Richiede `GOOGLE_AI_API_KEY` in Vercel.
+
 ---
 
 ## 2. Architettura tecnica attuale
@@ -212,6 +219,8 @@ api/             → API routes Next.js
 | `gsc_query_data` | query reali da GSC API (90 gg): click, impressioni, CTR, position, intent classificato |
 | `intent_profiles` | profili audience generati dal GSC data (2-4 per progetto): nome, slug, context prompt |
 | `gsc_query_suggestions` | query suggerite basate su similarità con target esistenti; status: `pending`/`accepted`/`dismissed` |
+| `expert_conversations` | conversazioni GEO Expert per progetto: contextPayload JSON, status active/archived |
+| `expert_messages` | messaggi delle conversazioni GEO Expert: role user/assistant/system, content |
 
 ### 2.6 API routes GSC (feature-flag `NEXT_PUBLIC_GSC_ENABLED`)
 

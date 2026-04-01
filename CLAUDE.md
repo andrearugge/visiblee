@@ -239,6 +239,18 @@ api/             → Next.js API routes
 
 > ⚠️ **Azione manuale pendente** (C.2): migration `detectedLanguage` su DB produzione/staging.
 
+### Phase D — GEO Expert (`feature/v2-fase-d`)
+
+| Task | Status | Notes |
+|---|---|---|
+| D.1 — Modelli Prisma | ✅ Done | `ExpertConversation` + `ExpertMessage` + migration SQL |
+| D.2 — API conversations + messages | ✅ Done | POST/GET conversations + POST/GET messages — Gemini Flash, max 30 msg, limite 50 conv free |
+| D.3 — UI GEO Expert | ✅ Done | Lista conversazioni + chat view + `ExpertChat` client + link sidebar |
+| D.4 — CTA "Ottimizza con GEO Expert" | ✅ Done | Pulsante nelle query recommendations con `contextPayload` pre-caricato → redirect chat |
+
+> ⚠️ **Azione manuale pendente** (D.1): migration `expert_conversations` + `expert_messages` su DB. Vedi `docs/_features/v2-azioni-manuali.md`.
+> ⚠️ **Variabile env richiesta**: `GOOGLE_AI_API_KEY` deve essere presente in Vercel (già usata nel Python service).
+
 ---
 
 ## Notes for Claude Code
