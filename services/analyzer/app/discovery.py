@@ -256,7 +256,7 @@ def _classify_by_domain(results: list[dict], domain: str) -> list[dict]:
     for r in results:
         url_domain = urlparse(r["url"]).netloc.lstrip("www.")
         content_type = "own" if domain in url_domain else "mention"
-        classified.append({**r, "contentType": content_type, "confidence": 0.7})
+        classified.append({**r, "contentType": content_type, "confidence": 0.7, "detectedLanguage": None})
     return classified
 
 
@@ -288,7 +288,8 @@ async def _classify_with_gemini(
         '- "mention": covers/mentions the brand on a THIRD-PARTY site\n'
         '- "irrelevant": not meaningfully related to the brand\n\n'
         f"Results:\n{items_json}\n\n"
-        'Return ONLY a JSON array: [{"index": 0, "type": "own"|"mention"|"irrelevant", "confidence": 0.0-1.0}]\n'
+        'Return ONLY a JSON array: [{"index": 0, "type": "own"|"mention"|"irrelevant", "confidence": 0.0-1.0, "language": "en"|"it"|"fr"|...}]\n'
+        '"language" is the 2-letter ISO 639-1 code of the page content language inferred from the title/snippet. Use null if unknown.\n'
         "No markdown, no explanation — pure JSON only."
     )
 
@@ -313,6 +314,7 @@ async def _classify_with_gemini(
                 **r,
                 "contentType": cls["type"],
                 "confidence": float(cls.get("confidence", 0.5)),
+                "detectedLanguage": cls.get("language") or None,
             })
         return classified
 

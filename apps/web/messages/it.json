@@ -301,6 +301,14 @@
     "discoveryQueued": "Discovery avviata — ricontrolla tra un minuto",
     "discoveryRunning": "Discovery in corso...",
     "discoveryError": "Impossibile avviare la discovery",
+    "sitemapImport": "Importa da sitemap",
+    "sitemapImportRunning": "Importazione sitemap in corso...",
+    "sitemapImportError": "Impossibile avviare l'importazione sitemap",
+    "confidenceHigh": "Alta attendibilità",
+    "confidenceMedium": "Media attendibilità",
+    "confidenceLow": "Bassa attendibilità",
+    "filterLowConfidence": "Solo bassa attendibilità",
+    "langMismatch": "{lang} — lingua diversa dal target",
     "discoveryLoadingTitle": "Ricerca dei tuoi contenuti in corso...",
     "discoveryLoadingSubtitle": "Stiamo scansionando il web, le piattaforme social e le testate giornalistiche alla ricerca del tuo brand. Ci vorrà circa un minuto.",
     "discoveryStep1": "Scansione sito",
@@ -395,6 +403,11 @@
     "subtitle": "Completa questi passaggi per ottenere il tuo AI Readiness Score.",
     "progress": "{done} di {total} passaggi completati",
     "dismiss": "Salta per ora",
+    "step0Title": "Collega Google Search Console",
+    "step0Description": "Collega GSC per accedere ai dati reali delle ricerche. Suggeriremo query basate su ciò che il tuo pubblico cerca davvero.",
+    "step0Cta": "Collega GSC",
+    "step0Skip": "Salta per ora",
+    "step0Done": "Collegato",
     "step1Title": "Aggiungi query target",
     "step1Description": "Le domande che il tuo pubblico fa nei motori di ricerca AI. Inserisci una per riga — più ne aggiungi, più ricchi saranno i dati di copertura.",
     "step1Done": "{count} query aggiunte",
@@ -421,6 +434,11 @@
     "step4Running": "Analisi in corso…",
     "step4Locked": "Prima conferma almeno un contenuto",
     "step4StartError": "Impossibile avviare l'analisi. Riprova."
+  },
+  "setupBanner": {
+    "progress": "Setup in corso — {done} di {total} passaggi completati",
+    "cta": "Completa il setup",
+    "dismiss": "Chiudi"
   },
   "notifications": {
     "title": "Notifiche",

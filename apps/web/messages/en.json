@@ -301,6 +301,14 @@
     "discoveryQueued": "Discovery queued — check back in a minute",
     "discoveryRunning": "Discovery in progress...",
     "discoveryError": "Failed to start discovery",
+    "sitemapImport": "Import from sitemap",
+    "sitemapImportRunning": "Sitemap import in progress...",
+    "sitemapImportError": "Failed to start sitemap import",
+    "confidenceHigh": "High confidence",
+    "confidenceMedium": "Medium confidence",
+    "confidenceLow": "Low confidence",
+    "filterLowConfidence": "Low confidence only",
+    "langMismatch": "{lang} — different from target",
     "discoveryLoadingTitle": "Searching for your content...",
     "discoveryLoadingSubtitle": "We're scanning the web, social platforms, and news sites for your brand. This takes about a minute.",
     "discoveryStep1": "Scanning website",
@@ -396,6 +404,11 @@
     "subtitle": "Complete these steps to get your AI Readiness Score.",
     "progress": "{done} of {total} steps completed",
     "dismiss": "Skip setup",
+    "step0Title": "Connect Google Search Console",
+    "step0Description": "Connect GSC to get real search query data. We'll suggest queries based on what your audience actually searches for.",
+    "step0Cta": "Connect GSC",
+    "step0Skip": "Skip for now",
+    "step0Done": "Connected",
     "step1Title": "Add target queries",
     "step1Description": "The questions your audience asks in AI-powered search. Enter one per line — the more you add, the richer your coverage data.",
     "step1Done": "{count} queries added",
@@ -422,6 +435,11 @@
     "step4Running": "Analysis in progress…",
     "step4Locked": "Confirm at least one content item first",
     "step4StartError": "Could not start analysis. Try again."
+  },
+  "setupBanner": {
+    "progress": "Setup in progress — {done} of {total} steps done",
+    "cta": "Complete setup",
+    "dismiss": "Dismiss"
   },
   "notifications": {
     "title": "Notifications",

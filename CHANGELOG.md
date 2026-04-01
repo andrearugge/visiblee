@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### Phase C — Miglioramento setup
+
+#### C.1 — Sitemap Import
+- `sitemap_import.py`: parser Python che scarica sitemap.xml (+ sitemap_index), estrae URL, filtra per dominio e media extension
+- `worker.py`: job type `sitemap_import` → `process_sitemap_import_job()` → INSERT con `source='sitemap'`, `isConfirmed=true`
+- `POST /api/projects/[id]/sitemap-import`: crea job (evita duplicati pending/running)
+- `GET /api/projects/[id]/sitemap-import`: restituisce `{ running: boolean }` per polling
+- `ContentsClient`: pulsante "Importa da sitemap" nel toolbar e nell'empty state, banner blu while import in corso, `useJobPolling` con `router.refresh()` al completamento
+- i18n EN + IT: `sitemapImport`, `sitemapImportRunning`, `sitemapImportError`
+
+#### C.2 — Confidence badges + detectedLanguage
+- Schema: aggiunto `detectedLanguage String?` a `Content` + migration SQL
+- `ContentsClient`: badge alta/media/bassa attendibilità sui contenuti non confermati
+- Badge viola "Lingua diversa dal target" se `detectedLanguage ≠ targetLanguage`
+- Filtro rapido "Solo bassa attendibilità" nel toolbar
+- `discovery.py`: prompt Gemini aggiornato per restituire `language` (ISO 639-1)
+- `worker.py`: salva `detectedLanguage` nell'upsert discovery
+- i18n EN + IT: `confidence*`, `filterLowConfidence`, `langMismatch`
+
+#### C.3 — GSC nel setup checklist
+- `SetupChecklist`: step 0 opzionale "Connetti GSC" (prima di Aggiungi query)
+- CTA → `/api/gsc/connect?projectId=...`, link "Salta" → localStorage
+- Dipendente da `gscEnabled` (feature flag) e `initialGscConnected`
+- Overview page: query GscConnection, legge `NEXT_PUBLIC_GSC_ENABLED`
+- Step icons dinamiche (5 con GSC, 4 senza)
+- i18n EN + IT: `step0*` nel namespace `setup`
+
+#### C.4 — Setup banner pervasivo
+- `SetupBanner`: banner compatto (amber) su tutte le pagine del progetto
+- Fetch `setup-status` on mount, mostra N/M e link all'Overview
+- Auto-dismiss quando setup completo, dismiss manuale via X → localStorage
+- `ProjectLayout`: aggiunto `SetupBanner` prima di `children`
+- i18n EN + IT: namespace `setupBanner`
+
+---
+
 ### Phase B — Navigazione query-centrica
 
 #### B.1 — `targetQueryId` su Recommendation

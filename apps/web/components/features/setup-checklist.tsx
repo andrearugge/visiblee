@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Check, Lock, ArrowRight, Loader2, X,
-  Search, FileText, BarChart3, Globe,
+  Search, FileText, BarChart3, Globe, LineChart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ interface SetupChecklistProps {
   initialConfirmedCount: number;
   initialDiscoveryRunning: boolean;
   initialAnalysisRunning: boolean;
+  initialGscConnected?: boolean;
+  gscEnabled?: boolean;
   onDismiss: () => void;
   onAnalysisQueued?: () => void;
 }
@@ -58,7 +60,9 @@ function StepIndicator({ status, index }: { status: StepStatus; index: number })
 
 // ── Step icon (contextual) ─────────────────────────────────────────────────────
 
-const STEP_ICONS = [Search, Globe, FileText, BarChart3];
+// Icons per slot: 0=GSC, 1=queries, 2=discovery, 3=confirm, 4=analysis
+const STEP_ICONS_WITH_GSC = [LineChart, Search, Globe, FileText, BarChart3];
+const STEP_ICONS_NO_GSC = [Search, Globe, FileText, BarChart3];
 
 // ── Step row wrapper ───────────────────────────────────────────────────────────
 
@@ -68,6 +72,7 @@ function StepRow({
   title,
   doneLabel,
   lockedLabel,
+  stepIcons,
   children,
 }: {
   status: StepStatus;
@@ -75,9 +80,10 @@ function StepRow({
   title: string;
   doneLabel?: string;
   lockedLabel?: string;
+  stepIcons: typeof STEP_ICONS_NO_GSC;
   children?: React.ReactNode;
 }) {
-  const StepIcon = STEP_ICONS[index];
+  const StepIcon = stepIcons[index];
 
   return (
     <div
@@ -123,6 +129,40 @@ function StepRow({
       {status === 'active' && children && (
         <div className="mt-3 ml-11">{children}</div>
       )}
+    </div>
+  );
+}
+
+// ── Step 0 (optional): Connect GSC ────────────────────────────────────────────
+
+function GscAction({
+  projectId,
+  onSkip,
+}: {
+  projectId: string;
+  onSkip: () => void;
+}) {
+  const t = useTranslations('setup');
+
+  function handleConnect() {
+    window.location.href = `/api/gsc/connect?projectId=${projectId}`;
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <p className="text-xs leading-relaxed text-zinc-500">{t('step0Description')}</p>
+      <div className="flex items-center gap-3">
+        <Button size="sm" onClick={handleConnect} className="h-8 gap-1.5 text-xs">
+          <LineChart className="size-3" />
+          {t('step0Cta')}
+        </Button>
+        <button
+          onClick={onSkip}
+          className="text-xs text-zinc-400 transition-colors hover:text-zinc-600"
+        >
+          {t('step0Skip')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -321,12 +361,16 @@ export function SetupChecklist({
   initialConfirmedCount,
   initialDiscoveryRunning,
   initialAnalysisRunning,
+  initialGscConnected = false,
+  gscEnabled = false,
   onDismiss,
   onAnalysisQueued,
 }: SetupChecklistProps) {
   const t = useTranslations('setup');
   const router = useRouter();
 
+  const GSC_SKIP_KEY = `gsc_skipped_${projectId}`;
+  const [gscDone, setGscDone] = useState(initialGscConnected);
   const [queryCount, setQueryCount] = useState(initialQueryCount);
   const [contentCount, setContentCount] = useState(initialContentCount);
   const [confirmedCount, setConfirmedCount] = useState(initialConfirmedCount);
@@ -336,6 +380,13 @@ export function SetupChecklist({
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'starting' | 'running'>(
     initialAnalysisRunning ? 'running' : 'idle',
   );
+
+  useEffect(() => {
+    if (!initialGscConnected && localStorage.getItem(GSC_SKIP_KEY)) {
+      setGscDone(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
@@ -417,13 +468,18 @@ export function SetupChecklist({
 
   // ── Derive step statuses ─────────────────────────────────────────────────────
 
+  const showGsc = gscEnabled;
+  const stepIcons = showGsc ? STEP_ICONS_WITH_GSC : STEP_ICONS_NO_GSC;
+
+  const sGsc: StepStatus = gscDone ? 'done' : 'active';
   const s1: StepStatus = queryCount > 0 ? 'done' : 'active';
   const s2: StepStatus = contentCount > 0 ? 'done' : 'active';
   const s3: StepStatus = confirmedCount > 0 ? 'done' : contentCount === 0 ? 'locked' : 'active';
   const s4: StepStatus = confirmedCount === 0 ? 'locked' : 'active';
 
-  const doneCount = [s1, s2, s3, s4].filter((s) => s === 'done').length;
-  const progress = doneCount / 4;
+  const allStatuses = showGsc ? [sGsc, s1, s2, s3, s4] : [s1, s2, s3, s4];
+  const total = allStatuses.length;
+  const doneCount = allStatuses.filter((s) => s === 'done').length;
 
   return (
     <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-zinc-200/60 backdrop-blur-sm">
@@ -433,19 +489,39 @@ export function SetupChecklist({
           <div className="min-w-0">
             <p className="text-base font-semibold text-zinc-900">{t('title')}</p>
             <p className="mt-0.5 text-xs text-zinc-500">{t('subtitle')}</p>
-            <p className="mt-0.5 text-xs text-zinc-500">{t('progress', { done: doneCount, total: 4 })}</p>
+            <p className="mt-0.5 text-xs text-zinc-500">{t('progress', { done: doneCount, total })}</p>
           </div>
         </div>
       </div>
 
       {/* Steps */}
       <div className="space-y-2 p-4">
+        {/* Step 0 (optional) — Connect GSC */}
+        {showGsc && (
+          <StepRow
+            status={sGsc}
+            index={0}
+            title={t('step0Title')}
+            doneLabel={t('step0Done')}
+            stepIcons={stepIcons}
+          >
+            <GscAction
+              projectId={projectId}
+              onSkip={() => {
+                localStorage.setItem(GSC_SKIP_KEY, '1');
+                setGscDone(true);
+              }}
+            />
+          </StepRow>
+        )}
+
         {/* Step 1 — Add queries */}
         <StepRow
           status={s1}
-          index={0}
+          index={showGsc ? 1 : 0}
           title={t('step1Title')}
           doneLabel={t('step1Done', { count: queryCount })}
+          stepIcons={stepIcons}
         >
           <AddQueryAction
             projectId={projectId}
@@ -457,9 +533,10 @@ export function SetupChecklist({
         {/* Step 2 — Discovery */}
         <StepRow
           status={s2}
-          index={1}
+          index={showGsc ? 2 : 1}
           title={t('step2Title')}
           doneLabel={t('step2Done', { count: contentCount })}
+          stepIcons={stepIcons}
         >
           <DiscoveryAction
             projectId={projectId}
@@ -472,10 +549,11 @@ export function SetupChecklist({
         {/* Step 3 — Confirm */}
         <StepRow
           status={s3}
-          index={2}
+          index={showGsc ? 3 : 2}
           title={t('step3Title')}
           doneLabel={t('step3Done', { count: confirmedCount })}
           lockedLabel={t('step3Locked')}
+          stepIcons={stepIcons}
         >
           <ConfirmAction projectId={projectId} />
         </StepRow>
@@ -483,9 +561,10 @@ export function SetupChecklist({
         {/* Step 4 — Analysis */}
         <StepRow
           status={s4}
-          index={3}
+          index={showGsc ? 4 : 3}
           title={t('step4Title')}
           lockedLabel={t('step4Locked')}
+          stepIcons={stepIcons}
         >
           <AnalysisAction
             analysisStatus={analysisStatus}

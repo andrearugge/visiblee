@@ -175,9 +175,53 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 
 ---
 
-### Fasi C, D, E
+### Fase C — Miglioramento setup
 
-Verranno dettagliate dopo il completamento della Fase B. Le specifiche di alto livello sono in `docs/v2-specs-ux-architecture.md` sezione 6. Non anticipare l'implementazione di queste fasi.
+**Branch**: `feature/v2-fase-c`
+**Prerequisito**: Fase B completata
+**Reference**: sezioni 3.1 e 3.2 in `docs/v2-specs-ux-architecture.md`
+
+| Task | Cosa fare | File coinvolti | Verifica |
+|---|---|---|---|
+| C.1 | Aggiungere job type `sitemap_import`. Creare `sitemap_import.py` in Python che scarica `sitemap.xml` (e sitemap_index, max 20 child), estrae URL `<loc>`, filtra per stesso dominio ed estensioni media, deduplica. Il job inserisce i contenuti con `source='sitemap'`, `contentType='own'`, `isConfirmed=true`. Aggiungere `POST /api/projects/[id]/sitemap-import` per creare il job (anti-duplicato su pending/running) e `GET` per polling (`{ running: boolean }`). Aggiungere pulsante "Importa da sitemap" nel toolbar di `ContentsClient` con banner durante import e `useJobPolling` con default `router.refresh()`. | `services/analyzer/app/sitemap_import.py`, `services/analyzer/app/worker.py`, `apps/web/app/api/projects/[id]/sitemap-import/route.ts`, `apps/web/components/features/contents-client.tsx`, `apps/web/app/(app)/app/projects/[id]/contents/page.tsx` | Cliccando "Importa da sitemap", il job viene creato. Il worker lo processa. I contenuti appaiono confermati nella sezione Contents. Il banner blu scompare al completamento e i contenuti si aggiornano. |
+| C.2 | Aggiungere `detectedLanguage String?` al modello `Content` in Prisma. Migration SQL manuale (utente non ha permessi shadow DB). Aggiornare il prompt Gemini in `discovery.py` per restituire `language` (ISO 639-1) nella classificazione. Il worker salva `detectedLanguage` nell'upsert discovery. In `ContentsClient`: badge alta/media/bassa confidence sui contenuti non confermati (verde ≥ 0.7, amber ≥ 0.4, rosso < 0.4), badge viola "lingua diversa dal target" se `detectedLanguage ≠ targetLanguage`, filtro rapido "Solo bassa confidence" nel toolbar. La page server passa `targetLanguage` dal progetto. | `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/YYYYMMDD_add_detected_language/migration.sql`, `services/analyzer/app/discovery.py`, `services/analyzer/app/worker.py`, `apps/web/components/features/contents-client.tsx`, `apps/web/app/(app)/app/projects/[id]/contents/page.tsx` | I badge compaiono correttamente. Il filtro mostra solo contenuti con `discoveryConfidence < 0.4`. I contenuti in lingua diversa dal target mostrano il badge viola. |
+| C.3 | Aggiungere step 0 opzionale "Connetti GSC" al `SetupChecklist`, prima di "Aggiungi query target". Condizionale a `gscEnabled` (flag `NEXT_PUBLIC_GSC_ENABLED`). CTA: naviga a `/api/gsc/connect?projectId=...`. Link "Salta": salva `gsc_skipped_{projectId}` in localStorage. Step "done" se GSC già connesso (`gscConnection` nel DB) o skippato via localStorage. La page Overview query `GscConnection` e legge l'env var, passa `initialGscConnected` e `gscEnabled` a `OverviewEmpty` → `SetupChecklist`. Aggiornare array icone (5 step con GSC, 4 senza). | `apps/web/components/features/setup-checklist.tsx`, `apps/web/components/features/overview-empty.tsx`, `apps/web/app/(app)/app/projects/[id]/overview/page.tsx` | Con GSC abilitato: checklist mostra 5 step, lo step 0 GSC è "done" se connesso o skippato. Senza GSC abilitato: comportamento identico a prima (4 step). |
+| C.4 | Creare `SetupBanner` — componente client leggero che appare in cima a ogni pagina del progetto finché il setup non è completo. Fetch `GET /api/projects/[id]/setup-status` on mount. Mostra: barra di progresso N/M, label testuale, link all'Overview per il checklist completo, pulsante X per dismiss permanente (localStorage `setup_banner_dismissed_{projectId}`). Auto-dismiss quando setup base completato (queryCount > 0, contentCount > 0, confirmedCount > 0). Aggiungere `SetupBanner` nel `ProjectLayout` dopo `OnboardingWizard`. | `apps/web/components/features/setup-banner.tsx`, `apps/web/app/(app)/app/projects/[id]/layout.tsx` | Il banner appare su Contents, Queries, Competitors, ecc. quando setup incompleto. Scompare (e non riappare) dopo dismiss o completamento. Non appare se già dismissato in precedenza. |
+
+**Alla fine della Fase C**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md` (il flusso di setup è cambiato — GSC opzionale prima delle query, banner pervasivo su tutte le pagine, sitemap import nella sezione Contents, badge confidence e lingua nella review dei contenuti).
+
+---
+
+### Fase D — GEO Expert
+
+**Branch**: `feature/v2-fase-d`
+**Prerequisito**: Fase C completata
+**Reference**: sezione 3.3 in `docs/v2-specs-ux-architecture.md`
+
+| Task | Cosa fare | File coinvolti | Verifica |
+|---|---|---|---|
+| D.1 | Aggiungere modelli `ExpertConversation` e `ExpertMessage` in Prisma. `ExpertConversation`: `id`, `projectId`, `recommendationId String?`, `targetQueryId String?`, `title`, `contextPayload Json`, `status` (`'active'`/`'archived'`), `createdAt`, `updatedAt`. `ExpertMessage`: `id`, `conversationId`, `role` (`'user'`/`'assistant'`/`'system'`), `content`, `createdAt`. Migration SQL manuale. | `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/YYYYMMDD_add_expert_models/migration.sql` | Migration OK. Tabelle `expert_conversations` e `expert_messages` esistono nel DB. |
+| D.2 | Creare endpoint `POST /api/projects/[id]/expert/conversations` (crea conversazione con contesto pre-caricato da `recommendationId` o `targetQueryId`) e `POST /api/projects/[id]/expert/conversations/[convId]/messages` (invia messaggio utente → chiama Gemini Flash con history + system prompt con `contextPayload` → salva risposta). Max 30 messaggi per conversazione. | `apps/web/app/api/projects/[id]/expert/conversations/route.ts`, `apps/web/app/api/projects/[id]/expert/conversations/[convId]/messages/route.ts` | Un `POST` alle API crea la conversazione e restituisce il primo messaggio dell'assistente contestualizzato. Il secondo `POST` aggiunge un messaggio utente e restituisce la risposta dell'LLM. |
+| D.3 | Creare la sezione GEO Expert: route `/app/projects/[id]/expert` con lista conversazioni (titolo, data, status) + link per aprire. Route `/app/projects/[id]/expert/[convId]` con chat view (bollette alternati user/assistant, textarea per nuovo messaggio, invio). Aggiungere link "GEO Expert" nella sidebar del progetto. | `apps/web/app/(app)/app/projects/[id]/expert/page.tsx`, `apps/web/app/(app)/app/projects/[id]/expert/[convId]/page.tsx`, `apps/web/components/features/expert-chat.tsx`, layout/sidebar | La sezione GEO Expert è accessibile dalla sidebar. La lista conversazioni mostra le conversazioni esistenti. La chat view mostra i messaggi e permette di inviarne di nuovi. |
+| D.4 | Aggiungere CTA "Ottimizza con GEO Expert" nelle raccomandazioni (sub-page recommendations di ogni query). Il CTA crea una nuova conversazione con `contextPayload` che include: dati della raccomandazione, dati della query, contenuto coinvolto, gap report del competitor migliore (se disponibile). Redirige alla chat aperta. Limits: max 50 conversazioni (free) / illimitate (pro). | `apps/web/app/(app)/app/projects/[id]/queries/[queryId]/recommendations/page.tsx`, `apps/web/components/features/optimization-client.tsx` | Cliccando "Ottimizza con GEO Expert" da una raccomandazione, si apre una nuova conversazione con contesto pre-caricato e un messaggio iniziale dell'assistente che analizza il gap. |
+
+**Alla fine della Fase D**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md`, `docs/architectural-decisions.md e chiedi all'utente di avviare una nuova sessione Claude Code (nuovo ADR: LLM per chat/consulenza vs zero-LLM per scoring — distinzione tra AD-02 e GEO Expert).
+
+---
+
+### Fase E — Personas manuali (bassa priorità)
+
+**Branch**: `feature/v2-fase-e`
+**Prerequisito**: Fase D completata
+**Reference**: sezioni 3.4 e 5.2 in `docs/v2-specs-ux-architecture.md`
+
+| Task | Cosa fare | File coinvolti | Verifica |
+|---|---|---|---|
+| E.1 | Aggiungere campi a `IntentProfile` in Prisma: `source String` (default `'gsc'`), `manualDescription String?`, `manualSampleQueries String[]`. Migration SQL. | `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/YYYYMMDD_add_intent_profile_manual/migration.sql` | Migration OK. I profili GSC esistenti hanno `source='gsc'`. |
+| E.2 | Creare form "Aggiungi persona manuale" nella sezione Audience (3 campi: nome persona, descrizione, query esempio). I profili manuali appaiono nella lista affiancati a quelli GSC con badge "Manual". I profili manuali hanno un pulsante elimina; quelli GSC no (rigenerati ad ogni sync). | `apps/web/app/(app)/app/projects/[id]/audience/page.tsx`, componente form | Il form crea una persona manuale. La lista mostra sia profili GSC che manuali con badge distinti. |
+| E.3 | Aggiungere endpoint `POST /api/projects/[id]/intent-profiles` per creare profili manuali. Generare `contextPrompt` combinando `manualDescription` + `manualSampleQueries` (stesso formato dei profili GSC). I profili manuali sopravvivono al GSC sync (che non li tocca). | `apps/web/app/api/projects/[id]/intent-profiles/route.ts` | La creazione salva il profilo. Il sync GSC non cancella i profili manuali. Il `contextPrompt` generato è usabile dalla pipeline citation enriched. |
+
+**Alla fine della Fase E**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md` e chiedi all'utente di avviare una nuova sessione Claude Code (sezione Audience aggiornata con personas manuali).
 
 ---
 

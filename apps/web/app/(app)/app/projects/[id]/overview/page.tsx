@@ -29,7 +29,9 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
   });
   if (!project) notFound();
 
-  const [snapshot, activeJob, confirmedContentCount, allSnapshots, queryCount, contentCount, discoveryJob, topCompetitorData, citationGapData] = await Promise.all([
+  const gscEnabled = process.env.NEXT_PUBLIC_GSC_ENABLED === 'true';
+
+  const [snapshot, activeJob, confirmedContentCount, allSnapshots, queryCount, contentCount, discoveryJob, topCompetitorData, citationGapData, gscConnection] = await Promise.all([
     db.projectScoreSnapshot.findFirst({
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
@@ -81,6 +83,9 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
       },
       orderBy: { createdAt: 'asc' },
     }),
+    gscEnabled
+      ? db.gscConnection.findFirst({ where: { projectId: id }, select: { id: true } })
+      : Promise.resolve(null),
   ]);
 
   const serializedSnapshots = allSnapshots.map((s) => ({
@@ -243,6 +248,8 @@ export default async function OverviewPage({ params, searchParams }: OverviewPag
           initialContentCount={contentCount}
           initialConfirmedCount={confirmedContentCount}
           initialDiscoveryRunning={!!discoveryJob}
+          initialGscConnected={!!gscConnection}
+          gscEnabled={gscEnabled}
         />
       )}
     </div>
