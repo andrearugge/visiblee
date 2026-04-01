@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # Suppress known harmless warnings on macOS with Python 3.9 / LibreSSL
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="urllib3")
@@ -53,7 +53,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -89,9 +89,10 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
+                  AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())
                 ORDER BY "createdAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
@@ -554,6 +555,80 @@ def _get_previous_ai_score(conn, project_id: str) -> float | None:
     return float(row["aiReadinessScore"]) if row else None
 
 
+_BURST_DAYS = 7
+_BURST_PER_DAY = 3
+_BURST_INTERVAL_H = 8  # hours between each burst job
+_BURST_FREE_LIMIT = 3  # max queries per project for free users
+_BURST_PRO_LIMIT = 10
+_BURST_PRO_ROLES = {"admin", "superadmin"}
+
+
+def _create_burst_jobs(conn, project_id: str) -> int:
+    """
+    After a full_analysis, schedule citation burst jobs for the next 7 days.
+
+    For each active target query (up to plan limit):
+        - 3 jobs/day × 7 days = 21 jobs per query
+        - Each spaced BURST_INTERVAL_H hours apart, starting BURST_INTERVAL_H
+          hours from now to avoid colliding with today's daily job.
+
+    Returns the number of jobs created.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT u.role, tq.id AS query_id
+            FROM projects p
+            JOIN users u ON u.id = p."userId"
+            JOIN target_queries tq ON tq."projectId" = p.id
+            WHERE p.id = %(project_id)s
+              AND tq."isActive" = true
+            ORDER BY tq."createdAt"
+            """,
+            {"project_id": project_id},
+        )
+        rows = cur.fetchall()
+
+    if not rows:
+        return 0
+
+    role = rows[0]["role"]
+    limit = _BURST_PRO_LIMIT if role in _BURST_PRO_ROLES else _BURST_FREE_LIMIT
+    query_ids = [r["query_id"] for r in rows[:limit]]
+
+    now = datetime.now(timezone.utc)
+    total_slots = _BURST_DAYS * _BURST_PER_DAY  # 21
+    created = 0
+
+    for query_id in query_ids:
+        for slot in range(total_slots):
+            scheduled_at = now + timedelta(hours=(slot + 1) * _BURST_INTERVAL_H)
+            job_id = str(__import__("uuid").uuid4())
+            payload = json.dumps({"targetQueryId": query_id})
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO jobs (id, "projectId", type, status, payload, "scheduledAt", "createdAt")
+                    VALUES (%(id)s, %(project_id)s, 'scheduled_citation_burst', 'pending',
+                            %(payload)s, %(scheduled_at)s, NOW())
+                    """,
+                    {
+                        "id": job_id,
+                        "project_id": project_id,
+                        "payload": payload,
+                        "scheduled_at": scheduled_at,
+                    },
+                )
+            conn.commit()
+            created += 1
+
+    log.info(
+        "[%s] Created %d burst job(s) across %d queries for %d days",
+        project_id, created, len(query_ids), _BURST_DAYS,
+    )
+    return created
+
+
 async def process_full_analysis_job(job: dict) -> None:
     """Run the full scoring pipeline for a project."""
     job_id = job["id"]
@@ -577,6 +652,7 @@ async def process_full_analysis_job(job: dict) -> None:
         )
         complete_job(conn, job_id)
         log.info(f"Full analysis job {job_id} completed for project {project_id}")
+        _create_burst_jobs(conn, project_id)
     except asyncio.TimeoutError:
         log.error(f"Full analysis job {job_id} timed out after 300s")
         try:
@@ -900,6 +976,12 @@ async def run_worker() -> None:
                 await process_gsc_sync_job(job)
             elif job_type == "citation_check_enriched":
                 await process_citation_check_enriched_job(job)
+            elif job_type in ("scheduled_citation_daily", "scheduled_citation_burst"):
+                await process_citation_check_enriched_job(job)
+            elif job_type == "scheduled_gsc_sync":
+                await process_gsc_sync_job(job)
+            elif job_type == "scheduled_analysis":
+                await process_full_analysis_job(job)
             else:
                 await process_job(job)
         else:

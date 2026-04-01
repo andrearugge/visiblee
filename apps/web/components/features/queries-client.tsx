@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { useJobPolling } from '@/hooks/use-job-polling';
 import { StepLoader } from '@/components/ui/step-loader';
 import { CitationVariantsPanel } from '@/components/gsc/citation-variants-panel';
+import { CitationRateBar } from '@/components/features/citation-rate-bar';
+import type { CitationStats } from '@/lib/citation-stats';
 
 const QUERY_LIMIT = 15;
 
@@ -61,6 +63,7 @@ interface TargetQuery {
   queryText: string;
   isActive: boolean;
   createdAt: string;
+  citationStats: CitationStats | null;
   citation: CitationData | null;
 }
 
@@ -94,9 +97,11 @@ function TrendDots({ trend }: { trend: CitationTrend }) {
 
 function CitationCard({
   citation,
+  citationStats,
   projectId,
 }: {
   citation: CitationData;
+  citationStats: CitationStats | null;
   projectId: string;
 }) {
   const t = useTranslations('citations');
@@ -223,6 +228,13 @@ function CitationCard({
       {/* Intent profile citation variants */}
       {citation.variants.length > 0 && (
         <CitationVariantsPanel variants={citation.variants} />
+      )}
+
+      {/* Bayesian citation rate bar */}
+      {citationStats && citationStats.totalChecks > 0 && (
+        <div className="mt-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+          <CitationRateBar stats={citationStats} />
+        </div>
       )}
 
       {/* Footer: date + CTA */}
@@ -472,7 +484,7 @@ export function QueriesClient({
                 {/* Expandable citation card */}
                 {q.isActive && q.citation && expandedCitations.has(q.id) && (
                   <div className="px-6 pb-4">
-                    <CitationCard citation={q.citation} projectId={projectId} />
+                    <CitationCard citation={q.citation} citationStats={q.citationStats} projectId={projectId} />
                   </div>
                 )}
               </div>
@@ -544,7 +556,7 @@ export function QueriesClient({
                     <Search className="size-3 text-zinc-300" />
                     {q.queryText}
                   </p>
-                  <CitationCard citation={q.citation!} projectId={projectId} />
+                  <CitationCard citation={q.citation!} citationStats={q.citationStats} projectId={projectId} />
                 </div>
               ))}
           </div>

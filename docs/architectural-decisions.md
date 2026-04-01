@@ -208,6 +208,35 @@
 
 ---
 
+## AD-16 — Modello bayesiano Beta(α,β) per il citation rate
+
+**Decisione**: il tasso di citazione per query è stimato con un modello bayesiano Beta(α,β) con prior uniforme Beta(1,1), non con una media semplice.
+
+**Motivazione**:
+- Una media semplice è fuorviante con pochi check: 1 citazione su 1 check → 100%, ma l'incertezza è altissima. Il modello bayesiano incorpora questa incertezza nell'intervallo di confidenza.
+- Prior uniforme Beta(1,1) = "non sappiamo nulla a priori". Equivale a inizializzare con 1 successo e 1 fallimento virtuali. Anche con un solo check reale il risultato è una stima sensata (e.g. 1/3 check citato → rate ≈ 67%, IC 95% largo).
+- Con molti check l'IC si stringe e il rate converge alla frequenza reale: il comportamento asintotico è identico alla media semplice.
+- La larghezza dell'IC fornisce direttamente la label di stabilità (stable/learning/uncertain) senza soglie arbitrarie sul numero di check.
+
+**Implementazione**: `lib/citation-stats.ts` (TypeScript, usato dalla page e dall'endpoint) e `services/analyzer/app/citation_stats.py` (Python, reference). Approssimazione normale del posterior Beta: valida per n ≥ 3, accettabile da n = 1.
+
+**Implicazione**: non sostituire con media semplice o Wilson score. Tutti i componenti UI che mostrano il citation rate devono usare `computeCitationStats()` dalla utility condivisa, non calcolare la media direttamente.
+
+---
+
+## AD-17 — Scheduler come processo cron separato (no job interno al worker)
+
+**Decisione**: la creazione di job pianificati (citation daily, GSC sync, full analysis) avviene in `app/scheduler.py`, eseguito da Ploi come cron separato dal worker.
+
+**Motivazione**:
+- Il worker è un loop infinito che consuma job. Aggiungere logica di scheduling al worker creerebbe un accoppiamento tra consumo e produzione di job, complicando recovery, restart e monitoring.
+- Un cron esterno è più prevedibile: si esegue, crea job, esce. Il worker non sa nulla della pianificazione.
+- Il campo `scheduledAt` su `Job` + il filtro `AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())` in `claim_job()` disaccoppiano completamente creazione da esecuzione: i burst job vengono creati tutti in anticipo (21 per query) e il worker li raccoglie mano a mano che scadono.
+
+**Implicazione**: non aggiungere timer o logica temporale al worker. Se serve un nuovo tipo di job pianificato, aggiungerlo a `scheduler.py`. Il worker deve solo consumare.
+
+---
+
 ## AD-15 — Classificazione intent GSC con euristiche (no LLM clustering)
 
 **Decisione**: la classificazione dell'intent delle query GSC (`classify_intent()` in `intent_engine.py`) usa pattern regex per IT e EN. La generazione dei profili audience (`generate_intent_profiles()`) raggruppa per tipo di intent. Nessun LLM.

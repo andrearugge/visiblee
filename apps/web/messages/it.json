@@ -507,7 +507,14 @@
     "howToRankHigher": "Come salire in posizione →",
     "emptyState": "Dopo la prima analisi completa, vedrai qui quali fonti Google AI cita per le tue query — e se sei tra queste.",
     "volatilityNote": "Snapshot del {date}. Le citazioni AI variano tra le sessioni — il trend settimanale è più significativo del singolo check.",
-    "checkedAt": "Verificato il {date}"
+    "checkedAt": "Verificato il {date}",
+    "rateTitle": "Tasso di citazione",
+    "rateChecks": "{count} check",
+    "rateLabel": {
+      "stable": "Stabile",
+      "learning": "In apprendimento",
+      "uncertain": "Incerto"
+    }
   },
   "competitors": {
     "title": "Competitor",

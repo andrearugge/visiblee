@@ -508,7 +508,14 @@
     "howToRankHigher": "How to rank higher →",
     "emptyState": "After the first full analysis, you'll see which sources Google AI cites for your queries — and whether you're among them.",
     "volatilityNote": "Snapshot from {date}. AI citations vary between sessions — the weekly trend is more meaningful than a single check.",
-    "checkedAt": "Checked {date}"
+    "checkedAt": "Checked {date}",
+    "rateTitle": "Citation Rate",
+    "rateChecks": "{count} checks",
+    "rateLabel": {
+      "stable": "Stable",
+      "learning": "Learning",
+      "uncertain": "Uncertain"
+    }
   },
   "competitors": {
     "title": "Competitors",

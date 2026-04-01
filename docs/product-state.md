@@ -105,6 +105,14 @@
 **Admin panel**
 - Lista utenti, gestione ruoli, seed superadmin
 
+**Loop continuo automatico (Fase A)**
+- `scheduler.py` (cron Ploi): crea job giornalieri per citation check (limiti piano: 3 free / 10 pro), GSC sync domenicale, full analysis mensile
+- Booster mode: dopo ogni `full_analysis` vengono creati automaticamente 3 citation check/giorno × 7 giorni per query (21 job/query con `scheduledAt` scaglionati di 8h)
+- Campo `scheduledAt` su `Job`: il worker ignora i job schedulati nel futuro
+- Citation rate bayesiano: modello Beta(α,β) con prior uniforme — calcola rate, IC 95%, label (stable/learning/uncertain), trend (up/down/flat)
+- `CitationRateBar`: barra con banda di confidenza visibile in ogni `CitationCard` della pagina Queries
+- `GET /api/projects/[id]/citation-stats?queryId=`: endpoint che espone le stats bayesiane per integrazioni future
+
 ---
 
 ## 2. Architettura tecnica attuale
@@ -149,14 +157,18 @@ api/             → API routes Next.js
 ### 2.4 Job types nel DB
 
 ```
-'preview_analysis'         → micro-analisi dalla landing
-'discovery'                → Brave + Gemini classificazione
-'fetch_content'            → crawl + segmentazione
-'full_analysis'            → pipeline completa scoring
-'citation_check'           → Gemini Grounding per query
-'competitor_analysis'      → analisi pagina competitor
-'gsc_sync'                 → pull dati GSC + classificazione intent + generazione profili
-'citation_check_enriched'  → citation check con varianti per profilo audience
+'preview_analysis'             → micro-analisi dalla landing
+'discovery'                    → Brave + Gemini classificazione
+'fetch_content'                → crawl + segmentazione
+'full_analysis'                → pipeline completa scoring
+'citation_check'               → Gemini Grounding per query
+'competitor_analysis'          → analisi pagina competitor
+'gsc_sync'                     → pull dati GSC + classificazione intent + generazione profili
+'citation_check_enriched'      → citation check con varianti per profilo audience
+'scheduled_citation_daily'     → citation check automatico giornaliero (scheduler)
+'scheduled_citation_burst'     → citation check ad alta frequenza post-analisi (7gg × 3/giorno)
+'scheduled_gsc_sync'           → GSC sync automatico domenicale (scheduler)
+'scheduled_analysis'           → full analysis automatica mensile (scheduler)
 ```
 
 ### 2.5 Schema DB — tabelle principali
@@ -223,7 +235,7 @@ PATCH /api/gsc/suggestions/[id]            → accetta o ignora un suggerimento
 - **No multi-user per progetto**: i progetti appartengono a un singolo utente. Sharing/team non implementato.
 - **No export CSV**: nella roadmap commerciale ma non implementato.
 - **No white-label**: nella roadmap Agency tier ma non implementato.
-- **No scheduled citation checks automatici**: la citation simulation `citation_check_enriched` viene triggerata manualmente. Il GSC sync è anch'esso manuale (o triggerato alla selezione della property). Il "weekly automatic" del user guide è aspiration, non ancora implementato.
+- **Scheduled jobs implementati ma DB migration pendente**: lo scheduler e i job types schedulati sono implementati (Fase A), ma il campo `scheduledAt` su `jobs` richiede una migration manuale con superuser. Vedi `docs/_features/v2-azioni-manuali.md`.
 - **No Share of Model tracking**: nella roadmap v2.
 - **GSC feature flag**: l'intera feature GSC è dietro `NEXT_PUBLIC_GSC_ENABLED=true`. Non attiva in produzione senza configurazione OAuth.
 
@@ -245,7 +257,7 @@ PATCH /api/gsc/suggestions/[id]            → accetta o ignora un suggerimento
 | WebSocket per job progress | Overkill — polling + router.refresh() è sufficiente |
 | URL prefix per i18n | Scelta architetturale: routes sempre in inglese, lingua da cookie |
 | Scraping ChatGPT/Perplexity | ToS violation + inaffidabile |
-| Auto-scheduling citation checks | Non ancora implementato (infra non pronta) |
+| Auto-scheduling citation checks | Implementato in Fase A — scheduler + job types schedulati + booster mode |
 | LLM per classificazione intent GSC | Costo + non deterministico: regex euristiche IT+EN sufficienti |
 | Dashboard analytics usage | Non priorità v1 |
 | Multi-tenant / team | Non in scope v1 |
