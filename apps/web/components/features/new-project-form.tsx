@@ -60,7 +60,6 @@ export function NewProjectForm() {
   const [brandName, setBrandName] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [description, setDescription] = useState('');
-  const [queriesText, setQueriesText] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('it');
   const [targetCountry, setTargetCountry] = useState('IT');
   const [loading, setLoading] = useState(false);
@@ -71,15 +70,10 @@ export function NewProjectForm() {
     setError('');
     setLoading(true);
 
-    const queryTargets = queriesText
-      .split('\n')
-      .map((q) => q.trim())
-      .filter(Boolean);
-
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, brandName, websiteUrl, description, queryTargets, targetLanguage, targetCountry }),
+      body: JSON.stringify({ name, brandName, websiteUrl, description, targetLanguage, targetCountry }),
     });
 
     setLoading(false);
@@ -164,19 +158,6 @@ export function NewProjectForm() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={t('descriptionPlaceholder')}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="queries">{t('targetQueries')}</Label>
-        <p className="text-xs text-zinc-500">{t('queriesHint')}</p>
-        <textarea
-          id="queries"
-          value={queriesText}
-          onChange={(e) => setQueriesText(e.target.value)}
-          placeholder={t('queriesPlaceholder')}
-          rows={4}
-          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-950"
         />
       </div>
 

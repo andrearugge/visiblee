@@ -12,17 +12,21 @@ interface SetupStatus {
   confirmedCount: number;
   discoveryRunning: boolean;
   analysisRunning: boolean;
+  hasSnapshot: boolean;
+  gscConnected: boolean;
 }
 
 interface SetupBannerProps {
   projectId: string;
 }
 
-function computeProgress(status: SetupStatus): { done: number; total: number } {
+function computeProgress(status: SetupStatus, gscSkipped: boolean): { done: number; total: number } {
   const steps = [
+    status.gscConnected || gscSkipped,
     status.queryCount > 0,
     status.contentCount > 0,
     status.confirmedCount > 0,
+    status.hasSnapshot,
   ];
   return { done: steps.filter(Boolean).length, total: steps.length };
 }
@@ -35,23 +39,37 @@ export function SetupBanner({ projectId }: SetupBannerProps) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
-    // Se già dismissato, non mostrare
     if (localStorage.getItem(DISMISS_KEY)) return;
 
-    fetch(`/api/projects/${projectId}/setup-status`, { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: SetupStatus | null) => {
-        if (!data) return;
-        const p = computeProgress(data);
-        // Se setup completo, dismiss silenzioso
+    let stopped = false;
+
+    async function check() {
+      if (stopped || localStorage.getItem(DISMISS_KEY)) return;
+      try {
+        const r = await fetch(`/api/projects/${projectId}/setup-status`, { cache: 'no-store' });
+        if (!r.ok || stopped) return;
+        const data: SetupStatus = await r.json();
+        const gscSkipped = !!localStorage.getItem(`gsc_skipped_${projectId}`);
+        const p = computeProgress(data, gscSkipped);
         if (p.done === p.total) {
           localStorage.setItem(DISMISS_KEY, '1');
+          setVisible(false);
+          stopped = true;
           return;
         }
         setProgress(p);
         setVisible(true);
-      })
-      .catch(() => { /* ignora errori di rete */ });
+      } catch {
+        // ignora errori di rete
+      }
+    }
+
+    check();
+    const interval = setInterval(check, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 

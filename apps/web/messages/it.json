@@ -412,6 +412,7 @@
     "step1Description": "Le domande che il tuo pubblico fa nei motori di ricerca AI. Inserisci una per riga — più ne aggiungi, più ricchi saranno i dati di copertura.",
     "step1Done": "{count} query aggiunte",
     "step1Placeholder": "miglior strumento di gestione progetti per team remoti\ncome automatizzare attività ricorrenti\n...",
+    "step1GscSuggestions": "Suggeriti da GSC",
     "step1Add": "Aggiungi query",
     "step1AddMultiple": "Aggiungi {count} query",
     "step1AddError": "Impossibile aggiungere la query. Riprova.",

@@ -32,6 +32,7 @@ interface SetupStatusData {
   confirmedCount: number;
   discoveryRunning: boolean;
   analysisRunning: boolean;
+  gscConnected: boolean;
 }
 
 // ── Step indicator icon ────────────────────────────────────────────────────────
@@ -183,6 +184,18 @@ function AddQueryAction({
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedCount, setAddedCount] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/gsc/suggestions?projectId=${projectId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.suggestions?.length) return;
+        setSuggestions(data.suggestions.slice(0, 5).map((s: { query: string }) => s.query));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   async function handleAdd() {
     const lines = input.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -218,6 +231,23 @@ function AddQueryAction({
   return (
     <div className="space-y-2.5">
       <p className="text-xs leading-relaxed text-zinc-500">{t('step1Description')}</p>
+      {suggestions.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-zinc-500">{t('step1GscSuggestions')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setInput((prev) => prev ? `${prev}\n${q}` : q)}
+                className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-white"
+              >
+                + {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -400,6 +430,7 @@ export function SetupChecklist({
       setQueryCount(data.queryCount);
       setContentCount(data.contentCount);
       setConfirmedCount(data.confirmedCount);
+      if (data.gscConnected) setGscDone(true);
 
       if (discoveryStatus === 'running' && !data.discoveryRunning) {
         setDiscoveryStatus('idle');
@@ -414,8 +445,8 @@ export function SetupChecklist({
   }, [projectId, discoveryStatus, analysisStatus, router]);
 
   useEffect(() => {
-    if (discoveryStatus !== 'running' && analysisStatus !== 'running') return;
-    const interval = setInterval(pollStatus, 3500);
+    const isJobRunning = discoveryStatus === 'running' || analysisStatus === 'running';
+    const interval = setInterval(pollStatus, isJobRunning ? 3500 : 5000);
     return () => clearInterval(interval);
   }, [discoveryStatus, analysisStatus, pollStatus]);
 

@@ -413,6 +413,7 @@
     "step1Description": "The questions your audience asks in AI-powered search. Enter one per line — the more you add, the richer your coverage data.",
     "step1Done": "{count} queries added",
     "step1Placeholder": "best project management tool for remote teams\nhow to automate recurring tasks\n...",
+    "step1GscSuggestions": "Suggested by GSC",
     "step1Add": "Add query",
     "step1AddMultiple": "Add {count} queries",
     "step1AddError": "Could not add query. Try again.",

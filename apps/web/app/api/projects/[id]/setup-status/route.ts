@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const [queryCount, contentCount, confirmedCount, discoveryJob, analysisJob] = await Promise.all([
+  const [queryCount, contentCount, confirmedCount, discoveryJob, analysisJob, snapshot, gscConnection] = await Promise.all([
     db.targetQuery.count({ where: { projectId: id, isActive: true } }),
     db.content.count({ where: { projectId: id } }),
     db.content.count({ where: { projectId: id, isConfirmed: true } }),
@@ -26,6 +26,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       where: { projectId: id, type: 'full_analysis', status: { in: ['pending', 'running'] } },
       select: { id: true },
     }),
+    db.projectScoreSnapshot.findFirst({
+      where: { projectId: id },
+      select: { id: true },
+    }),
+    db.gscConnection.findFirst({
+      where: { projectId: id },
+      select: { id: true },
+    }),
   ]);
 
   return NextResponse.json({
@@ -34,5 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     confirmedCount,
     discoveryRunning: !!discoveryJob,
     analysisRunning: !!analysisJob,
+    hasSnapshot: !!snapshot,
+    gscConnected: !!gscConnection,
   });
 }
