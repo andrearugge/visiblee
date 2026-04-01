@@ -11,7 +11,7 @@ export default async function ContentsPage({ params }: { params: Promise<{ id: s
 
   const project = await db.project.findFirst({
     where: { id, userId: session.user.id },
-    select: { id: true },
+    select: { id: true, targetLanguage: true },
   });
 
   if (!project) notFound();
@@ -28,6 +28,7 @@ export default async function ContentsPage({ params }: { params: Promise<{ id: s
       isIndexed: true,
       wordCount: true,
       discoveryConfidence: true,
+      detectedLanguage: true,
       lastFetchedAt: true,
       _count: { select: { passages: true } },
     },
@@ -53,6 +54,7 @@ export default async function ContentsPage({ params }: { params: Promise<{ id: s
   return (
     <ContentsClient
       projectId={id}
+      targetLanguage={project.targetLanguage}
       initialContents={serialized}
       initialDiscoveryRunning={!!activeDiscovery}
       initialSitemapRunning={!!activeSitemapImport}

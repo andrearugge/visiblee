@@ -223,7 +223,7 @@ model Content {
   title               String?
   platform            String   // 'website' | 'linkedin' | 'medium' | 'substack' | 'reddit' | 'youtube' | 'news' | 'other'
   contentType         String   @default("own")       // 'own' | 'mention'
-  source              String   @default("discovery") // 'discovery' | 'manual'
+  source              String   @default("discovery") // 'discovery' | 'manual' | 'sitemap'
   isIndexed           Boolean  @default(true)
   isConfirmed         Boolean  @default(false)
   rawText             String?
@@ -232,6 +232,7 @@ model Content {
   lastFetchedAt       DateTime?
   lastModifiedAt      DateTime?
   discoveryConfidence Float?
+  detectedLanguage    String?
   schemaMarkup        Json?
   hasArticleSchema    Boolean  @default(false)
   hasFaqSchema        Boolean  @default(false)

@@ -37,12 +37,14 @@ interface ContentItem {
   isIndexed: boolean;
   wordCount: number | null;
   discoveryConfidence: number | null;
+  detectedLanguage: string | null;
   lastFetchedAt: string | null;
   _count: { passages: number };
 }
 
 interface ContentsClientProps {
   projectId: string;
+  targetLanguage: string | null;
   initialContents: ContentItem[];
   initialDiscoveryRunning?: boolean;
   initialSitemapRunning?: boolean;
@@ -167,9 +169,17 @@ function AddUrlForm({
 
 // ─── Content row ──────────────────────────────────────────────────────────────
 
+function confidenceBadge(score: number | null, t: ReturnType<typeof useTranslations<'contents'>>) {
+  if (score === null) return null;
+  if (score >= 0.7) return { label: t('confidenceHigh'), cls: 'bg-green-50 text-green-700' };
+  if (score >= 0.4) return { label: t('confidenceMedium'), cls: 'bg-amber-50 text-amber-700' };
+  return { label: t('confidenceLow'), cls: 'bg-red-50 text-red-700' };
+}
+
 function ContentRow({
   item,
   projectId,
+  targetLanguage,
   showActions,
   isSelected,
   onToggleSelect,
@@ -179,6 +189,7 @@ function ContentRow({
 }: {
   item: ContentItem;
   projectId: string;
+  targetLanguage: string | null;
   showActions: boolean;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
@@ -227,6 +238,19 @@ function ContentRow({
           {item.isConfirmed && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
               <Check className="size-3" />{t('confirmed')}
+            </span>
+          )}
+          {(() => {
+            const badge = confidenceBadge(item.discoveryConfidence, t);
+            return badge && !item.isConfirmed ? (
+              <span className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${badge.cls}`}>
+                {badge.label}
+              </span>
+            ) : null;
+          })()}
+          {item.detectedLanguage && targetLanguage && item.detectedLanguage.toLowerCase() !== targetLanguage.toLowerCase() && (
+            <span className="inline-flex shrink-0 items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700">
+              {t('langMismatch', { lang: item.detectedLanguage.toUpperCase() })}
             </span>
           )}
           <span className="shrink-0 truncate text-xs text-zinc-400 max-w-[220px]">{displayUrl}</span>
@@ -337,10 +361,11 @@ function BulkBar({
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function ContentsClient({ projectId, initialContents, initialDiscoveryRunning = false, initialSitemapRunning = false }: ContentsClientProps) {
+export function ContentsClient({ projectId, targetLanguage, initialContents, initialDiscoveryRunning = false, initialSitemapRunning = false }: ContentsClientProps) {
   const t = useTranslations('contents');
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [showLowConfidenceOnly, setShowLowConfidenceOnly] = useState(false);
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'queued' | 'error'>(
     initialDiscoveryRunning ? 'queued' : 'idle',
   );
@@ -385,11 +410,14 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
     { key: 'mentions', label: t('tabMentions'), count: mentions.length },
   ];
 
-  const activeItems =
+  const baseItems =
     activeTab === 'all' ? contents :
       activeTab === 'toVerify' ? toVerify :
         activeTab === 'own' ? own :
           mentions;
+  const activeItems = showLowConfidenceOnly
+    ? baseItems.filter((c) => c.discoveryConfidence !== null && c.discoveryConfidence < 0.4)
+    : baseItems;
   const selectedInTab = activeItems.filter((i) => selectedIds.has(i.id));
   const allSelected = activeItems.length > 0 && selectedInTab.length === activeItems.length;
   const someSelected = selectedInTab.length > 0 && !allSelected;
@@ -563,27 +591,41 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
 
       {/* Toolbar */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => handleSetTab(tab.key)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                activeTab === tab.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700',
-              )}
-            >
-              {tab.label}
-              <span className={cn(
-                'rounded-full px-1.5 py-0.5 text-xs tabular-nums font-semibold',
-                activeTab === tab.key
-                  ? tab.alert ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'
-                  : tab.alert ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200/60 text-zinc-400',
-              )}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleSetTab(tab.key)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  activeTab === tab.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700',
+                )}
+              >
+                {tab.label}
+                <span className={cn(
+                  'rounded-full px-1.5 py-0.5 text-xs tabular-nums font-semibold',
+                  activeTab === tab.key
+                    ? tab.alert ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'
+                    : tab.alert ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200/60 text-zinc-400',
+                )}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowLowConfidenceOnly((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+              showLowConfidenceOnly
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-700',
+            )}
+          >
+            <Filter className="size-3.5" />
+            {t('filterLowConfidence')}
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -642,6 +684,7 @@ export function ContentsClient({ projectId, initialContents, initialDiscoveryRun
                 key={item.id}
                 item={item}
                 projectId={projectId}
+                targetLanguage={targetLanguage}
                 showActions={activeTab === 'toVerify' || (activeTab === 'all' && !item.isConfirmed)}
                 isSelected={selectedIds.has(item.id)}
                 onToggleSelect={handleToggleSelect}

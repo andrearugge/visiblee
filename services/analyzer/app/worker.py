@@ -28,6 +28,7 @@ from .full_pipeline import run_full_pipeline
 from .gsc_sync import run_gsc_sync
 from .pipeline import run_preview_pipeline
 from .segmenter import segment_html
+from .sitemap_import import run_sitemap_import
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -89,7 +90,7 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                   AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())
@@ -467,12 +468,12 @@ async def process_discovery_job(job: dict) -> None:
                     INSERT INTO contents (
                         id, "projectId", url, title, platform,
                         "contentType", source, "isIndexed", "isConfirmed",
-                        "discoveryConfidence", "createdAt", "updatedAt"
+                        "discoveryConfidence", "detectedLanguage", "createdAt", "updatedAt"
                     )
                     VALUES (
                         gen_random_uuid(), %s, %s, %s, %s,
                         %s, 'discovery', true, false,
-                        %s, NOW(), NOW()
+                        %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (url, "projectId") DO NOTHING
                     """,
@@ -483,6 +484,7 @@ async def process_discovery_job(job: dict) -> None:
                         r["platform"],
                         r["contentType"],
                         r["confidence"],
+                        r.get("detectedLanguage"),
                     ),
                 )
                 if cur.rowcount:
@@ -940,6 +942,82 @@ async def process_gsc_sync_job(job: dict) -> None:
         conn.close()
 
 
+async def process_sitemap_import_job(job: dict) -> None:
+    """Scarica la sitemap del progetto e inserisce gli URL come contenuti confermati."""
+    job_id = job["id"]
+    project_id = job.get("projectId")
+
+    if not project_id:
+        conn = get_conn()
+        try:
+            fail_job(conn, job_id, "Missing projectId in sitemap_import job")
+        finally:
+            conn.close()
+        return
+
+    log.info(f"Running sitemap import for project {project_id} (job {job_id})")
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT "websiteUrl" FROM projects WHERE id = %s', (project_id,))
+            project = cur.fetchone()
+
+        if not project:
+            fail_job(conn, job_id, "Project not found")
+            return
+
+        website_url = project["websiteUrl"]
+        if not website_url:
+            fail_job(conn, job_id, "Project has no websiteUrl")
+            return
+
+        urls = await asyncio.wait_for(
+            run_sitemap_import(website_url),
+            timeout=60,
+        )
+
+        inserted = 0
+        with conn.cursor() as cur:
+            for url in urls:
+                cur.execute(
+                    """
+                    INSERT INTO contents (
+                        id, "projectId", url, platform,
+                        "contentType", source, "isIndexed", "isConfirmed",
+                        "createdAt", "updatedAt"
+                    )
+                    VALUES (
+                        gen_random_uuid(), %s, %s, 'website',
+                        'own', 'sitemap', true, true,
+                        NOW(), NOW()
+                    )
+                    ON CONFLICT (url, "projectId") DO NOTHING
+                    """,
+                    (project_id, url),
+                )
+                if cur.rowcount:
+                    inserted += 1
+        conn.commit()
+
+        complete_job(conn, job_id)
+        log.info(f"Sitemap import job {job_id}: {inserted} new content items from {len(urls)} sitemap URLs")
+
+    except asyncio.TimeoutError:
+        log.error(f"Sitemap import job {job_id} timed out")
+        try:
+            fail_job(conn, job_id, "Sitemap import timed out after 60s")
+        except Exception:
+            pass
+    except Exception as e:
+        log.error(f"Sitemap import job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -982,6 +1060,8 @@ async def run_worker() -> None:
                 await process_gsc_sync_job(job)
             elif job_type == "scheduled_analysis":
                 await process_full_analysis_job(job)
+            elif job_type == "sitemap_import":
+                await process_sitemap_import_job(job)
             else:
                 await process_job(job)
         else:
