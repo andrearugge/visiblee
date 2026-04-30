@@ -230,6 +230,7 @@ model Content {
   isConfirmed         Boolean  @default(false)
   rawText             String?
   rawHtml             String?
+  htmlTruncated       Boolean  @default(false)
   wordCount           Int?
   lastFetchedAt       DateTime?
   lastModifiedAt      DateTime?

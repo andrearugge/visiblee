@@ -58,6 +58,7 @@ _JOB_CHANNEL: dict[str, str] = {
     "gsc_sync":                  "default",
     "scheduled_gsc_sync":        "default",
     "cleanup_citation_checks":   "default",
+    "cleanup_old_data":          "default",
 }
 
 # Per-channel stale timeout in seconds
@@ -1093,6 +1094,75 @@ async def process_sitemap_import_job(job: dict) -> None:
         conn.close()
 
 
+async def process_cleanup_citation_checks_job(job: dict) -> None:
+    """Delete citation_check rows older than 8 weeks (append-only retention)."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM citation_checks WHERE \"checkedAt\" < NOW() - INTERVAL '8 weeks'"
+            )
+            deleted = cur.rowcount
+        conn.commit()
+        log.info(f"cleanup_citation_checks: deleted {deleted} rows")
+        complete_job(conn, job["id"])
+        conn.commit()
+    except Exception as e:
+        log.error(f"cleanup_citation_checks failed: {e}", exc_info=True)
+        conn.rollback()
+        fail_job(conn, job["id"], str(e)[:500])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def process_cleanup_old_data_job(job: dict) -> None:
+    """Monthly data retention: remove stale fanout data, trim old rawHtml."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # Remove fanout coverage map entries whose query is older than 4 weeks
+            cur.execute(
+                """
+                DELETE FROM fanout_coverage_map
+                WHERE "fanoutQueryId" IN (
+                    SELECT id FROM fanout_queries
+                    WHERE "createdAt" < NOW() - INTERVAL '4 weeks'
+                )
+                """
+            )
+            coverage_deleted = cur.rowcount
+            # Remove fanout queries older than 4 weeks
+            cur.execute(
+                "DELETE FROM fanout_queries WHERE \"createdAt\" < NOW() - INTERVAL '4 weeks'"
+            )
+            fanout_deleted = cur.rowcount
+            # Clear rawHtml (not rawText) for content fetched > 90 days ago
+            cur.execute(
+                """
+                UPDATE contents
+                SET "rawHtml" = NULL, "htmlTruncated" = true
+                WHERE "lastFetchedAt" < NOW() - INTERVAL '90 days'
+                  AND "rawHtml" IS NOT NULL
+                """
+            )
+            html_cleaned = cur.rowcount
+        conn.commit()
+        log.info(
+            f"cleanup_old_data: {fanout_deleted} fanout_queries, "
+            f"{coverage_deleted} fanout_coverage_map, {html_cleaned} rawHtml cleaned"
+        )
+        complete_job(conn, job["id"])
+        conn.commit()
+    except Exception as e:
+        log.error(f"cleanup_old_data failed: {e}", exc_info=True)
+        conn.rollback()
+        fail_job(conn, job["id"], str(e)[:500])
+        conn.commit()
+    finally:
+        conn.close()
+
+
 async def run_worker(channel: str = "default") -> None:
     """Main worker loop — polls for jobs on the given channel.
 
@@ -1141,6 +1211,10 @@ async def run_worker(channel: str = "default") -> None:
                 await process_full_analysis_job(job)
             elif job_type == "sitemap_import":
                 await process_sitemap_import_job(job)
+            elif job_type == "cleanup_citation_checks":
+                await process_cleanup_citation_checks_job(job)
+            elif job_type == "cleanup_old_data":
+                await process_cleanup_old_data_job(job)
             else:
                 await process_job(job)
         else:

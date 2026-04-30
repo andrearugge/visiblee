@@ -8,6 +8,14 @@
 - `_load_discovery_stats()`: aggiunto check SQL per URL Wikipedia/Wikidata in `contents` confermati
 - `score_entity_authority()`: `kg_presence = max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se trovato URL Wikipedia/Wikidata
 
+#### F.5 — rawHtml cap 100KB + cleanup periodico
+- Migration SQL: `htmlTruncated BOOLEAN NOT NULL DEFAULT false` su `contents`
+- Prisma schema: `Content.htmlTruncated Boolean @default(false)`
+- `fetcher.py`: dopo estrazione schema, cap rawHtml a 100KB + flag `html_truncated` nel return
+- `full_pipeline.py`: `_auto_fetch_unfetched()` salva `htmlTruncated` nell'UPDATE
+- `worker.py`: `process_cleanup_citation_checks_job()` (8 settimane) e `process_cleanup_old_data_job()` (fanout > 4 settimane + rawHtml > 90 giorni); entrambi su canale `default`
+- `scheduler.py`: `create_monthly_cleanup_job()` — crea `cleanup_old_data` il giorno 1 di ogni mese
+
 #### F.4 — Worker multi-canale con priorità
 - Migration SQL: `priority INTEGER NOT NULL DEFAULT 0` + `jobChannel TEXT NOT NULL DEFAULT 'default'` su `jobs`, index composito
 - Prisma schema: `Job.priority Int @default(0)`, `Job.jobChannel String @default("default")`

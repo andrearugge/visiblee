@@ -85,6 +85,7 @@ _SCHEDULER_JOB_CHANNEL: dict[str, str] = {
     "scheduled_gsc_sync":        "default",
     "scheduled_analysis":        "heavy",
     "cleanup_citation_checks":   "default",
+    "cleanup_old_data":          "default",
 }
 
 
@@ -267,6 +268,52 @@ def create_monthly_analysis_jobs(conn) -> int:
     return created
 
 
+# ─── Monthly (day 1): data cleanup ──────────────────────────────────────────
+
+def create_monthly_cleanup_job(conn) -> int:
+    """
+    On the 1st of each month: create a `cleanup_old_data` job.
+    Cleans up stale fanout queries/coverage maps (>4 weeks) and trims rawHtml (>90 days).
+
+    Returns the number of jobs created (0 or 1).
+    """
+    today = _today_utc()
+    if today.day != 1:
+        return 0
+
+    month_start = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id FROM jobs
+            WHERE type = 'cleanup_old_data'
+              AND status IN ('pending', 'running', 'completed')
+              AND "createdAt" >= %(month_start)s
+            LIMIT 1
+            """,
+            {"month_start": month_start},
+        )
+        if cur.fetchone():
+            log.debug("Skip cleanup_old_data — job already exists this month")
+            return 0
+
+    # cleanup_old_data has no projectId — pass None
+    job_id = str(__import__("uuid").uuid4())
+    job_channel = _SCHEDULER_JOB_CHANNEL.get("cleanup_old_data", "default")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO jobs (id, "projectId", type, status, payload, "jobChannel", "createdAt")
+            VALUES (%(id)s, NULL, 'cleanup_old_data', 'pending', NULL, %(job_channel)s, NOW())
+            """,
+            {"id": job_id, "job_channel": job_channel},
+        )
+    conn.commit()
+    log.info("Created cleanup_old_data job=%s", job_id)
+    return 1
+
+
 # ─── Entry point ────────────────────────────────────────────────────────────
 
 def run() -> None:
@@ -276,9 +323,10 @@ def run() -> None:
         daily = create_daily_citation_jobs(conn)
         weekly = create_weekly_gsc_sync_jobs(conn)
         monthly = create_monthly_analysis_jobs(conn)
+        cleanup = create_monthly_cleanup_job(conn)
         log.info(
-            "Scheduler run complete — daily=%d weekly=%d monthly=%d",
-            daily, weekly, monthly,
+            "Scheduler run complete — daily=%d weekly=%d monthly=%d cleanup=%d",
+            daily, weekly, monthly, cleanup,
         )
     finally:
         conn.close()
