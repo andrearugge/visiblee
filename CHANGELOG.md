@@ -4,6 +4,11 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.7 — Persistenza robotsTxtBlocks
+- `full_pipeline.py` `_auto_fetch_unfetched`: salva `result["robots_txt_blocks"]` nella colonna `Content.robotsTxtBlocks` (aggiunta in A.0.1)
+- `full_pipeline.py` `_load_contents_with_passages`: legge `robotsTxtBlocks` dal DB
+- `full_pipeline.py` `run_full_pipeline`: aggrega blocchi univoci da tutti i contenuti e li passa a `score_extractability(robots_blocked=...)` (fix P2 residuale)
+
 #### A.0.6 — Definiteness con hedge words IT+EN
 - `app/lexicon/hedge_words.py`: liste IT (primaria) ed EN (secondaria) con 35+33 termini
 - `scoring.py`: nuova funzione `score_definiteness(text, word_count, language)` — hedge density inversa (saturation a 5 → 0.0); `score_citation_power` ora accetta `language` e usa `score_definiteness` invece del proxy `is_answer_first` (fix P3)

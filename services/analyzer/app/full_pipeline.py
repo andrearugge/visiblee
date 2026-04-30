@@ -166,7 +166,8 @@ def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
             """
             SELECT id, url, title, platform, "contentType", "wordCount",
                    "lastFetchedAt", "schemaMarkup", "hasArticleSchema",
-                   "hasFaqSchema", "hasOrgSchema", "dateModifiedSchema", "lastContentHash"
+                   "hasFaqSchema", "hasOrgSchema", "dateModifiedSchema", "lastContentHash",
+                   "robotsTxtBlocks"
             FROM contents
             WHERE "projectId" = %s
               AND "isConfirmed" = true
@@ -300,6 +301,7 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
                     "hasOrgSchema" = %s,
                     "dateModifiedSchema" = %s,
                     "lastContentHash" = %s,
+                    "robotsTxtBlocks" = %s,
                     "lastFetchedAt" = NOW()
                 WHERE id = %s
                 """,
@@ -314,6 +316,7 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
                     result.get("has_org_schema", False),
                     result.get("date_modified_schema"),
                     content_hash,
+                    result.get("robots_txt_blocks", []),
                     cid,
                 ),
             )
@@ -725,7 +728,8 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
         schema_data=schema_data,
         discovery_stats=discovery_stats,
     )
-    extractability = score_extractability(contents, schema_data=schema_data)
+    robots_blocked = list({b for c in contents for b in (c.get("robotsTxtBlocks") or [])})
+    extractability = score_extractability(contents, schema_data=schema_data, robots_blocked=robots_blocked)
     source_authority = score_source_authority(platform_results, ai_platform_target=ai_platform_target)
 
     log.info(
