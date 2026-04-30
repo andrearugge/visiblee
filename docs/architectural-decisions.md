@@ -263,3 +263,31 @@
 **Implementazione**: `@google/genai` JS SDK dal Next.js API route (chat sincrona, no job asincrono). System prompt include `contextPayload` completo. History completa a ogni messaggio. Max 30 messaggi/conversazione, 50 conversazioni/progetto (free).
 
 **Implicazione**: future feature di consulenza testuale (brief generator, content rewriter) possono usare LLM. Non possono toccare il loop di scoring.
+
+---
+
+## AD-19 — Worker multi-canale con priorità (F.4)
+
+**Decisione**: il job worker usa tre canali distinti (`fast`, `heavy`, `default`). Ogni canale ha un processo worker dedicato, un timeout di stallo diverso, e una coda separata filtrata per `jobChannel`. L'ordinamento è `priority DESC, createdAt ASC`.
+
+**Motivazione**:
+- Un `full_analysis` (5-8 minuti) in esecuzione bloccava email e citation check (< 5 secondi) con il vecchio FIFO a canale singolo.
+- I canali eliminano il problema alla radice senza complessità di Redis/BullMQ — il DB polling rimane sufficiente per il volume attuale (< 100 job/giorno).
+- Timeout diversi per canale (`fast=60s`, `heavy=600s`, `default=120s`) prevengono recovery prematuro dei job pesanti.
+
+**Mappa tipi → canale**: `fast` = preview, email, fetch, citation check; `heavy` = full_analysis, competitor, sitemap_import; `default` = discovery, gsc_sync, cleanup.
+
+**Implicazione**: ogni nuovo tipo di job deve essere aggiunto esplicitamente a `_JOB_CHANNEL` in `worker.py` e `_SCHEDULER_JOB_CHANNEL` in `scheduler.py`. Su Hetzner/Ploi configurare 3 servizi worker separati.
+
+---
+
+## AD-20 — Data retention: rawHtml cap + cleanup periodico (F.5)
+
+**Decisione**: `rawHtml` è cappato a 100KB in `fetcher.py` (dopo estrazione schema). Un job mensile `cleanup_old_data` elimina `FanoutQuery`/`FanoutCoverageMap` > 4 settimane e azzera `rawHtml` per contenuti con `lastFetchedAt > 90 giorni`.
+
+**Motivazione**:
+- Un `rawHtml` di pagina tipica è 50-800KB. Senza cap il DB cresce linealmente con il numero di contenuti confermati.
+- L'HTML serve solo per l'estrazione schema markup (JSON-LD) e la segmentazione — entrambe avvengono a tempo di fetch. Il cap a 100KB preserva la parte iniziale (header, meta, prima sezione) senza impatto su scoring.
+- I dati fanout hanno utilità decrescente oltre le 4 settimane (cambio query, cambio contenuti). Il cleanup mantiene il DB < 500MB per 50 progetti × 4 settimane.
+
+**Implicazione**: `fetcher.py` restituisce `html_truncated: bool` — propagare a DB tramite `htmlTruncated`. Non leggere `rawHtml` per elaborazioni successive all'analisi (è già parziale).
