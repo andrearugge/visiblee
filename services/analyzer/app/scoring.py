@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from .config import config
+from .lexicon.hedge_words import get_hedge_words
 
 try:
     import anthropic
@@ -106,9 +107,30 @@ async def generate_fanout_queries_grouped(
     return list(results)
 
 
+# ── Definiteness score (hedge density) ───────────────────────────────────────
+
+def score_definiteness(text: str, word_count: int, language: str = "it") -> float:
+    """
+    Inverse hedge density: 0 hedge words → 1.0; ≥5 → 0.0 (saturation).
+
+    Uses word-boundary regex to avoid false positives inside longer words.
+    Language selects IT (primary) or EN (secondary) hedge list.
+    """
+    hedge_list = get_hedge_words(language)
+    text_lower = text.lower()
+    hedge_count = sum(
+        1 for phrase in hedge_list
+        if re.search(r"\b" + re.escape(phrase) + r"\b", text_lower)
+    )
+    return round(max(0.0, min(1.0, 1.0 - hedge_count / 5.0)), 3)
+
+
 # ── Citation Power score (ex passage quality) — fully heuristic ───────────
 
-def score_citation_power(contents: list[dict[str, Any]]) -> tuple[float, list[dict[str, Any]]]:
+def score_citation_power(
+    contents: list[dict[str, Any]],
+    language: str = "it",
+) -> tuple[float, list[dict[str, Any]]]:
     """
     Score citation power across all passages from all confirmed contents.
     Replaces the old Claude-based score_passage_quality — zero LLM calls.
@@ -145,11 +167,13 @@ def score_citation_power(contents: list[dict[str, Any]]) -> tuple[float, list[di
             has_stats = passage.get("hasStatistics") or passage.get("has_statistics", False)
             stat_score = 0.9 if has_stats else 0.2
 
-            # Definiteness (proxy: answer-first + implied directness)
-            is_answer = passage.get("isAnswerFirst") or passage.get("is_answer_first", False)
-            def_score = 0.85 if is_answer else 0.3
+            # Definiteness: hedge density (independent of answer-first)
+            passage_text = passage.get("passageText") or passage.get("passage_text", "")
+            wc = passage.get("wordCount") or passage.get("word_count", 1)
+            def_score = score_definiteness(passage_text, wc, language)
 
             # Answer-first structure
+            is_answer = passage.get("isAnswerFirst") or passage.get("is_answer_first", False)
             af_score = 0.9 if is_answer else 0.3
 
             # Source citation

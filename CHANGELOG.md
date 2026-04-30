@@ -4,6 +4,12 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.6 — Definiteness con hedge words IT+EN
+- `app/lexicon/hedge_words.py`: liste IT (primaria) ed EN (secondaria) con 35+33 termini
+- `scoring.py`: nuova funzione `score_definiteness(text, word_count, language)` — hedge density inversa (saturation a 5 → 0.0); `score_citation_power` ora accetta `language` e usa `score_definiteness` invece del proxy `is_answer_first` (fix P3)
+- `full_pipeline.py`: passa `language` a `score_citation_power` in entrambe le pipeline
+- `tests/test_definiteness.py`: 8 test (5 IT hedge, 5 IT definite, 5 EN hedge, 5 EN definite, edge cases) — tutti verdi
+
 #### A.0.5 — queryType propagato
 - `scoring.py`: `generate_fanout_queries_grouped` restituisce `list[list[dict]]` con `{"text": str, "type": str}`; prompt Gemini aggiornato per JSON strutturato; parsing robusto con fallback line-based
 - `scoring.py`: `generate_fanout_queries` (preview) aggiornato per estrarre solo i testi

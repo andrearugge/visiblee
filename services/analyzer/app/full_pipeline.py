@@ -625,7 +625,7 @@ async def run_preview_pipeline(
         generate_fanout_queries(query_targets, brand_name, language)
     )
 
-    citation_power, _ = score_citation_power(contents)
+    citation_power, _ = score_citation_power(contents, language=language)
     entity_authority = score_entity_authority(contents, brand_name)
     extractability = score_extractability(contents)
     source_authority = score_source_authority(platform_results)
@@ -719,7 +719,7 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     )
 
     # 4–7. Heuristic scores (synchronous, zero LLM calls)
-    citation_power, scored_passages = score_citation_power(contents)
+    citation_power, scored_passages = score_citation_power(contents, language=language)
     entity_authority = score_entity_authority(
         contents, brand_name,
         schema_data=schema_data,
