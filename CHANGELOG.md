@@ -4,6 +4,12 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.5 — queryType propagato
+- `scoring.py`: `generate_fanout_queries_grouped` restituisce `list[list[dict]]` con `{"text": str, "type": str}`; prompt Gemini aggiornato per JSON strutturato; parsing robusto con fallback line-based
+- `scoring.py`: `generate_fanout_queries` (preview) aggiornato per estrarre solo i testi
+- `full_pipeline.py`: `_save_fanout_queries` usa `item["type"]` effettivo invece di `'generated'` hardcoded (fix P14)
+- `full_pipeline.py`: `fanout_flat` estrae `item["text"]` dalla nuova struttura
+
 #### A.0.4 — Pipeline unificata
 - `full_pipeline.py`: aggiunto `run_preview_pipeline()` — wrapper stateless che usa crawler + stessi scorer v2 + coverage 4-tier (fix P6)
 - `worker.py` e `main.py`: import aggiornati da `.pipeline` → `.full_pipeline`

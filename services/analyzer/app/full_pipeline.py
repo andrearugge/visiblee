@@ -351,20 +351,20 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
 def _save_fanout_queries(
     conn,
     target_queries: list[dict],
-    fanout_grouped: list[list[str]],
+    fanout_grouped: list[list[dict]],
     batch_id: str,
 ) -> list[str]:
     fanout_query_ids: list[str] = []
     with conn.cursor() as cur:
-        for target, fanout_texts in zip(target_queries, fanout_grouped):
-            for text in fanout_texts:
+        for target, fanout_items in zip(target_queries, fanout_grouped):
+            for item in fanout_items:
                 cur.execute(
                     """
                     INSERT INTO fanout_queries (id, "targetQueryId", "queryText", "queryType", "batchId", "generatedAt")
-                    VALUES (gen_random_uuid(), %s, %s, 'generated', %s, NOW())
+                    VALUES (gen_random_uuid(), %s, %s, %s, %s, NOW())
                     RETURNING id
                     """,
-                    (target["id"], text, batch_id),
+                    (target["id"], item["text"], item["type"], batch_id),
                 )
                 fanout_query_ids.append(cur.fetchone()["id"])
     return fanout_query_ids
@@ -736,7 +736,7 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
 
     # Await fanout queries
     fanout_grouped = await fanout_task
-    fanout_flat = [text for group in fanout_grouped for text in group]
+    fanout_flat = [item["text"] for group in fanout_grouped for item in group]
     all_queries = target_texts + fanout_flat
     log.info(f"[{project_id}] Generated {len(fanout_flat)} fanout queries")
 

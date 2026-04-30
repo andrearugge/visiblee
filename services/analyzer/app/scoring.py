@@ -11,6 +11,7 @@ Scoring engine philosophy (v2):
 - Fanout query generation still uses Gemini (taxonomy-aware expansion).
 """
 
+import json
 import re
 import asyncio
 from datetime import datetime
@@ -33,30 +34,33 @@ except ImportError:
 
 # ── Fanout query generation ────────────────────────────────────────────────
 
+_FANOUT_VALID_TYPES = frozenset({"related", "implicit", "comparative", "exploratory", "decisional", "recent"})
+
+
 async def generate_fanout_queries(
     target_queries: list[str],
     brand_name: str,
     language: str,
 ) -> list[str]:
-    """Generate fanout queries. Returns flat list (target + expanded)."""
+    """Generate fanout queries. Returns flat list of query texts (for preview pipeline)."""
     grouped = await generate_fanout_queries_grouped(target_queries, brand_name, language)
-    all_queries: list[str] = list(target_queries)
+    texts: list[str] = list(target_queries)
     for expanded in grouped:
-        all_queries.extend(expanded)
-    return all_queries
+        texts.extend(item["text"] for item in expanded)
+    return texts
 
 
 async def generate_fanout_queries_grouped(
     target_queries: list[str],
     brand_name: str,
     language: str,
-) -> list[list[str]]:
+) -> list[list[dict]]:
     """
     Generate N fanout queries per target using Gemini Flash.
-    Returns list[list[str]] grouped by target query.
+    Returns list[list[dict]] where each dict is {"text": str, "type": str}.
 
-    Categories: related, implicit, comparative, exploratory, decisional, recent
-    (recent queries include the current year for freshness signal).
+    Types: related, implicit, comparative, exploratory, decisional, recent
+    Fallback type "generated" is used when JSON parsing fails.
     """
     if not _gemini_client:
         return [[] for _ in target_queries]
@@ -66,25 +70,37 @@ async def generate_fanout_queries_grouped(
     lang_instruction = f"in {_LANG_NAMES.get(language[:2].lower(), 'English')}"
     current_year = datetime.now().year
 
-    async def expand_query(query: str) -> list[str]:
+    async def expand_query(query: str) -> list[dict]:
         prompt = (
             f"Generate {n} diverse search queries {lang_instruction} semantically related to: '{query}'\n"
             f"Context: brand '{brand_name}'\n"
-            f"Include a mix of:\n"
-            f"- related questions and implicit needs\n"
-            f"- comparative queries (vs alternatives)\n"
-            f"- exploratory and decisional queries\n"
-            f"- at least 1 recent query mentioning {current_year}\n"
-            f"Return ONLY the queries, one per line, no numbering, no extra text."
+            f"Assign each query one of these types: related, implicit, comparative, exploratory, decisional, recent\n"
+            f"(Include at least 1 'recent' query mentioning {current_year})\n"
+            f"Return ONLY a JSON array, no markdown, no extra text:\n"
+            f'[{{"text": "query here", "type": "related"}}, ...]'
         )
+        response_text = ""
         try:
             response = await _gemini_client.aio.models.generate_content(
                 model="gemini-2.5-flash", contents=prompt
             )
-            lines = [ln.strip() for ln in response.text.strip().splitlines() if ln.strip()]
-            return lines[:n]
+            response_text = response.text.strip()
+            # Strip markdown code fences if present
+            raw = re.sub(r'^```(?:json)?\s*', '', response_text)
+            raw = re.sub(r'\s*```$', '', raw).strip()
+            items = json.loads(raw)
+            result: list[dict] = []
+            for item in items[:n]:
+                if isinstance(item, dict) and "text" in item:
+                    qtype = item.get("type", "generated")
+                    if qtype not in _FANOUT_VALID_TYPES:
+                        qtype = "generated"
+                    result.append({"text": str(item["text"]), "type": qtype})
+            return result
         except Exception:
-            return []
+            # Fallback: plain lines → type "generated"
+            lines = [ln.strip() for ln in response_text.splitlines() if ln.strip() and not ln.strip().startswith(('[', '{', '`'))]
+            return [{"text": ln, "type": "generated"} for ln in lines[:n]]
 
     results = await asyncio.gather(*[expand_query(q) for q in target_queries])
     return list(results)
