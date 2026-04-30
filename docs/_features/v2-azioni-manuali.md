@@ -5,6 +5,35 @@ Spunta ogni voce quando completata.
 
 ---
 
+## Fase A.0
+
+### [ ] A.0.1 — Applicare migration `robotsTxtBlocks` su contents + indice trend su citation_checks
+
+L'utente applicativo (`visiblee_remote2`) non ha permessi `ALTER TABLE`, quindi la migration non può essere applicata automaticamente.
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+-- Colonna robotsTxtBlocks su contents (oggi calcolata dal fetcher e persa)
+ALTER TABLE "contents"
+  ADD COLUMN IF NOT EXISTS "robotsTxtBlocks" TEXT[] NOT NULL DEFAULT '{}';
+
+-- Indice composito per query Beta(α, β) veloce sullo storico citation
+CREATE INDEX IF NOT EXISTS "citation_checks_project_query_checked_at_desc_idx"
+  ON "citation_checks" ("projectId", "targetQueryId", "checkedAt" DESC);
+```
+
+**Poi**: registrare la migration nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260430000000_phase_a_0_prereq', NULL, NULL, NOW(), 1);
+```
+
+> Nota: il checksum esatto non è critico perché la migration è composta da statement idempotenti senza dipendenze dal lock state.
+
+---
+
 ## Fase A
 
 ### [ ] A.1 — Applicare migration `scheduledAt` sul DB
@@ -181,6 +210,101 @@ ALTER TABLE "intent_profiles"
 ```sql
 INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
 VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260401000004_add_intent_profile_manual', NULL, NULL, NOW(), 1);
+```
+
+---
+
+## Fase F
+
+### [ ] F.3 — Applicare migration `competitor_gap_reports` (tabella dedicata)
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+CREATE TABLE "competitor_gap_reports" (
+    "id"           TEXT NOT NULL,
+    "projectId"    TEXT NOT NULL,
+    "competitorId" TEXT NOT NULL,
+    "generatedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "gaps"         JSONB NOT NULL,
+    CONSTRAINT "competitor_gap_reports_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "competitor_gap_reports"
+  ADD CONSTRAINT "competitor_gap_reports_projectId_fkey"
+  FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "competitor_gap_reports"
+  ADD CONSTRAINT "competitor_gap_reports_competitorId_fkey"
+  FOREIGN KEY ("competitorId") REFERENCES "competitors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE INDEX "competitor_gap_reports_projectId_idx" ON "competitor_gap_reports"("projectId");
+CREATE INDEX "competitor_gap_reports_competitorId_idx" ON "competitor_gap_reports"("competitorId");
+
+-- Aggiungere lastAnalyzedAt su competitors per la cache 30 giorni
+ALTER TABLE "competitors"
+  ADD COLUMN IF NOT EXISTS "lastAnalyzedAt" TIMESTAMP(3);
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260601000000_add_competitor_gap_report', NULL, NULL, NOW(), 1);
+```
+
+---
+
+### [ ] F.4 — Applicare migration `priority` + `jobChannel` su jobs
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+ALTER TABLE "jobs"
+  ADD COLUMN IF NOT EXISTS "priority"   INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "jobChannel" TEXT    NOT NULL DEFAULT 'default';
+
+-- Indice per claim_job filtrato per channel
+CREATE INDEX IF NOT EXISTS "jobs_jobChannel_status_createdAt_idx"
+  ON "jobs" ("jobChannel", "status", "createdAt");
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260601000001_add_job_priority_channel', NULL, NULL, NOW(), 1);
+```
+
+### [ ] F.4b — Configurare 3 servizi worker su Ploi
+
+Dopo la migration F.4, lanciare 3 istanze del worker (una per canale) sul server Hetzner via Ploi.
+
+Comandi (uno per servizio Ploi):
+```bash
+python /home/visiblee/services/analyzer/run_worker.py --channel fast
+python /home/visiblee/services/analyzer/run_worker.py --channel heavy
+python /home/visiblee/services/analyzer/run_worker.py --channel default
+```
+
+Configurare auto-restart su crash. Documentare i 3 servizi in `docs/staging-setup.md`.
+
+---
+
+### [ ] F.5 — Applicare migration `htmlTruncated` su contents
+
+**Dove**: Hetzner DB server via Ploi o accesso diretto psql con superuser.
+
+**SQL da eseguire**:
+```sql
+ALTER TABLE "contents"
+  ADD COLUMN IF NOT EXISTS "htmlTruncated" BOOLEAN NOT NULL DEFAULT FALSE;
+```
+
+**Poi**: registrare nel registro Prisma:
+```sql
+INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (gen_random_uuid(), 'placeholder', NOW(), '20260601000002_add_html_truncated', NULL, NULL, NOW(), 1);
 ```
 
 ---

@@ -104,12 +104,27 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 ### 6. Cosa NON fare
 
 - **Non cambiare lo scoring euristico** (AD-02). Mai.
+  - *Eccezione*: la Fase A.0 corregge bug nello scoring euristico esistente (definiteness duplicato di answer_first, kg_presence rigido, queryType perso, robots_blocked non persistito). Non altera la metodologia (AD-02), corregge implementazioni divergenti dalla metodologia. Vedi `docs/_archive/consultant-analysis-2026-04.md` per il razionale completo.
 - **Non aggiungere dipendenze npm/pip senza motivo**. Se serve una libreria, verifica prima che non ci sia già un'alternativa nel progetto.
 - **Non creare componenti UI custom** se esiste un equivalente shadcn/ui.
 - **Non hardcodare stringhe utente** — tutto in `messages/en.json` e `messages/it.json`.
 - **Non toccare le fasi precedenti** (1-5) salvo bugfix espliciti.
 - **Non fare refactoring "per migliorare"** — solo cambiamenti richiesti dal task corrente.
 - **Non inventare soluzioni non documentate nelle specifiche**. Se un caso non è coperto, fermati e chiedi.
+
+---
+
+## Scelta del modello per task
+
+Ogni task del piano riporta un suggerimento di modello (`H` = Haiku 4.5, `S` = Sonnet 4.6, `O` = Opus 4.7). Tara la scelta in base alla difficoltà; non sprecare Opus su task semplici, non sotto-stimare Opus su task complessi.
+
+| Modello | Quando usarlo | Esempi |
+|---|---|---|
+| **Haiku** (`H`) | Task triviali e meccanici: fix di una riga, edit di config, applicazione di pattern già noto, persistenza di dati già disponibili | A.0.7 (persistenza colonna), label tweak, copy update |
+| **Sonnet** (`S`) | **Default**. Sviluppo standard: refactor moderato, scrittura di test, modifiche multi-file con logica chiara, prompt engineering con format strutturato, integrazione API | Migration Prisma, route API, componenti UI, parsing/validazione strutturata |
+| **Opus** (`O`) | Task complessi: nuove formule algoritmiche, logica statistica, refactor architetturale, debug profondo, system design, scelte di trade-off non banali | A.0.3 (embedding cache + hash logic), A.0.4 (refactor pipeline), A.6 (modello bayesiano), D.2 (LLM context payload), F.4 (worker multi-canale) |
+
+Se un task non ha colonna esplicita, usa **Sonnet** come default. Se durante l'esecuzione il task si rivela più complesso del previsto (3+ tentativi falliti, scelte di design non ovvie emerse strada facendo), passa a Opus invece di insistere.
 
 ---
 
@@ -131,6 +146,30 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 | 0.6 | Smoke test manuale (non automatizzabile da Claude Code). Documenta la checklist di test in `docs/staging-setup.md`. | `docs/staging-setup.md` | La checklist esiste |
 
 **Alla fine della Fase 0**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`.
+
+---
+
+### Fase A.0 — Prerequisiti scoring (fix critici)
+
+**Branch**: `feature/v2-fase-a-0`
+**Prerequisito**: Fase 0 completata
+**Reference**: `docs/_archive/consultant-analysis-2026-04.md` (razionale dei fix)
+
+Questa fase NON è parte delle specifiche v2 originali. È stata aggiunta dopo l'analisi tecnica di Aprile 2026, che ha rilevato 4 bug critici nello scoring engine e nell'architettura della pipeline. Senza questi fix, la Fase A non può funzionare correttamente: il task A.6 calcola `Beta(α, β)` dalla tabella `citation_checks`, ma il codice attuale fa `DELETE+INSERT` ad ogni esecuzione, distruggendo lo storico → Beta calcolata sempre su 1 record solo.
+
+| Task | Cosa fare | M | File coinvolti | Verifica |
+|---|---|---|---|---|
+| A.0.1 | Migration Prisma. Aggiungere `Content.robotsTxtBlocks String[]` (oggi calcolato dal fetcher e perso). Aggiungere indice `@@index([projectId, targetQueryId, checkedAt(sort: Desc)])` su `CitationCheck` per query Beta veloce. **Migration SQL manuale** (no permessi shadow DB) — vedi `v2-azioni-manuali.md`. | S | `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/YYYYMMDD_phase_a_0_prereq/migration.sql` | Migration applicata, `prisma generate` ok, schema valido |
+| A.0.2 | **P1 — Append-only CitationCheck**. Rimuovere il `DELETE` da `save_citation_check_single` in `citation_check.py:398-414`. Aggiungere job type `cleanup_citation_checks` nel worker (mantieni ultime 8 settimane per `(projectId, targetQueryId)`). Verificare che `app/api/projects/[id]/citations/route.ts` continui a funzionare con bucketing 4-week su dati storici reali. | S | `services/analyzer/app/citation_check.py`, `services/analyzer/app/worker.py`, `apps/web/app/api/projects/[id]/citations/route.ts` | 3 esecuzioni di citation_check sulla stessa query → 3 record in DB. UI mostra `TrendDots` con 4 stati distinti. Job cleanup testato su dati > 8 settimane |
+| A.0.3 | **P10 — Embedding caching**. Dopo segmentazione in `full_pipeline.py`, salvare `Passage.embedding`. In `embeddings.py`: prima di chiamare Voyage AI, se `Content.lastContentHash` non è cambiato, leggere embedding dal DB. Stessa logica per `FanoutQuery.embedding` (cache su target queries invariate). Counter `embeddings_cached` vs `embeddings_computed` nei log strutturati. | O | `services/analyzer/app/full_pipeline.py`, `services/analyzer/app/embeddings.py` | Secondo run consecutivo dello stesso progetto: ≥80% embedding letti da DB. Risparmio Voyage AI documentato (counter nel log) |
+| A.0.4 | **P6 — Pipeline unificata (eliminazione `pipeline.py`)**. Creare `run_preview_pipeline(domain, target_queries, max_urls=3, max_queries=3, timeout=60)` in `full_pipeline.py` come wrapper di `run_full_analysis`. Sostituire ogni chiamata a `pipeline.run_preview` con la nuova funzione. Adattare `app/api/preview/analyze/route.ts`. `git rm services/analyzer/app/pipeline.py` (e `crawler.py` se solo del preview — verificare). | O | `services/analyzer/app/full_pipeline.py`, `apps/web/app/api/preview/analyze/route.ts`, eliminare `services/analyzer/app/pipeline.py`, eventualmente `crawler.py` | Stesso dominio in preview e full → score nello stesso ordine di grandezza. Zero riferimenti a `pipeline.run_preview` o moduli rimossi |
+| A.0.5 | **P14 — queryType propagato**. Modificare prompt Gemini fan-out in `scoring.py:69-87` per restituire JSON strutturato `[{"text": "...", "type": "related|implicit|comparative|exploratory|decisional|recent"}]`. Validare la risposta JSON. In `full_pipeline.py:278` sostituire `'queryType', 'generated'` hardcoded con la categoria effettiva (fallback `'generated'` solo per parsing falliti). | S | `services/analyzer/app/scoring.py`, `services/analyzer/app/full_pipeline.py` | DB: `SELECT DISTINCT queryType FROM fanout_queries WHERE generatedAt > NOW() - INTERVAL '1 hour'` ritorna ≥4 categorie diverse |
+| A.0.6 | **P3 — Definiteness con hedge words IT+EN**. Creare `services/analyzer/app/lexicon/hedge_words.py` con liste IT (primaria) e EN (secondaria) — vedi `docs/_archive/consultant-analysis-2026-04.md` per la lista finale. Riscrivere `score_definiteness` in `scoring.py:133-134` come hedge density: `count(matches) / word_count`, invertito e normalizzato (saturation a 5 hedge → 0.0). `score_answer_first` resta separato come oggi. Test unitari su 10+10 fixture IT+EN. | S | `services/analyzer/app/lexicon/hedge_words.py` (nuovo), `services/analyzer/app/scoring.py`, `services/analyzer/tests/test_definiteness.py` (nuovo) | Test IT: "Forse Visiblee potrebbe in genere…" → def < 0.4. "Visiblee analizza la visibilità AI" → def > 0.85. Stessa logica EN. `pytest services/analyzer/tests/test_definiteness.py` verde |
+| A.0.7 | **P2-residuale — Persistenza `robotsTxtBlocks`**. In `full_pipeline.py:_auto_fetch_unfetched`, salvare `result["robots_txt_blocks"]` in `Content.robotsTxtBlocks` (colonna aggiunta in A.0.1). In `full_pipeline.py:537`, leggere `robotsTxtBlocks` aggregato dai contenuti del progetto e passarli a `score_extractability`. | H | `services/analyzer/app/full_pipeline.py` | `SELECT robotsTxtBlocks FROM contents WHERE robotsTxtBlocks <> '{}' LIMIT 5` ritorna array popolati per progetti con robots.txt restrittivi |
+
+**Validazione finale Fase A.0**: far girare la pipeline su 2-3 brand reali (1 IT, 1 EN, 1 con robots.txt che blocca AI crawler). Confrontare i 5 score pre/post fix in `docs/_archive/phase-a0-validation-YYYY-MM-DD.md`. Brand con Wikipedia → Brand Authority più alto; brand con contenuti vaghi/hedge → Citation Power più basso; brand che blocca AI crawler → Extractability più basso.
+
+**Alla fine della Fase A.0**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/scoring-methodology.md` (sezioni Citation Power → Definiteness, Brand Authority → KG presence, Extractability → robots), `docs/architectural-decisions.md` (nuovi ADR: "Citation history append-only", "Embedding cache su content hash", "Pipeline preview = subset di full").
 
 ---
 
@@ -165,7 +204,7 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 | B.1 | Aggiungere `targetQueryId String?` a `Recommendation` in Prisma. Migration. Aggiornare `generate_recommendations()` nel Python per popolare il campo quando il contesto include una query specifica. | Migration OK. Le nuove raccomandazioni hanno `targetQueryId` popolato. Le vecchie restano con `null`. |
 | B.2 | Creare tabella `CompetitorQueryAppearance` in Prisma. Migration. Aggiornare `save_citation_checks()` per popolare la tabella automaticamente ad ogni citation check. | Migration OK. Dopo un citation check, le apparizioni competitor sono salvate. |
 | B.3 | Creare route layout per la query singola: `/app/projects/[id]/queries/[queryId]/`. Sub-pagine: `coverage`, `citations`, `competitors`, `recommendations`. Sidebar aggiornata con la struttura query-centrica. | Le pagine si caricano. La sidebar mostra la struttura corretta. |
-| B.4 | Migrare la logica di Opportunity Map dalla pagina globale alla sub-pagina `coverage` della singola query. Filtrare i fanout queries per `targetQueryId`. | La coverage map mostra solo i dati della query selezionata. |
+| B.4 | Migrare la logica di Opportunity Map dalla pagina globale alla sub-pagina `coverage` della singola query. Filtrare i fanout queries per `targetQueryId`. **Sfruttare `queryType` (popolato dalla Fase A.0.5)**: raggruppare le fanout per categoria (related, implicit, comparative, exploratory, decisional, recent), aggiungere chip colorato per categoria e filtro nella toolbar. | La coverage map mostra solo i dati della query selezionata. Le fanout sono raggruppate per `queryType` con conteggio "Coperte: 8/12 informazionali, 2/5 comparative, …". Il filtro per categoria funziona. |
 | B.5 | Migrare la logica citation dalla pagina globale alla sub-pagina `citations` della singola query. Includere il CitationRate bar (da Fase A). | Le citazioni mostrano solo i dati della query selezionata con il rate bayesiano. |
 | B.6 | Creare la sub-pagina `competitors` della singola query. Mostra i competitor citati per QUESTA query, con frequenza di apparizione (da `CompetitorQueryAppearance`) e gap report inline. | I competitor mostrati sono quelli rilevanti per la query. |
 | B.7 | Creare la sub-pagina `recommendations` della singola query. Filtra per `targetQueryId`. | Le raccomandazioni mostrate sono quelle della query. |
@@ -222,6 +261,26 @@ Non aggiornare i docs durante l'implementazione dei task — solo alla fine dell
 | E.3 | Aggiungere endpoint `POST /api/projects/[id]/intent-profiles` per creare profili manuali. Generare `contextPrompt` combinando `manualDescription` + `manualSampleQueries` (stesso formato dei profili GSC). I profili manuali sopravvivono al GSC sync (che non li tocca). | `apps/web/app/api/projects/[id]/intent-profiles/route.ts` | La creazione salva il profilo. Il sync GSC non cancella i profili manuali. Il `contextPrompt` generato è usabile dalla pipeline citation enriched. |
 
 **Alla fine della Fase E**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/user-guide.md` e chiedi all'utente di avviare una nuova sessione Claude Code (sezione Audience aggiornata con personas manuali).
+
+---
+
+### Fase F — Robustezza differibile (post-rilascio)
+
+**Branch**: `feature/v2-fase-f`
+**Prerequisito**: Fase E completata
+**Reference**: `docs/_archive/consultant-analysis-2026-04.md` (parziali e differibili)
+
+Questa fase contiene fix che migliorano la qualità del prodotto ma non bloccano il rilascio v2. Si attivano quando il prodotto va in beta multi-tenant. Possono essere eseguiti in qualsiasi ordine; ogni task è indipendente dagli altri.
+
+| Task | Cosa fare | M | File coinvolti | Verifica |
+|---|---|---|---|---|
+| F.1 | **P5 — kg_presence proxy Wikipedia/Wikidata**. In `score_entity_authority` (`scoring.py:176-200`), aggiungere fallback: `kg_presence = 1.0` se `discovery_stats` contiene URL `wikipedia.org/wiki/<brand>` o `wikidata.org/wiki/Q...`. Mantenere il segnale `sameAs` JSON-LD come boost (non rimpiazzo): `kg_presence = max(sameAs_score, wiki_proxy_score)`. Propagare il flag `wikipedia_or_wikidata_mention: bool` da `full_pipeline.py` in `discovery_stats`. | S | `services/analyzer/app/scoring.py`, `services/analyzer/app/full_pipeline.py` | Brand con pagina Wikipedia ma senza Organization markup → `kg_presence` ≥ 0.7. Brand senza Wikipedia → `kg_presence` ≤ 0.3 |
+| F.2 | **P13 — Source Authority pesata per piattaforma**. Riscrivere `score_source_authority` (`scoring.py:374-413`) da binaria a `presence × freshness × quality`: per ogni piattaforma (LinkedIn, YouTube, Reddit, ecc.) calcolare `presence = min(content_count/5, 1.0)`, `freshness = max(0, 1 - days_since_newest/365)`, `quality = avg_word_count/800` (clamped 0..1). `platform_score = presence * freshness * quality`. Dati già disponibili dalla discovery, no API extra. | S | `services/analyzer/app/scoring.py` | Due brand con stessa "presenza binaria" su LinkedIn ma uno con 1 post 2019 e l'altro con 50 post recenti → score significativamente diversi |
+| F.3 | **P9 — Competitor unificato + GapReport tabella**. `competitor_pipeline.py` diventa wrapper di `competitor_analysis.py` (stesso fetch, stesso scoring). Cache: skip re-fetch se `Competitor.lastAnalyzedAt > NOW() - 30 days`. Nuova tabella `CompetitorGapReport(id, projectId, competitorId, generatedAt, gaps Json)` — sostituisce JSON in `metadata` dello snapshot. UI: in `app/(app)/app/projects/[id]/competitors/page.tsx` o sub-pagina B.6, sezione "Gap report" con dati dalla nuova tabella. **Migration SQL manuale** — vedi `v2-azioni-manuali.md`. | O | `services/analyzer/app/competitor_pipeline.py`, `services/analyzer/app/competitor_analysis.py`, `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/YYYYMMDD_add_competitor_gap_report/migration.sql` | Dopo 1 citation_check su un competitor analizzato di recente: re-fetch saltato (log "competitor cache hit"). Gap report presente in DB e visualizzato in UI |
+| F.4 | **P7 — Worker multi-canale con priorità**. Aggiungere `Job.priority Int @default(0)` e `Job.jobChannel String @default("default")` allo schema. 3 canali: `fast` (email, single fetch, discovery), `heavy` (full_analysis, competitor, sitemap_import), `default` (catch-all). `claim_job()` filtra per `jobChannel = $channel`. `recover_stale_jobs` con timeout per tipo (`fast: 60s`, `heavy: 600s`). Aggiornare ovunque venga creato un job per impostare `jobChannel` corretto. Lanciare 3 istanze worker (`run_worker.py --channel fast/heavy/default`). **Migration SQL manuale**. | O | `apps/web/prisma/schema.prisma`, `services/analyzer/app/worker.py`, `services/analyzer/run_worker.py`, tutti i creatori di job | 3 worker simultanei: 1 full_analysis in corso non blocca 5 email — partono entro 30s. Documentazione Ploi aggiornata per lanciare 3 servizi |
+| F.5 | **P11 — RawHtml cap + cleanup periodico**. In `fetcher.py`, dopo estrazione schema markup e segmentazione, troncare `rawHtml` a 100KB; aggiungere `Content.htmlTruncated: Boolean`. Job `cleanup_old_data` mensile in scheduler: elimina `FanoutQuery`/`FanoutCoverageMap` più vecchie di 4 settimane, tronca `rawHtml` su `Content.lastFetchedAt < NOW() - 90 days`. **Migration SQL manuale** per `htmlTruncated`. | S | `services/analyzer/app/fetcher.py`, `services/analyzer/app/scheduler.py`, `apps/web/prisma/schema.prisma`, migration | DB stabile in dimensione (load test 50 progetti × 4 settimane → < 500MB). Job cleanup logga record eliminati |
+
+**Alla fine della Fase F**: aggiorna `CLAUDE.md`, `CHANGELOG.md`, `docs/product-state.md`, `docs/scoring-methodology.md` (sezioni Brand Authority, Source Authority), `docs/architectural-decisions.md` (ADR: "Multi-channel job queue", "Data retention policy"). Spostare `docs/_features/v2-implementation-plan.md` in `docs/_archive/` insieme alle specifiche.
 
 ---
 
