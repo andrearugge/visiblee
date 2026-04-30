@@ -26,7 +26,7 @@ from .email import send_preview_report
 from .fetcher import fetch_url
 from .full_pipeline import run_full_pipeline
 from .gsc_sync import run_gsc_sync
-from .pipeline import run_preview_pipeline
+from .full_pipeline import run_preview_pipeline
 from .segmenter import segment_html
 from .sitemap_import import run_sitemap_import
 

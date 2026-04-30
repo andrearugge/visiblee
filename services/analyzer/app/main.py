@@ -32,7 +32,7 @@ from .models import (
     PreviewAnalyzeRequest,
     PreviewAnalyzeResponse,
 )
-from .pipeline import run_preview_pipeline
+from .full_pipeline import run_preview_pipeline
 from .segmenter import segment_html
 
 log = logging.getLogger(__name__)

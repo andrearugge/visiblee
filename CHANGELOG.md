@@ -4,6 +4,12 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.4 — Pipeline unificata
+- `full_pipeline.py`: aggiunto `run_preview_pipeline()` — wrapper stateless che usa crawler + stessi scorer v2 + coverage 4-tier (fix P6)
+- `worker.py` e `main.py`: import aggiornati da `.pipeline` → `.full_pipeline`
+- `pipeline.py` eliminato (`git rm`) — unica codebase scoring
+- `crawler.py` mantenuto (usato da `run_preview_pipeline` via import locale)
+
 #### A.0.3 — Embedding caching
 - `full_pipeline.py`: helpers `_parse_vector`, `_format_vector`, `_is_zero_vector`, `_save_passage_embeddings`, `_load_fanout_emb_cache`, `_update_fanout_query_embeddings`
 - `_load_contents_with_passages`: legge `embedding::text` da `passages`

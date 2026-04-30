@@ -31,6 +31,7 @@ from .embeddings import embed_texts, compute_coverage_tiered
 from .fetcher import fetch_url
 from .segmenter import segment_html
 from .scoring import (
+    generate_fanout_queries,
     generate_fanout_queries_grouped,
     score_citation_power,
     score_entity_authority,
@@ -567,6 +568,112 @@ def _aggregate_schema_data(contents: list[dict]) -> dict[str, Any]:
         "has_article_schema": has_article,
         "has_faq_schema": has_faq,
         "has_org_schema": has_org,
+    }
+
+
+# ── Preview pipeline (stateless — no DB, no caching) ─────────────────────────
+
+async def run_preview_pipeline(
+    website_url: str,
+    brand_name: str,
+    query_targets: list[str],
+    language: str = "en",
+) -> dict[str, Any]:
+    """
+    Stateless preview pipeline. Crawls the website, scores with the same
+    v2 heuristics and 4-tier coverage as the full pipeline, returns result
+    without writing to DB. Target latency: <60s.
+    """
+    from .crawler import crawl_website, search_cross_platform
+
+    start = time.monotonic()
+
+    crawl_task = asyncio.create_task(crawl_website(website_url))
+    cross_platform_task = asyncio.create_task(search_cross_platform(brand_name))
+    pages, platform_results = await asyncio.gather(crawl_task, cross_platform_task)
+
+    contents_found = len(pages)
+    all_passages = [p for page in pages for p in page.get("passages", [])]
+
+    # Normalise crawler page format for v2 scorers
+    contents = [
+        {
+            "id": None,
+            "lastFetchedAt": None,
+            "schemaMarkup": None,
+            "hasArticleSchema": False,
+            "hasFaqSchema": False,
+            "hasOrgSchema": False,
+            "passages": [
+                {
+                    **p,
+                    "passageText": p.get("passage_text", ""),
+                    "wordCount": p.get("word_count", 0),
+                    "relativePosition": p.get("relativePosition") or p.get("relative_position", 0.5),
+                    "entityDensity": p.get("entityDensity") or p.get("entity_density", 0.0),
+                    "hasStatistics": p.get("hasStatistics") or p.get("has_statistics", False),
+                    "hasSourceCitation": p.get("hasSourceCitation") or p.get("has_source_citation", False),
+                    "isAnswerFirst": p.get("isAnswerFirst") or p.get("is_answer_first", False),
+                }
+                for p in page.get("passages", [])
+            ],
+        }
+        for page in pages
+    ]
+
+    fanout_task = asyncio.create_task(
+        generate_fanout_queries(query_targets, brand_name, language)
+    )
+
+    citation_power, _ = score_citation_power(contents)
+    entity_authority = score_entity_authority(contents, brand_name)
+    extractability = score_extractability(contents)
+    source_authority = score_source_authority(platform_results)
+    freshness = compute_freshness_multiplier(contents)
+
+    fanout_flat = await fanout_task
+    all_queries = query_targets + fanout_flat
+
+    passage_texts = [p["passage_text"][:500] for p in all_passages]
+    if passage_texts and all_queries:
+        q_embs, p_embs = await asyncio.gather(
+            embed_texts(all_queries, input_type="query"),
+            embed_texts(passage_texts, input_type="document"),
+        )
+        fanout_coverage, coverage_map = compute_coverage_tiered(q_embs, p_embs)
+    else:
+        fanout_coverage = 0.0
+        coverage_map = []
+
+    sub_scores = {
+        "fanout_coverage_score":  fanout_coverage,
+        "citation_power_score":   citation_power,
+        "entity_authority_score": entity_authority,
+        "extractability_score":   extractability,
+        "source_authority_score": source_authority,
+    }
+    ai_readiness = compute_ai_readiness(sub_scores, freshness_multiplier=freshness)
+    all_scores = {"ai_readiness_score": ai_readiness, **sub_scores}
+
+    insights = await generate_insights(brand_name, all_scores, language)
+
+    elapsed = round(time.monotonic() - start, 2)
+
+    return {
+        "scores": all_scores,
+        "insights": insights,
+        "contents_found": contents_found,
+        "analysis_data": {
+            "elapsed_seconds": elapsed,
+            "fanout_queries_count": len(fanout_flat),
+            "passages_count": len(all_passages),
+            "coverage_map": coverage_map[:50],
+            "platform_results": {k: len(v) for k, v in platform_results.items()},
+            "pages": [
+                {"url": p["url"], "title": p.get("title"), "word_count": p.get("word_count", 0)}
+                for p in pages
+            ],
+        },
     }
 
 
