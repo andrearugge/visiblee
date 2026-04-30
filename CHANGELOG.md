@@ -4,6 +4,12 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.3 — Embedding caching
+- `full_pipeline.py`: helpers `_parse_vector`, `_format_vector`, `_is_zero_vector`, `_save_passage_embeddings`, `_load_fanout_emb_cache`, `_update_fanout_query_embeddings`
+- `_load_contents_with_passages`: legge `embedding::text` da `passages`
+- `run_full_pipeline`: embedding split cached/uncached per passaggi e query fanout; log `embeddings_cached` vs `embeddings_computed`; salva nuovi embedding su `passages` e `fanout_queries`
+- Secondo run consecutivo: ≥80% embedding letti da DB, zero chiamate Voyage AI per passaggi non modificati
+
 #### A.0.2 — Append-only CitationCheck
 - `citation_check.py`: rimosso `DELETE FROM citation_checks` da `save_citation_checks` e `save_citation_check_single` — lo storico ora è preservato (fix P1)
 - `worker.py`: aggiunto job type `cleanup_citation_checks` — cancella record più vecchi di 8 settimane

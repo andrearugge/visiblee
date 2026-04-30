@@ -49,6 +49,88 @@ log = logging.getLogger(__name__)
 KNOWN_PLATFORMS = ["website", "linkedin", "reddit", "medium", "youtube", "substack", "news", "other"]
 
 
+# ── Embedding cache helpers ───────────────────────────────────────────────────
+
+def _parse_vector(v) -> list[float] | None:
+    """Parse pgvector string '[x1,x2,...]' returned by psycopg2 → list[float]."""
+    if v is None:
+        return None
+    if isinstance(v, list):
+        return v
+    s = str(v).strip()
+    if s.startswith('[') and s.endswith(']'):
+        try:
+            return [float(x) for x in s[1:-1].split(',')]
+        except ValueError:
+            return None
+    return None
+
+
+def _format_vector(v: list[float]) -> str:
+    """Format list[float] as pgvector literal '[x1,x2,...]'."""
+    return '[' + ','.join(repr(x) for x in v) + ']'
+
+
+def _is_zero_vector(v: list[float] | None) -> bool:
+    """Return True for null or all-zero vectors (Voyage AI unavailable fallback)."""
+    return v is None or all(x == 0.0 for x in v)
+
+
+def _save_passage_embeddings(conn, items: list[tuple[str, list[float]]]) -> None:
+    """Persist computed passage embeddings back to DB."""
+    if not items:
+        return
+    with conn.cursor() as cur:
+        for passage_id, emb in items:
+            cur.execute(
+                'UPDATE passages SET embedding = %s::vector WHERE id = %s',
+                (_format_vector(emb), passage_id),
+            )
+    conn.commit()
+
+
+def _load_fanout_emb_cache(conn, project_id: str) -> dict[str, list[float]]:
+    """Return {queryText: embedding} for fanout_queries of this project that have a cached embedding."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT fq."queryText", fq.embedding::text
+            FROM fanout_queries fq
+            JOIN target_queries tq ON tq.id = fq."targetQueryId"
+            WHERE tq."projectId" = %s
+              AND fq.embedding IS NOT NULL
+            """,
+            (project_id,),
+        )
+        rows = cur.fetchall()
+    cache: dict[str, list[float]] = {}
+    for row in rows:
+        emb = _parse_vector(row["embedding"])
+        if emb and not _is_zero_vector(emb):
+            cache[row["queryText"]] = emb
+    return cache
+
+
+def _update_fanout_query_embeddings(
+    conn,
+    fanout_query_ids: list[str],
+    fanout_flat: list[str],
+    emb_cache: dict[str, list[float]],
+) -> None:
+    """Persist query embeddings on the newly inserted fanout_queries rows."""
+    if not fanout_query_ids:
+        return
+    with conn.cursor() as cur:
+        for fq_id, text in zip(fanout_query_ids, fanout_flat):
+            emb = emb_cache.get(text)
+            if emb and not _is_zero_vector(emb):
+                cur.execute(
+                    'UPDATE fanout_queries SET embedding = %s::vector WHERE id = %s',
+                    (_format_vector(emb), fq_id),
+                )
+    conn.commit()
+
+
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
 def _load_project(conn, project_id: str) -> dict | None:
@@ -99,7 +181,8 @@ def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
                 """
                 SELECT id, "passageText", "passageIndex", "wordCount", heading,
                        "relativePosition", "entityDensity", "hasStatistics",
-                       "hasSourceCitation", "isAnswerFirst"
+                       "hasSourceCitation", "isAnswerFirst",
+                       embedding::text AS embedding
                 FROM passages
                 WHERE "contentId" = %s
                 ORDER BY "passageIndex"
@@ -120,6 +203,7 @@ def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
                     "hasStatistics": bool(r["hasStatistics"]),
                     "hasSourceCitation": bool(r["hasSourceCitation"]),
                     "isAnswerFirst": bool(r["isAnswerFirst"]),
+                    "embedding": _parse_vector(r["embedding"]),
                 }
                 for r in cur.fetchall()
             ]
@@ -549,19 +633,64 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     all_queries = target_texts + fanout_flat
     log.info(f"[{project_id}] Generated {len(fanout_flat)} fanout queries")
 
-    # 3. Embed + 4-tier tiered coverage
+    # 3. Embed + 4-tier tiered coverage (with caching)
     coverage_map: list[dict] = []
     fanout_coverage = 0.0
-    passage_texts = [p["passageText"][:500] for p in all_passages]
 
-    if passage_texts and all_queries:
-        q_embs, p_embs = await asyncio.gather(
-            embed_texts(all_queries, input_type="query"),
-            embed_texts(passage_texts, input_type="document"),
-        )
+    # Load fanout embedding cache keyed by queryText
+    fanout_emb_cache = _load_fanout_emb_cache(conn, project_id)
+
+    # Split passages into cached vs uncached
+    uncached_p_indices = [
+        i for i, p in enumerate(all_passages)
+        if _is_zero_vector(_parse_vector(p.get("embedding")))
+    ]
+    cached_p_count = len(all_passages) - len(uncached_p_indices)
+
+    # Split queries into cached vs uncached
+    uncached_q_indices = [i for i, t in enumerate(all_queries) if t not in fanout_emb_cache]
+    cached_q_count = len(all_queries) - len(uncached_q_indices)
+
+    # Embed uncached passages and uncached queries in parallel
+    async def _embed_or_empty(texts: list[str], input_type: str) -> list[list[float]]:
+        return await embed_texts(texts, input_type=input_type) if texts else []
+
+    uncached_p_texts = [all_passages[i]["passageText"][:500] for i in uncached_p_indices]
+    uncached_q_texts = [all_queries[i] for i in uncached_q_indices]
+
+    new_p_embs, new_q_embs = await asyncio.gather(
+        _embed_or_empty(uncached_p_texts, "document"),
+        _embed_or_empty(uncached_q_texts, "query"),
+    )
+
+    # Fill passage embeddings, save new ones to DB
+    if uncached_p_indices and new_p_embs:
+        to_save = []
+        for idx, emb in zip(uncached_p_indices, new_p_embs):
+            all_passages[idx]["embedding"] = emb
+            if not _is_zero_vector(emb):
+                to_save.append((all_passages[idx]["id"], emb))
+        if to_save:
+            _save_passage_embeddings(conn, to_save)
+
+    # Fill query embedding cache with newly computed embeddings
+    if uncached_q_indices and new_q_embs:
+        for idx, emb in zip(uncached_q_indices, new_q_embs):
+            fanout_emb_cache[all_queries[idx]] = emb
+
+    log.info(
+        f"[{project_id}] Embeddings — passages cached={cached_p_count} "
+        f"computed={len(uncached_p_indices)}, queries cached={cached_q_count} "
+        f"computed={len(uncached_q_indices)}"
+    )
+
+    p_embs = [p.get("embedding") or [0.0] * 1024 for p in all_passages]
+    q_embs = [fanout_emb_cache.get(t) or [0.0] * 1024 for t in all_queries]
+
+    if p_embs and q_embs and all_passages:
         fanout_coverage, coverage_map = compute_coverage_tiered(q_embs, p_embs)
         if coverage_map:
-            tier_counts = {}
+            tier_counts: dict[str, int] = {}
             for e in coverage_map:
                 tier_counts[e["tier"]] = tier_counts.get(e["tier"], 0) + 1
             max_sim = max(e["similarity_score"] for e in coverage_map)
@@ -640,6 +769,8 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
             fanout_coverage_entries = coverage_map[n_targets:] if len(coverage_map) > n_targets else []
             if fanout_query_ids and fanout_coverage_entries:
                 _save_fanout_coverage_map(conn, fanout_query_ids, fanout_coverage_entries, all_passages)
+            # Persist query embeddings on the newly saved fanout_query rows
+            _update_fanout_query_embeddings(conn, fanout_query_ids, fanout_flat, fanout_emb_cache)
             conn.commit()
             log.info(f"[{project_id}] Fanout queries + coverage map saved ({len(fanout_query_ids)} queries)")
         except Exception as exc:
