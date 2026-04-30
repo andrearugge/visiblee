@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Phase F — Robustness
+
+#### F.1 — kg_presence: Wikipedia/Wikidata proxy
+- `_load_discovery_stats()`: aggiunto check SQL per URL Wikipedia/Wikidata in `contents` confermati
+- `score_entity_authority()`: `kg_presence = max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se trovato URL Wikipedia/Wikidata
+
+#### F.2 — Source Authority: formula P×F×Q
+- `score_source_authority()`: riscritta con formula `presence × freshness × quality` per piattaforma
+  - `presence = min(n/5, 1.0)`, `freshness = max(0, 1-days/365)`, `quality = min(avg_wc/800, 1.0)`
+  - Default neutrali quando i dati non sono disponibili: `freshness=0.7`, `quality=0.5`
+- `_load_confirmed_platforms()`: aggiornato per restituire `dict[str, list[dict]]` con `word_count` e `last_fetched_at`
+- `pipeline.py`: conversione output piatto `search_cross_platform()` nel formato arricchito
+
+---
+
 ### Phase E — Personas manuali
 
 #### E.1 — Schema IntentProfile + migration

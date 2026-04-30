@@ -127,22 +127,31 @@ def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
     return contents
 
 
-def _load_confirmed_platforms(conn, project_id: str) -> dict[str, list[str]]:
+def _load_confirmed_platforms(conn, project_id: str) -> dict[str, list[dict]]:
+    """Return {platform: [{url, word_count, last_fetched_at}]} for confirmed contents."""
     with conn.cursor() as cur:
         cur.execute(
-            'SELECT platform, url FROM contents WHERE "projectId" = %s AND "isConfirmed" = true',
+            """
+            SELECT platform, url, "wordCount", "lastFetchedAt"
+            FROM contents
+            WHERE "projectId" = %s AND "isConfirmed" = true
+            """,
             (project_id,),
         )
-        result: dict[str, list[str]] = {p: [] for p in KNOWN_PLATFORMS}
+        result: dict[str, list[dict]] = {p: [] for p in KNOWN_PLATFORMS}
         for r in cur.fetchall():
             plat = r["platform"]
             if plat in result:
-                result[plat].append(r["url"])
+                result[plat].append({
+                    "url": r["url"],
+                    "word_count": r["wordCount"] or 0,
+                    "last_fetched_at": r["lastFetchedAt"],
+                })
         return result
 
 
-def _load_discovery_stats(conn, project_id: str) -> dict[str, int]:
-    """Return own_count and mention_count from confirmed contents."""
+def _load_discovery_stats(conn, project_id: str) -> dict:
+    """Return own_count, mention_count, and wikipedia_or_wikidata_mention from confirmed contents."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -153,13 +162,24 @@ def _load_discovery_stats(conn, project_id: str) -> dict[str, int]:
             """,
             (project_id,),
         )
-        stats: dict[str, int] = {"own_count": 0, "mention_count": 0}
+        stats: dict = {"own_count": 0, "mention_count": 0, "wikipedia_or_wikidata_mention": False}
         for r in cur.fetchall():
             if r["contentType"] == "own":
                 stats["own_count"] = r["cnt"]
             elif r["contentType"] == "mention":
                 stats["mention_count"] = r["cnt"]
-        return stats
+
+        cur.execute(
+            """
+            SELECT id FROM contents
+            WHERE "projectId" = %s AND "isConfirmed" = true
+              AND (url ILIKE '%%wikipedia.org/wiki/%%' OR url ILIKE '%%wikidata.org/wiki/Q%%')
+            LIMIT 1
+            """,
+            (project_id,),
+        )
+        stats["wikipedia_or_wikidata_mention"] = cur.fetchone() is not None
+    return stats
 
 
 # ── Auto-fetch unfetched content ──────────────────────────────────────────────

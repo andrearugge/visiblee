@@ -40,7 +40,14 @@ async def run_preview_pipeline(
     crawl_task = asyncio.create_task(crawl_website(website_url))
     cross_platform_task = asyncio.create_task(search_cross_platform(brand_name))
 
-    pages, platform_results = await asyncio.gather(crawl_task, cross_platform_task)
+    pages, _platform_flat = await asyncio.gather(crawl_task, cross_platform_task)
+
+    # Convert flat URL lists to the rich format expected by score_source_authority
+    # word_count=0 → quality neutral (0.5); last_fetched_at=None → freshness neutral (0.7)
+    platform_results: dict[str, list[dict]] = {
+        platform: [{"url": url, "word_count": 0, "last_fetched_at": None} for url in urls]
+        for platform, urls in _platform_flat.items()
+    }
 
     contents_found = len(pages)
     all_passages = [p for page in pages for p in page.get("passages", [])]
