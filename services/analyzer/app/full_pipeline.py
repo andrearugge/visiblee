@@ -670,15 +670,17 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     if target_queries:
         try:
             website_url: str = project["websiteUrl"]
-            # Load known competitor domains for is_competitor flagging
+            # Load known competitors with id + domain for gap report persistence
             with conn.cursor() as _cur:
                 _cur.execute(
-                    'SELECT "websiteUrl" FROM competitors WHERE "projectId" = %s AND "isConfirmed" = TRUE',
+                    'SELECT id, "websiteUrl" FROM competitors WHERE "projectId" = %s AND "isConfirmed" = TRUE',
                     (project_id,),
                 )
-                _competitor_domains = [
-                    _extract_domain(row[0]) for row in _cur.fetchall() if row[0]
-                ]
+                _competitor_rows = [r for r in _cur.fetchall() if r["websiteUrl"]]
+            _competitor_domains = [_extract_domain(r["websiteUrl"]) for r in _competitor_rows]
+            _domain_to_competitor_id = {
+                _extract_domain(r["websiteUrl"]): r["id"] for r in _competitor_rows
+            }
             citation_results = await check_citations(
                 target_queries, website_url, project_id,
                 known_competitor_domains=_competitor_domains,
@@ -701,21 +703,25 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
                 ]
                 gap_reports = await analyze_competitor_citations(enriched, contents, project_id)
                 if gap_reports:
-                    # Store gap reports in snapshot metadata (no separate table needed yet)
+                    # Persist to competitor_gap_reports table (matched by domain)
+                    saved = 0
                     with conn.cursor() as cur:
-                        cur.execute(
-                            """
-                            UPDATE project_score_snapshots
-                            SET metadata = metadata || %s::jsonb
-                            WHERE id = %s
-                            """,
-                            (
-                                __import__("json").dumps({"competitor_gap_reports": gap_reports}),
-                                snapshot_id,
-                            ),
-                        )
+                        for report in gap_reports:
+                            comp_domain = report.get("competitor_domain", "")
+                            comp_id = _domain_to_competitor_id.get(comp_domain)
+                            if not comp_id:
+                                continue
+                            cur.execute(
+                                """
+                                INSERT INTO competitor_gap_reports
+                                    (id, "projectId", "competitorId", "generatedAt", gaps)
+                                VALUES (gen_random_uuid(), %s, %s, NOW(), %s::jsonb)
+                                """,
+                                (project_id, comp_id, json.dumps(report)),
+                            )
+                            saved += 1
                     conn.commit()
-                    log.info(f"[{project_id}] Competitor gap reports saved: {len(gap_reports)}")
+                    log.info(f"[{project_id}] Competitor gap reports saved: {saved}/{len(gap_reports)}")
             except Exception as gap_exc:
                 log.warning(f"[{project_id}] Competitor analysis failed: {gap_exc}")
                 conn.rollback()

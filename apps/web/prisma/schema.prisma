@@ -168,6 +168,7 @@ model Project {
   intentProfiles        IntentProfile[]
   querySuggestions      GscQuerySuggestion[]
   expertConversations   ExpertConversation[]
+  competitorGapReports  CompetitorGapReport[]
 
   @@index([userId])
   @@map("projects")
@@ -285,21 +286,38 @@ model Passage {
 // ─────────────────────────────────────────────
 
 model Competitor {
-  id               String  @id @default(uuid())
+  id               String    @id @default(uuid())
   projectId        String
   name             String
   websiteUrl       String?
-  source           String  @default("auto") // 'auto' | 'manual'
-  isConfirmed      Boolean @default(false)
+  source           String    @default("auto") // 'auto' | 'manual'
+  isConfirmed      Boolean   @default(false)
   avgPassageScore  Float?
-  createdAt        DateTime @default(now())
+  lastAnalyzedAt   DateTime?
+  createdAt        DateTime  @default(now())
 
   project     Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   contents    CompetitorContent[]
   appearances CompetitorQueryAppearance[]
+  gapReports  CompetitorGapReport[]
 
   @@index([projectId])
   @@map("competitors")
+}
+
+model CompetitorGapReport {
+  id           String   @id @default(uuid())
+  projectId    String
+  competitorId String
+  generatedAt  DateTime @default(now())
+  gaps         Json
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  competitor Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([competitorId])
+  @@map("competitor_gap_reports")
 }
 
 model CompetitorQueryAppearance {

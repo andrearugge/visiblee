@@ -15,6 +15,7 @@ For each competitor:
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 
 from .fetcher import fetch_url
@@ -24,6 +25,7 @@ from .scoring import score_citation_power
 log = logging.getLogger(__name__)
 
 MAX_PAGES = 5
+CACHE_DAYS = 30
 
 
 async def _crawl_competitor(website_url: str) -> list[dict[str, Any]]:
@@ -81,11 +83,14 @@ async def _crawl_competitor(website_url: str) -> list[dict[str, Any]]:
 
 
 async def run_competitor_pipeline(conn, project_id: str, competitor_id: str) -> None:
-    """Crawl, score, and persist results for one competitor."""
-    # Load competitor
+    """Crawl, score, and persist results for one competitor.
+
+    Skips re-fetch if competitor was analyzed within CACHE_DAYS.
+    """
+    # Load competitor with lastAnalyzedAt for cache check
     with conn.cursor() as cur:
         cur.execute(
-            'SELECT id, "websiteUrl" FROM competitors WHERE id = %s AND "projectId" = %s',
+            'SELECT id, "websiteUrl", "lastAnalyzedAt" FROM competitors WHERE id = %s AND "projectId" = %s',
             (competitor_id, project_id),
         )
         competitor = cur.fetchone()
@@ -93,6 +98,15 @@ async def run_competitor_pipeline(conn, project_id: str, competitor_id: str) -> 
     if not competitor or not competitor["websiteUrl"]:
         log.warning(f"Competitor {competitor_id} not found or has no URL")
         return
+
+    # 30-day cache: skip re-fetch if recently analyzed
+    last_analyzed = competitor.get("lastAnalyzedAt")
+    if last_analyzed is not None:
+        last_analyzed_naive = last_analyzed.replace(tzinfo=None) if hasattr(last_analyzed, "tzinfo") else last_analyzed
+        days_since = (datetime.utcnow() - last_analyzed_naive).days
+        if days_since < CACHE_DAYS:
+            log.info(f"Competitor cache hit for {competitor_id} (analyzed {days_since}d ago) — skipping re-fetch")
+            return
 
     website_url = competitor["websiteUrl"]
     log.info(f"Crawling competitor {competitor_id}: {website_url}")
@@ -185,11 +199,11 @@ async def run_competitor_pipeline(conn, project_id: str, competitor_id: str) -> 
                     ),
                 )
 
-        # Update competitor: set isConfirmed + avgPassageScore
+        # Update competitor: set isConfirmed + avgPassageScore + lastAnalyzedAt
         cur.execute(
             """
             UPDATE competitors
-            SET "isConfirmed" = true, "avgPassageScore" = %s
+            SET "isConfirmed" = true, "avgPassageScore" = %s, "lastAnalyzedAt" = NOW()
             WHERE id = %s
             """,
             (avg_score, competitor_id),

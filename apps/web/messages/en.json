@@ -583,7 +583,9 @@
     "analyzed": "Analyzed",
     "citationUrlsTitle": "Cited URLs",
     "noCitationsTracked": "No citations tracked for this competitor yet.",
-    "appearedInQueries": "In {count} {count, plural, one {query} other {queries}}"
+    "appearedInQueries": "In {count} {count, plural, one {query} other {queries}}",
+    "gapReportTitle": "Content gap analysis",
+    "noGaps": "No gaps found — your content is on par with this competitor."
   },
   "queryCompetitors": {
     "title": "Competitors for this query",

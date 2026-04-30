@@ -25,7 +25,7 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
   });
   if (!project) notFound();
 
-  const [competitors, appearances, latestSnapshot] = await Promise.all([
+  const [competitors, appearances, latestSnapshot, gapReports] = await Promise.all([
     db.competitor.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'asc' },
@@ -44,6 +44,11 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },
       select: { citationPowerScore: true },
+    }),
+    db.competitorGapReport.findMany({
+      where: { projectId: id },
+      orderBy: { generatedAt: 'desc' },
+      select: { competitorId: true, generatedAt: true, gaps: true },
     }),
   ]);
 
@@ -82,6 +87,17 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
     queriesByCompetitor.set(app.competitorId, querySet);
   }
 
+  // Latest gap report per competitor (first entry is most recent due to orderBy desc)
+  const latestGapByCompetitor = new Map<string, { gaps: unknown; generatedAt: string }>();
+  for (const gr of gapReports) {
+    if (!latestGapByCompetitor.has(gr.competitorId)) {
+      latestGapByCompetitor.set(gr.competitorId, {
+        gaps: gr.gaps,
+        generatedAt: gr.generatedAt.toISOString(),
+      });
+    }
+  }
+
   const serialized = competitors.map((c) => ({
     id: c.id,
     name: c.name,
@@ -92,6 +108,7 @@ export default async function CompetitorsPage({ params }: CompetitorsPageProps) 
     createdAt: c.createdAt.toISOString(),
     citationUrls: [...(urlsByCompetitor.get(c.id) ?? [])],
     queriesWithCitations: [...(queriesByCompetitor.get(c.id) ?? [])],
+    gapReport: latestGapByCompetitor.get(c.id) ?? null,
   }));
 
   return (

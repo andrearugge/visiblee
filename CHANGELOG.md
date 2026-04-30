@@ -8,6 +8,13 @@
 - `_load_discovery_stats()`: aggiunto check SQL per URL Wikipedia/Wikidata in `contents` confermati
 - `score_entity_authority()`: `kg_presence = max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se trovato URL Wikipedia/Wikidata
 
+#### F.3 — Competitor unificato + GapReport tabella
+- Migration SQL: `competitor_gap_reports(id, projectId, competitorId, generatedAt, gaps JSONB)` + `competitors.lastAnalyzedAt`
+- Prisma schema: `Competitor.lastAnalyzedAt DateTime?`, nuovo modello `CompetitorGapReport` con relazioni su `Project` e `Competitor`
+- `competitor_pipeline.py`: 30-day cache — skip re-fetch se `lastAnalyzedAt < 30 giorni`, aggiorna `lastAnalyzedAt = NOW()` al successo
+- `full_pipeline.py`: gap report salvati in `competitor_gap_reports` (match per dominio) invece di snapshot metadata
+- UI competitors: carica l'ultimo gap report per competitor, sezione "Analisi gap contenuto" collapsibile in `CompetitorCard` con lista gap e contatore badge
+
 #### F.2 — Source Authority: formula P×F×Q
 - `score_source_authority()`: riscritta con formula `presence × freshness × quality` per piattaforma
   - `presence = min(n/5, 1.0)`, `freshness = max(0, 1-days/365)`, `quality = min(avg_wc/800, 1.0)`
