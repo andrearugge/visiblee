@@ -6,6 +6,12 @@ import { db } from '@/lib/db';
 const ALLOWED_TYPES = ['full_analysis', 'discovery', 'fetch_content'] as const;
 type JobType = (typeof ALLOWED_TYPES)[number];
 
+const JOB_CHANNEL: Record<JobType, string> = {
+  full_analysis: 'heavy',
+  discovery:     'default',
+  fetch_content: 'fast',
+};
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -40,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     : { projectId: id };
 
   const job = await db.job.create({
-    data: { projectId: id, type, payload },
+    data: { projectId: id, type, jobChannel: JOB_CHANNEL[type], payload },
   });
 
   return NextResponse.json({ jobId: job.id }, { status: 201 });

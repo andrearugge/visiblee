@@ -79,19 +79,30 @@ def _pending_job_exists(conn, job_type: str, project_id: str, since: datetime) -
         return cur.fetchone() is not None
 
 
+_SCHEDULER_JOB_CHANNEL: dict[str, str] = {
+    "scheduled_citation_daily":  "fast",
+    "scheduled_citation_burst":  "fast",
+    "scheduled_gsc_sync":        "default",
+    "scheduled_analysis":        "heavy",
+    "cleanup_citation_checks":   "default",
+}
+
+
 def _create_job(conn, job_type: str, project_id: str, payload: dict | None = None) -> str:
     job_id = str(uuid.uuid4())
+    job_channel = _SCHEDULER_JOB_CHANNEL.get(job_type, "default")
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO jobs (id, "projectId", type, status, payload, "createdAt")
-            VALUES (%(id)s, %(project_id)s, %(type)s, 'pending', %(payload)s, NOW())
+            INSERT INTO jobs (id, "projectId", type, status, payload, "jobChannel", "createdAt")
+            VALUES (%(id)s, %(project_id)s, %(type)s, 'pending', %(payload)s, %(job_channel)s, NOW())
             """,
             {
                 "id": job_id,
                 "project_id": project_id,
                 "type": job_type,
                 "payload": json.dumps(payload) if payload is not None else None,
+                "job_channel": job_channel,
             },
         )
     conn.commit()

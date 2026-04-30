@@ -32,6 +32,7 @@ export async function POST(
     data: {
       projectId: id,
       type: 'citation_check',
+      jobChannel: 'fast',
       payload: { targetQueryId: qId },
     },
   });

@@ -552,6 +552,8 @@ model Job {
   error       String?
   attempts    Int      @default(0)
   maxAttempts Int      @default(3)
+  priority    Int      @default(0)
+  jobChannel  String   @default("default") // 'fast' | 'heavy' | 'default'
   scheduledAt DateTime?
   startedAt   DateTime?
   completedAt DateTime?
@@ -563,6 +565,7 @@ model Job {
   @@index([status])
   @@index([projectId])
   @@index([previewId])
+  @@index([jobChannel, status, createdAt])
   @@map("jobs")
 }
 

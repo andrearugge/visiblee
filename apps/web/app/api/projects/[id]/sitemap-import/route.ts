@@ -64,7 +64,7 @@ export async function POST(
   }
 
   const job = await db.job.create({
-    data: { projectId: id, type: 'sitemap_import', payload: { projectId: id } },
+    data: { projectId: id, type: 'sitemap_import', jobChannel: 'heavy', payload: { projectId: id } },
   });
 
   return NextResponse.json({ jobId: job.id }, { status: 201 });

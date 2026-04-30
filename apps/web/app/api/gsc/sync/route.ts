@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     data: {
       projectId,
       type: 'gsc_sync',
+      jobChannel: 'default',
       payload: {
         projectId,
         syncType: 'incremental',

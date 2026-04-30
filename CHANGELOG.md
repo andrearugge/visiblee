@@ -8,6 +8,14 @@
 - `_load_discovery_stats()`: aggiunto check SQL per URL Wikipedia/Wikidata in `contents` confermati
 - `score_entity_authority()`: `kg_presence = max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se trovato URL Wikipedia/Wikidata
 
+#### F.4 — Worker multi-canale con priorità
+- Migration SQL: `priority INTEGER NOT NULL DEFAULT 0` + `jobChannel TEXT NOT NULL DEFAULT 'default'` su `jobs`, index composito
+- Prisma schema: `Job.priority Int @default(0)`, `Job.jobChannel String @default("default")`
+- `worker.py`: mappa `_JOB_CHANNEL` (fast/heavy/default), timeout per canale (fast=60s, heavy=600s, default=120s), `claim_job(channel)` ordina per `priority DESC`, `recover_stale_jobs(channel)` con timeout variabile, `run_worker(channel)`
+- `run_worker.py`: argomento `--channel fast|heavy|default`
+- API routes Next.js: tutti i `db.job.create` impostano `jobChannel` corretto
+- `scheduler.py`: `_create_job()` imposta `jobChannel` automaticamente per ogni tipo schedulato
+
 #### F.3 — Competitor unificato + GapReport tabella
 - Migration SQL: `competitor_gap_reports(id, projectId, competitorId, generatedAt, gaps JSONB)` + `competitors.lastAnalyzedAt`
 - Prisma schema: `Competitor.lastAnalyzedAt DateTime?`, nuovo modello `CompetitorGapReport` con relazioni su `Project` e `Competitor`
