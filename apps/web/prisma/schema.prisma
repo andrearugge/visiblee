@@ -240,6 +240,7 @@ model Content {
   hasOrgSchema        Boolean  @default(false)
   dateModifiedSchema  DateTime?
   lastContentHash     String?
+  robotsTxtBlocks     String[] @default([]) // AI crawlers blocked by robots.txt (e.g. ["GPTBot", "Google-Extended"])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -465,6 +466,7 @@ model CitationCheck {
 
   @@index([projectId])
   @@index([targetQueryId])
+  @@index([projectId, targetQueryId, checkedAt(sort: Desc)])
   @@map("citation_checks")
 }
 

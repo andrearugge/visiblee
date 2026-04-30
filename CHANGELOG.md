@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Phase A.0 — Prerequisiti scoring (fix critici)
+
+#### A.0.1 — Migration prerequisiti
+- Schema: aggiunto `Content.robotsTxtBlocks String[] @default([])` per persistere i crawler AI bloccati dal `robots.txt` (fino ad ora calcolati dal fetcher e poi persi)
+- Schema: aggiunto indice composito `@@index([projectId, targetQueryId, checkedAt(sort: Desc)])` su `CitationCheck` per query Beta(α, β) veloce sullo storico
+- Migration SQL manuale: `20260430000000_phase_a_0_prereq` (vedi `docs/_features/v2-azioni-manuali.md` → A.0.1)
+- `prisma generate` ok, schema valido, `tsc --noEmit` clean
+
+---
+
 ### Phase E — Personas manuali
 
 #### E.1 — Schema IntentProfile + migration
