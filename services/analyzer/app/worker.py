@@ -54,7 +54,7 @@ def recover_stale_jobs(conn) -> int:
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import')
+            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import', 'cleanup_citation_checks')
               AND status = 'running'
               AND "startedAt" < NOW() - INTERVAL '%s seconds'
               AND attempts < "maxAttempts"
@@ -90,7 +90,7 @@ def claim_job(conn) -> dict | None:
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import')
+                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import', 'cleanup_citation_checks')
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                   AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())
@@ -1048,6 +1048,32 @@ async def process_sitemap_import_job(job: dict) -> None:
         conn.close()
 
 
+async def process_cleanup_citation_checks_job(job: dict) -> None:
+    """Delete citation_checks older than 8 weeks, keeping at most the latest per (projectId, targetQueryId)."""
+    job_id = job["id"]
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM citation_checks
+                WHERE "checkedAt" < NOW() - INTERVAL '8 weeks'
+                """,
+            )
+            deleted = cur.rowcount
+        conn.commit()
+        complete_job(conn, job_id)
+        log.info(f"Cleanup citation checks job {job_id}: deleted {deleted} records older than 8 weeks")
+    except Exception as e:
+        log.error(f"Cleanup citation checks job {job_id} failed: {e}", exc_info=True)
+        try:
+            fail_job(conn, job_id, str(e)[:500])
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+
 async def run_worker() -> None:
     """Main worker loop — polls for jobs."""
     log.info("Worker started. Polling for preview_analysis jobs...")
@@ -1092,6 +1118,8 @@ async def run_worker() -> None:
                 await process_full_analysis_job(job)
             elif job_type == "sitemap_import":
                 await process_sitemap_import_job(job)
+            elif job_type == "cleanup_citation_checks":
+                await process_cleanup_citation_checks_job(job)
             else:
                 await process_job(job)
         else:

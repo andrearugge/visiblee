@@ -340,11 +340,6 @@ def save_citation_checks(
         cited_sources = r.get("cited_sources", [])
 
         with conn.cursor() as cur:
-            # Replace previous check for this query (keep only latest)
-            cur.execute(
-                'DELETE FROM citation_checks WHERE "projectId" = %s AND "targetQueryId" = %s',
-                (project_id, target_query_id),
-            )
             cur.execute(
                 """
                 INSERT INTO citation_checks (
@@ -390,14 +385,10 @@ def save_citation_check_single(
     snapshot_id: str | None = None,
 ) -> str:
     """
-    Save a single citation check result (replacing any previous one for the same query).
+    Save a single citation check result (append-only; history preserved for Beta trend).
     Returns the new citation_check id.
     """
     with conn.cursor() as cur:
-        cur.execute(
-            'DELETE FROM citation_checks WHERE "projectId" = %s AND "targetQueryId" = %s',
-            (project_id, target_query_id),
-        )
         cur.execute(
             """
             INSERT INTO citation_checks (

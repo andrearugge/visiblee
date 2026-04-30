@@ -256,6 +256,48 @@ def create_monthly_analysis_jobs(conn) -> int:
     return created
 
 
+# ─── Weekly (Sunday): citation checks cleanup ────────────────────────────────
+
+def create_weekly_cleanup_job(conn) -> int:
+    """
+    Every Sunday: create a single `cleanup_citation_checks` job (no projectId)
+    to prune citation_checks older than 8 weeks. Skips if one already exists
+    this week.
+    """
+    today = _today_utc()
+    if today.weekday() != 6:
+        return 0
+
+    week_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id FROM jobs
+            WHERE type = 'cleanup_citation_checks'
+              AND status IN ('pending', 'running', 'done')
+              AND "createdAt" >= %(week_start)s
+            LIMIT 1
+            """,
+            {"week_start": week_start},
+        )
+        if cur.fetchone():
+            return 0
+
+    job_id = str(uuid.uuid4())
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO jobs (id, "projectId", type, status, payload, "createdAt")
+            VALUES (%(id)s, NULL, 'cleanup_citation_checks', 'pending', NULL, NOW())
+            """,
+            {"id": job_id},
+        )
+    conn.commit()
+    log.info("Created cleanup_citation_checks job=%s", job_id)
+    return 1
+
+
 # ─── Entry point ────────────────────────────────────────────────────────────
 
 def run() -> None:
@@ -264,10 +306,11 @@ def run() -> None:
     try:
         daily = create_daily_citation_jobs(conn)
         weekly = create_weekly_gsc_sync_jobs(conn)
+        cleanup = create_weekly_cleanup_job(conn)
         monthly = create_monthly_analysis_jobs(conn)
         log.info(
-            "Scheduler run complete — daily=%d weekly=%d monthly=%d",
-            daily, weekly, monthly,
+            "Scheduler run complete — daily=%d weekly=%d cleanup=%d monthly=%d",
+            daily, weekly, cleanup, monthly,
         )
     finally:
         conn.close()

@@ -4,6 +4,11 @@
 
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
+#### A.0.2 — Append-only CitationCheck
+- `citation_check.py`: rimosso `DELETE FROM citation_checks` da `save_citation_checks` e `save_citation_check_single` — lo storico ora è preservato (fix P1)
+- `worker.py`: aggiunto job type `cleanup_citation_checks` — cancella record più vecchi di 8 settimane
+- `scheduler.py`: aggiunta `create_weekly_cleanup_job()` — crea un job di pulizia ogni domenica
+
 #### A.0.1 — Migration prerequisiti
 - Schema: aggiunto `Content.robotsTxtBlocks String[] @default([])` per persistere i crawler AI bloccati dal `robots.txt` (fino ad ora calcolati dal fetcher e poi persi)
 - Schema: aggiunto indice composito `@@index([projectId, targetQueryId, checkedAt(sort: Desc)])` su `CitationCheck` per query Beta(α, β) veloce sullo storico
