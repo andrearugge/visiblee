@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       data: {
         previewId: preview.id,
         type: 'preview_analysis',
+        jobChannel: 'fast',
         payload: { previewId: preview.id },
       },
     });

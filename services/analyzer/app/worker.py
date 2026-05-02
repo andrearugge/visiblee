@@ -36,34 +36,75 @@ log = logging.getLogger(__name__)
 # Pipeline timeout: abort if analysis takes longer than this (seconds)
 PIPELINE_TIMEOUT = 120
 
+# ── Multi-channel job routing ─────────────────────────────────────────────────
+
+# Job type → channel assignment
+_JOB_CHANNEL: dict[str, str] = {
+    # fast: short, latency-sensitive jobs
+    "preview_analysis":          "fast",
+    "send_preview_report":       "fast",
+    "fetch_content":             "fast",
+    "citation_check":            "fast",
+    "citation_check_enriched":   "fast",
+    "scheduled_citation_daily":  "fast",
+    "scheduled_citation_burst":  "fast",
+    # heavy: long-running jobs
+    "full_analysis":             "heavy",
+    "competitor_analysis":       "heavy",
+    "sitemap_import":            "heavy",
+    "scheduled_analysis":        "heavy",
+    # default: medium-length jobs
+    "discovery":                 "default",
+    "gsc_sync":                  "default",
+    "scheduled_gsc_sync":        "default",
+    "cleanup_citation_checks":   "default",
+    "cleanup_old_data":          "default",
+}
+
+# Per-channel stale timeout in seconds
+_CHANNEL_TIMEOUT: dict[str, int] = {
+    "fast":    60,
+    "heavy":   600,
+    "default": 120,
+}
+
+def _channel_types(channel: str) -> list[str]:
+    """Return job types that belong to the given channel."""
+    return [t for t, c in _JOB_CHANNEL.items() if c == channel]
+
 
 def get_conn() -> psycopg2.extensions.connection:
     return psycopg2.connect(config.DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
 
 
-def recover_stale_jobs(conn) -> int:
+def recover_stale_jobs(conn, channel: str = "default") -> int:
     """
-    Reset jobs stuck in 'running' state for longer than PIPELINE_TIMEOUT.
-    This handles the case where the worker was killed mid-job (e.g. uvicorn --reload).
+    Reset jobs stuck in 'running' state for the given channel.
+    Uses per-channel timeout: fast=60s, heavy=600s, default=120s.
     Returns the number of jobs reset.
     """
+    types = _channel_types(channel)
+    timeout = _CHANNEL_TIMEOUT.get(channel, PIPELINE_TIMEOUT)
+    if not types:
+        return 0
+
+    types_sql = "({})".format(", ".join(f"'{t}'" for t in types))
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             UPDATE jobs
             SET status = 'pending',
                 "startedAt" = NULL,
                 error = 'Recovered from stale running state'
-            WHERE type IN ('preview_analysis', 'full_analysis', 'discovery', 'fetch_content', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import', 'cleanup_citation_checks')
+            WHERE type IN {types_sql}
               AND status = 'running'
-              AND "startedAt" < NOW() - INTERVAL '%s seconds'
+              AND "startedAt" < NOW() - INTERVAL '{timeout} seconds'
               AND attempts < "maxAttempts"
             """,
-            (PIPELINE_TIMEOUT,),
         )
         count = cur.rowcount
-        if count:
-            # Also reset the corresponding previews back to pending
+        if count and "preview_analysis" in types:
+            # Reset corresponding preview analyses
             cur.execute(
                 """
                 UPDATE preview_analyses SET status = 'pending'
@@ -79,22 +120,27 @@ def recover_stale_jobs(conn) -> int:
     return count
 
 
-def claim_job(conn) -> dict | None:
-    """Atomically claim the next pending job of any handled type."""
+def claim_job(conn, channel: str = "default") -> dict | None:
+    """Atomically claim the next pending job for the given channel."""
+    types = _channel_types(channel)
+    if not types:
+        return None
+
+    types_sql = "({})".format(", ".join(f"'{t}'" for t in types))
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             UPDATE jobs
             SET status = 'running',
                 "startedAt" = NOW(),
                 attempts = attempts + 1
             WHERE id = (
                 SELECT id FROM jobs
-                WHERE type IN ('preview_analysis', 'send_preview_report', 'discovery', 'fetch_content', 'full_analysis', 'competitor_analysis', 'gsc_sync', 'citation_check_enriched', 'scheduled_citation_daily', 'scheduled_citation_burst', 'scheduled_gsc_sync', 'scheduled_analysis', 'sitemap_import', 'cleanup_citation_checks')
+                WHERE type IN {types_sql}
                   AND status = 'pending'
                   AND attempts < "maxAttempts"
                   AND ("scheduledAt" IS NULL OR "scheduledAt" <= NOW())
-                ORDER BY "createdAt"
+                ORDER BY priority DESC, "createdAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
@@ -1049,48 +1095,95 @@ async def process_sitemap_import_job(job: dict) -> None:
 
 
 async def process_cleanup_citation_checks_job(job: dict) -> None:
-    """Delete citation_checks older than 8 weeks, keeping at most the latest per (projectId, targetQueryId)."""
-    job_id = job["id"]
+    """Delete citation_check rows older than 8 weeks (append-only retention)."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                DELETE FROM citation_checks
-                WHERE "checkedAt" < NOW() - INTERVAL '8 weeks'
-                """,
+                "DELETE FROM citation_checks WHERE \"checkedAt\" < NOW() - INTERVAL '8 weeks'"
             )
             deleted = cur.rowcount
         conn.commit()
-        complete_job(conn, job_id)
-        log.info(f"Cleanup citation checks job {job_id}: deleted {deleted} records older than 8 weeks")
+        log.info(f"cleanup_citation_checks: deleted {deleted} rows")
+        complete_job(conn, job["id"])
+        conn.commit()
     except Exception as e:
-        log.error(f"Cleanup citation checks job {job_id} failed: {e}", exc_info=True)
-        try:
-            fail_job(conn, job_id, str(e)[:500])
-        except Exception:
-            pass
+        log.error(f"cleanup_citation_checks failed: {e}", exc_info=True)
+        conn.rollback()
+        fail_job(conn, job["id"], str(e)[:500])
+        conn.commit()
     finally:
         conn.close()
 
 
-async def run_worker() -> None:
-    """Main worker loop — polls for jobs."""
-    log.info("Worker started. Polling for preview_analysis jobs...")
-
-    # Recover any jobs left in 'running' state from a previous crashed worker
+async def process_cleanup_old_data_job(job: dict) -> None:
+    """Monthly data retention: remove stale fanout data, trim old rawHtml."""
     conn = get_conn()
     try:
-        recovered = recover_stale_jobs(conn)
+        with conn.cursor() as cur:
+            # Remove fanout coverage map entries whose query is older than 4 weeks
+            cur.execute(
+                """
+                DELETE FROM fanout_coverage_map
+                WHERE "fanoutQueryId" IN (
+                    SELECT id FROM fanout_queries
+                    WHERE "createdAt" < NOW() - INTERVAL '4 weeks'
+                )
+                """
+            )
+            coverage_deleted = cur.rowcount
+            # Remove fanout queries older than 4 weeks
+            cur.execute(
+                "DELETE FROM fanout_queries WHERE \"createdAt\" < NOW() - INTERVAL '4 weeks'"
+            )
+            fanout_deleted = cur.rowcount
+            # Clear rawHtml (not rawText) for content fetched > 90 days ago
+            cur.execute(
+                """
+                UPDATE contents
+                SET "rawHtml" = NULL, "htmlTruncated" = true
+                WHERE "lastFetchedAt" < NOW() - INTERVAL '90 days'
+                  AND "rawHtml" IS NOT NULL
+                """
+            )
+            html_cleaned = cur.rowcount
+        conn.commit()
+        log.info(
+            f"cleanup_old_data: {fanout_deleted} fanout_queries, "
+            f"{coverage_deleted} fanout_coverage_map, {html_cleaned} rawHtml cleaned"
+        )
+        complete_job(conn, job["id"])
+        conn.commit()
+    except Exception as e:
+        log.error(f"cleanup_old_data failed: {e}", exc_info=True)
+        conn.rollback()
+        fail_job(conn, job["id"], str(e)[:500])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def run_worker(channel: str = "default") -> None:
+    """Main worker loop — polls for jobs on the given channel.
+
+    Channels: 'fast' (email, fetch, citation), 'heavy' (full_analysis, competitor),
+              'default' (discovery, gsc_sync, cleanup)
+    """
+    log.info(f"Worker started — channel={channel}")
+
+    # Recover stale jobs for this channel
+    conn = get_conn()
+    try:
+        recovered = recover_stale_jobs(conn, channel)
         if recovered:
-            log.info(f"Recovered {recovered} stale job(s) back to pending.")
+            log.info(f"[{channel}] Recovered {recovered} stale job(s) back to pending.")
     finally:
         conn.close()
 
     while True:
         conn = get_conn()
         try:
-            job = claim_job(conn)
+            job = claim_job(conn, channel)
         finally:
             conn.close()
 
@@ -1120,6 +1213,8 @@ async def run_worker() -> None:
                 await process_sitemap_import_job(job)
             elif job_type == "cleanup_citation_checks":
                 await process_cleanup_citation_checks_job(job)
+            elif job_type == "cleanup_old_data":
+                await process_cleanup_old_data_job(job)
             else:
                 await process_job(job)
         else:
@@ -1127,4 +1222,9 @@ async def run_worker() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run_worker())
+    import argparse
+    parser = argparse.ArgumentParser(description="Visiblee job worker")
+    parser.add_argument("--channel", default="default", choices=["fast", "heavy", "default"],
+                        help="Job channel to process (default: default)")
+    args = parser.parse_args()
+    asyncio.run(run_worker(channel=args.channel))

@@ -27,6 +27,7 @@ export async function POST(
     data: {
       projectId: id,
       type: 'competitor_analysis',
+      jobChannel: 'heavy',
       payload: { competitorId: cId },
     },
   });

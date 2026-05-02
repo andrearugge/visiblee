@@ -34,6 +34,7 @@ export async function POST(
     data: {
       previewId: id,
       type: 'send_preview_report',
+      jobChannel: 'fast',
       payload: { previewId: id, email: email.trim() },
     },
   });

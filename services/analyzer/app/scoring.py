@@ -224,7 +224,7 @@ def score_entity_authority(
     distinct, authoritative entity in AI knowledge bases.
 
     Sub-criteria and weights:
-        kg_presence             30%  — links to Wikipedia/Wikidata via schema sameAs
+        kg_presence             30%  — Wikipedia/Wikidata via sameAs OR discovery proxy
         cross_web_corroboration 25%  — mention content vs own content ratio
         entity_density_avg      20%  — average entity density across passages
         term_consistency        15%  — key terms reused across multiple pages
@@ -238,7 +238,7 @@ def score_entity_authority(
 
     brand_lower = brand_name.lower()
 
-    # — kg_presence: sameAs links to Wikipedia / Wikidata
+    # — kg_presence: sameAs JSON-LD (primary) OR Wikipedia/Wikidata URL in discovery (proxy)
     org_schemas = [s for s in schema_data.get("schemas", []) if _is_schema_type(s, "Organization")]
     same_as_links: list[str] = []
     for org in org_schemas:
@@ -252,7 +252,10 @@ def score_entity_authority(
         1 for link in same_as_links
         if "wikipedia.org" in link or "wikidata.org" in link
     )
-    kg_presence = min(kg_links * 0.5, 1.0)
+    sameAs_score = min(kg_links * 0.5, 1.0)
+    # Proxy: brand has a Wikipedia/Wikidata page discovered during crawl
+    wiki_proxy = 0.8 if discovery_stats.get("wikipedia_or_wikidata_mention") else 0.0
+    kg_presence = max(sameAs_score, wiki_proxy)
 
     # — cross_web_corroboration: mention / (own + mention) ratio
     own_count = max(discovery_stats.get("own_count", len(contents)), 1)
@@ -412,18 +415,27 @@ def score_extractability(
 # ── Source Authority score (ex cross-platform) ─────────────────────────────
 
 def score_source_authority(
-    platform_results: dict[str, list[str]],
+    platform_results: dict[str, list[dict]],
     ai_platform_target: str = "all",
 ) -> float:
     """
-    Score based on presence across platforms, weighted by AI target.
+    Score based on content quality per platform using P × F × Q formula.
 
-    ai_platform_target: 'all' | 'google_ai' | 'chatgpt' | 'perplexity'
+    Each item in platform_results[platform] must be a dict with:
+      - url (str)
+      - word_count (int, 0 if unknown)
+      - last_fetched_at (datetime | None)
+
+    Per platform:
+      presence  = min(n_items / 5, 1.0)                  — saturates at 5 pieces
+      freshness = max(0, 1 − days_since_newest / 365)     — recency of newest item
+      quality   = min(avg_word_count / 800, 1.0)          — content depth signal
+
+    Defaults for unknown fields: word_count=0 → quality=0.5; no date → freshness=0.7
     """
     if not platform_results:
         return 0.0
 
-    # Platform weights per target audience
     _WEIGHTS: dict[str, dict[str, float]] = {
         "all": {
             "website": 0.25, "linkedin": 0.15, "medium": 0.10,
@@ -445,10 +457,41 @@ def score_source_authority(
     }
     weights = _WEIGHTS.get(ai_platform_target, _WEIGHTS["all"])
 
+    now = datetime.utcnow()
     score = 0.0
-    for platform, urls in platform_results.items():
-        if urls:
-            score += weights.get(platform, 0.0)
+
+    for platform, items in platform_results.items():
+        if not items:
+            continue
+        w = weights.get(platform, 0.0)
+        if w == 0.0:
+            continue
+
+        presence = min(len(items) / 5.0, 1.0)
+
+        # Freshness: newest item's fetch date
+        newest_date = None
+        for item in items:
+            d = item.get("last_fetched_at")
+            if d is None:
+                continue
+            if isinstance(d, str):
+                try:
+                    d = datetime.fromisoformat(d.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+            d_naive = d.replace(tzinfo=None) if hasattr(d, "tzinfo") else d
+            if newest_date is None or d_naive > newest_date:
+                newest_date = d_naive
+
+        freshness = 0.7 if newest_date is None else max(0.0, 1.0 - (now - newest_date).days / 365.0)
+
+        # Quality: average word count (neutral 0.5 when all unknown)
+        word_counts = [item.get("word_count") or 0 for item in items]
+        avg_wc = sum(word_counts) / len(word_counts)
+        quality = 0.5 if avg_wc == 0 else min(avg_wc / 800.0, 1.0)
+
+        score += w * (presence * freshness * quality)
 
     return round(min(score, 1.0), 3)
 

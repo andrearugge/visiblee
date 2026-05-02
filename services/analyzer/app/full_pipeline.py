@@ -213,22 +213,31 @@ def _load_contents_with_passages(conn, project_id: str) -> list[dict]:
     return contents
 
 
-def _load_confirmed_platforms(conn, project_id: str) -> dict[str, list[str]]:
+def _load_confirmed_platforms(conn, project_id: str) -> dict[str, list[dict]]:
+    """Return {platform: [{url, word_count, last_fetched_at}]} for confirmed contents."""
     with conn.cursor() as cur:
         cur.execute(
-            'SELECT platform, url FROM contents WHERE "projectId" = %s AND "isConfirmed" = true',
+            """
+            SELECT platform, url, "wordCount", "lastFetchedAt"
+            FROM contents
+            WHERE "projectId" = %s AND "isConfirmed" = true
+            """,
             (project_id,),
         )
-        result: dict[str, list[str]] = {p: [] for p in KNOWN_PLATFORMS}
+        result: dict[str, list[dict]] = {p: [] for p in KNOWN_PLATFORMS}
         for r in cur.fetchall():
             plat = r["platform"]
             if plat in result:
-                result[plat].append(r["url"])
+                result[plat].append({
+                    "url": r["url"],
+                    "word_count": r["wordCount"] or 0,
+                    "last_fetched_at": r["lastFetchedAt"],
+                })
         return result
 
 
-def _load_discovery_stats(conn, project_id: str) -> dict[str, int]:
-    """Return own_count and mention_count from confirmed contents."""
+def _load_discovery_stats(conn, project_id: str) -> dict:
+    """Return own_count, mention_count, and wikipedia_or_wikidata_mention from confirmed contents."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -239,13 +248,24 @@ def _load_discovery_stats(conn, project_id: str) -> dict[str, int]:
             """,
             (project_id,),
         )
-        stats: dict[str, int] = {"own_count": 0, "mention_count": 0}
+        stats: dict = {"own_count": 0, "mention_count": 0, "wikipedia_or_wikidata_mention": False}
         for r in cur.fetchall():
             if r["contentType"] == "own":
                 stats["own_count"] = r["cnt"]
             elif r["contentType"] == "mention":
                 stats["mention_count"] = r["cnt"]
-        return stats
+
+        cur.execute(
+            """
+            SELECT id FROM contents
+            WHERE "projectId" = %s AND "isConfirmed" = true
+              AND (url ILIKE '%%wikipedia.org/wiki/%%' OR url ILIKE '%%wikidata.org/wiki/Q%%')
+            LIMIT 1
+            """,
+            (project_id,),
+        )
+        stats["wikipedia_or_wikidata_mention"] = cur.fetchone() is not None
+    return stats
 
 
 # ── Auto-fetch unfetched content ──────────────────────────────────────────────
@@ -295,6 +315,7 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
                     "wordCount" = %s,
                     "rawText" = %s,
                     "rawHtml" = %s,
+                    "htmlTruncated" = %s,
                     "schemaMarkup" = %s,
                     "hasArticleSchema" = %s,
                     "hasFaqSchema" = %s,
@@ -310,6 +331,7 @@ async def _auto_fetch_unfetched(conn, project_id: str) -> None:
                     result["word_count"],
                     result["raw_text"],
                     result["raw_html"],
+                    result.get("html_truncated", False),
                     json.dumps(result.get("schema_markup", [])),
                     result.get("has_article_schema", False),
                     result.get("has_faq_schema", False),
@@ -593,7 +615,14 @@ async def run_preview_pipeline(
 
     crawl_task = asyncio.create_task(crawl_website(website_url))
     cross_platform_task = asyncio.create_task(search_cross_platform(brand_name))
-    pages, platform_results = await asyncio.gather(crawl_task, cross_platform_task)
+    pages, _platform_flat = await asyncio.gather(crawl_task, cross_platform_task)
+
+    # Convert flat URL lists to the rich format expected by score_source_authority (P×F×Q)
+    # word_count=0 → quality neutral (0.5); last_fetched_at=None → freshness neutral (0.7)
+    platform_results: dict[str, list[dict]] = {
+        platform: [{"url": url, "word_count": 0, "last_fetched_at": None} for url in urls]
+        for platform, urls in _platform_flat.items()
+    }
 
     contents_found = len(pages)
     all_passages = [p for page in pages for p in page.get("passages", [])]
@@ -892,15 +921,17 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
     if target_queries:
         try:
             website_url: str = project["websiteUrl"]
-            # Load known competitor domains for is_competitor flagging
+            # Load known competitors with id + domain for gap report persistence
             with conn.cursor() as _cur:
                 _cur.execute(
-                    'SELECT "websiteUrl" FROM competitors WHERE "projectId" = %s AND "isConfirmed" = TRUE',
+                    'SELECT id, "websiteUrl" FROM competitors WHERE "projectId" = %s AND "isConfirmed" = TRUE',
                     (project_id,),
                 )
-                _competitor_domains = [
-                    _extract_domain(row[0]) for row in _cur.fetchall() if row[0]
-                ]
+                _competitor_rows = [r for r in _cur.fetchall() if r["websiteUrl"]]
+            _competitor_domains = [_extract_domain(r["websiteUrl"]) for r in _competitor_rows]
+            _domain_to_competitor_id = {
+                _extract_domain(r["websiteUrl"]): r["id"] for r in _competitor_rows
+            }
             citation_results = await check_citations(
                 target_queries, website_url, project_id,
                 known_competitor_domains=_competitor_domains,
@@ -923,21 +954,25 @@ async def run_full_pipeline(conn, project_id: str) -> dict[str, Any]:
                 ]
                 gap_reports = await analyze_competitor_citations(enriched, contents, project_id)
                 if gap_reports:
-                    # Store gap reports in snapshot metadata (no separate table needed yet)
+                    # Persist to competitor_gap_reports table (matched by domain)
+                    saved = 0
                     with conn.cursor() as cur:
-                        cur.execute(
-                            """
-                            UPDATE project_score_snapshots
-                            SET metadata = metadata || %s::jsonb
-                            WHERE id = %s
-                            """,
-                            (
-                                __import__("json").dumps({"competitor_gap_reports": gap_reports}),
-                                snapshot_id,
-                            ),
-                        )
+                        for report in gap_reports:
+                            comp_domain = report.get("competitor_domain", "")
+                            comp_id = _domain_to_competitor_id.get(comp_domain)
+                            if not comp_id:
+                                continue
+                            cur.execute(
+                                """
+                                INSERT INTO competitor_gap_reports
+                                    (id, "projectId", "competitorId", "generatedAt", gaps)
+                                VALUES (gen_random_uuid(), %s, %s, NOW(), %s::jsonb)
+                                """,
+                                (project_id, comp_id, json.dumps(report)),
+                            )
+                            saved += 1
                     conn.commit()
-                    log.info(f"[{project_id}] Competitor gap reports saved: {len(gap_reports)}")
+                    log.info(f"[{project_id}] Competitor gap reports saved: {saved}/{len(gap_reports)}")
             except Exception as gap_exc:
                 log.warning(f"[{project_id}] Competitor analysis failed: {gap_exc}")
                 conn.rollback()

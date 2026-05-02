@@ -168,7 +168,6 @@ api/             → Next.js API routes
 ### Known limitations (accepted for now)
 
 - **No billing/plans**: plan rules enforced in code, no real payment system.
-- **No scheduled jobs**: citation checks and GSC sync are manual. Weekly automatic is aspirational.
 - **No multi-user per project**: single owner only.
 - **No rate limiting**: Python microservice has no per-user rate limiting.
 - **No export CSV**: in commercial roadmap, not implemented.
@@ -177,12 +176,10 @@ api/             → Next.js API routes
 
 ### Technical debt (known, not yet addressed)
 
-- `rawHtml` stored in DB per content — needs external storage (S3/R2) before scaling users.
-- `Job` model has no priority queue — FIFO only, fine for current volume.
+- `rawHtml` cap at 100KB in fetcher — long-term: external storage (S3/R2).
 - `Competitor` schema lacks sub-scores — only `avgPassageScore`, gap report needs granularity.
 - `llmReasoning` in `PassageScore` is free text — not structured, hard to aggregate.
 - No `Plan` model in DB — needed before activating billing.
-- Job queue will need Redis/BullMQ when scheduled job volume grows significantly (Phase A implements scheduling via DB polling, adequate for current scale).
 
 ---
 
@@ -260,6 +257,19 @@ api/             → Next.js API routes
 | E.3 — API intent-profiles | ✅ Done | `POST /api/projects/[id]/intent-profiles` (crea + genera contextPrompt con Gemini Flash) + `DELETE /api/projects/[id]/intent-profiles/[profileId]` (solo source='manual') |
 
 > ⚠️ **Azione manuale pendente** (E.1): migration `source`/`manualDescription`/`manualSampleQueries` su DB produzione/staging. Vedi `docs/_features/v2-azioni-manuali.md`.
+
+### Phase F — Robustness (`feature/v2-fase-f`)
+
+| Task | Status | Notes |
+|---|---|---|
+| F.1 — kg_presence Wikipedia proxy | ✅ Done | `_load_discovery_stats()` controlla URL wikipedia/wikidata; `score_entity_authority()` usa `kg_presence = max(sameAs_score, wiki_proxy)` |
+| F.2 — Source Authority P×F×Q | ✅ Done | `score_source_authority()` usa `presence × freshness × quality` per piattaforma; `_load_confirmed_platforms()` restituisce `word_count + last_fetched_at` |
+| F.3 — Competitor gap report tabella | ✅ Done | Tabella `competitor_gap_reports`, `Competitor.lastAnalyzedAt`, cache 30 giorni in `competitor_pipeline.py`, UI sezione collapsibile nei CompetitorCard |
+| F.4 — Worker multi-canale | ✅ Done | `jobChannel` (fast/heavy/default) + `priority` su `Job`; 3 istanze worker separate; timeout per canale (60/600/120s) |
+| F.5 — rawHtml cap + cleanup | ✅ Done | Cap 100KB in `fetcher.py`, `htmlTruncated` flag, job `cleanup_old_data` mensile (fanout >4w, rawHtml >90d) |
+
+> ⚠️ **Azioni manuali pendenti** (F.3, F.4, F.5): migration SQL `competitor_gap_reports`, `lastAnalyzedAt`, `priority/jobChannel` su `jobs`, `htmlTruncated` su `contents`. Vedi `docs/_features/v2-azioni-manuali.md`.
+> ⚠️ **Ploi**: aggiornare a 3 processi worker (`--channel fast`, `--channel heavy`, `--channel default`).
 
 ---
 

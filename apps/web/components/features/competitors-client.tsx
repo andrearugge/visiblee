@@ -12,11 +12,21 @@ import {
   ExternalLink,
   BarChart2,
   Link2,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useFormatNumber } from '@/hooks/use-format-number';
+
+interface GapReport {
+  gaps: string[];
+  competitor_url?: string;
+  competitor_domain?: string;
+  query?: string;
+}
 
 interface Competitor {
   id: string;
@@ -28,6 +38,7 @@ interface Competitor {
   createdAt: string;
   citationUrls: string[];
   queriesWithCitations: string[];
+  gapReport: { gaps: unknown; generatedAt: string } | null;
 }
 
 interface CompetitorsClientProps {
@@ -68,6 +79,7 @@ function CompetitorCard({
   const { format } = useFormatNumber();
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'loading' | 'queued' | 'error'>('idle');
   const [deleting, setDeleting] = useState(false);
+  const [gapOpen, setGapOpen] = useState(false);
 
   async function handleAnalyze() {
     setAnalysisStatus('loading');
@@ -214,6 +226,51 @@ function CompetitorCard({
           <p className="pt-0.5 text-xs text-zinc-400">{t('avgPassageScore')}</p>
         </div>
       )}
+
+      {/* Gap report */}
+      {competitor.gapReport && (() => {
+        const report = competitor.gapReport.gaps as unknown as GapReport;
+        const gaps: string[] = Array.isArray(report.gaps) ? report.gaps : [];
+        return (
+          <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50">
+            <button
+              onClick={() => setGapOpen((v) => !v)}
+              className="flex w-full items-center justify-between px-3 py-2 text-left"
+            >
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                <TrendingUp className="size-3.5" />
+                {t('gapReportTitle')}
+                {gaps.length > 0 && (
+                  <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-800 tabular-nums">
+                    {gaps.length}
+                  </span>
+                )}
+              </span>
+              {gapOpen ? (
+                <ChevronUp className="size-3.5 text-amber-500" />
+              ) : (
+                <ChevronDown className="size-3.5 text-amber-500" />
+              )}
+            </button>
+            {gapOpen && (
+              <div className="border-t border-amber-100 px-3 pb-3 pt-2">
+                {gaps.length === 0 ? (
+                  <p className="text-xs text-amber-600">{t('noGaps')}</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {gaps.map((gap, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-amber-800">
+                        <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-amber-400" />
+                        {gap}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Not analyzed note */}
       {!competitor.isConfirmed && competitor.contentCount === 0 && (

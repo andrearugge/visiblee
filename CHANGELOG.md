@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Phase F — Robustness
+
+#### F.1 — kg_presence: Wikipedia/Wikidata proxy
+- `_load_discovery_stats()`: aggiunto check SQL per URL Wikipedia/Wikidata in `contents` confermati
+- `score_entity_authority()`: `kg_presence = max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se trovato URL Wikipedia/Wikidata
+
+#### F.5 — rawHtml cap 100KB + cleanup periodico
+- Migration SQL: `htmlTruncated BOOLEAN NOT NULL DEFAULT false` su `contents`
+- Prisma schema: `Content.htmlTruncated Boolean @default(false)`
+- `fetcher.py`: dopo estrazione schema, cap rawHtml a 100KB + flag `html_truncated` nel return
+- `full_pipeline.py`: `_auto_fetch_unfetched()` salva `htmlTruncated` nell'UPDATE
+- `worker.py`: `process_cleanup_citation_checks_job()` (8 settimane) e `process_cleanup_old_data_job()` (fanout > 4 settimane + rawHtml > 90 giorni); entrambi su canale `default`
+- `scheduler.py`: `create_monthly_cleanup_job()` — crea `cleanup_old_data` il giorno 1 di ogni mese
+
+#### F.4 — Worker multi-canale con priorità
+- Migration SQL: `priority INTEGER NOT NULL DEFAULT 0` + `jobChannel TEXT NOT NULL DEFAULT 'default'` su `jobs`, index composito
+- Prisma schema: `Job.priority Int @default(0)`, `Job.jobChannel String @default("default")`
+- `worker.py`: mappa `_JOB_CHANNEL` (fast/heavy/default), timeout per canale (fast=60s, heavy=600s, default=120s), `claim_job(channel)` ordina per `priority DESC`, `recover_stale_jobs(channel)` con timeout variabile, `run_worker(channel)`
+- `run_worker.py`: argomento `--channel fast|heavy|default`
+- API routes Next.js: tutti i `db.job.create` impostano `jobChannel` corretto
+- `scheduler.py`: `_create_job()` imposta `jobChannel` automaticamente per ogni tipo schedulato
+
+#### F.3 — Competitor unificato + GapReport tabella
+- Migration SQL: `competitor_gap_reports(id, projectId, competitorId, generatedAt, gaps JSONB)` + `competitors.lastAnalyzedAt`
+- Prisma schema: `Competitor.lastAnalyzedAt DateTime?`, nuovo modello `CompetitorGapReport` con relazioni su `Project` e `Competitor`
+- `competitor_pipeline.py`: 30-day cache — skip re-fetch se `lastAnalyzedAt < 30 giorni`, aggiorna `lastAnalyzedAt = NOW()` al successo
+- `full_pipeline.py`: gap report salvati in `competitor_gap_reports` (match per dominio) invece di snapshot metadata
+- UI competitors: carica l'ultimo gap report per competitor, sezione "Analisi gap contenuto" collapsibile in `CompetitorCard` con lista gap e contatore badge
+
+#### F.2 — Source Authority: formula P×F×Q
+- `score_source_authority()`: riscritta con formula `presence × freshness × quality` per piattaforma
+  - `presence = min(n/5, 1.0)`, `freshness = max(0, 1-days/365)`, `quality = min(avg_wc/800, 1.0)`
+  - Default neutrali quando i dati non sono disponibili: `freshness=0.7`, `quality=0.5`
+- `_load_confirmed_platforms()`: aggiornato per restituire `dict[str, list[dict]]` con `word_count` e `last_fetched_at`
+- `full_pipeline.py`: conversione output piatto `search_cross_platform()` nel formato arricchito per `run_preview_pipeline`
+
+---
+
 ### Phase A.0 — Prerequisiti scoring (fix critici)
 
 #### A.0.7 — Persistenza robotsTxtBlocks

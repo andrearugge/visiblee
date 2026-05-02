@@ -275,7 +275,7 @@ brand_authority = (
 ) × 100
 ```
 
-**Stato implementazione v1**: implementato come euristica. KG presence approssimata tramite dati discovery (presenza di pagine Wikipedia/Wikidata tra i contenuti trovati). Cross-web corroboration calcolata dal rapporto mention/own nella discovery. Entity density calcolata sui passaggi. Terminological consistency calcolata cross-pagina. Entity Home basata su verifica schema JSON-LD nell'HTML fetchato.
+**Stato implementazione v2**: implementato come euristica. KG presence calcolata come `max(sameAs_score, wiki_proxy)` dove `wiki_proxy=0.8` se almeno un contenuto confermato ha URL Wikipedia/Wikidata (F.1). Cross-web corroboration calcolata dal rapporto mention/own nella discovery. Entity density calcolata sui passaggi. Terminological consistency calcolata cross-pagina. Entity Home basata su verifica schema JSON-LD nell'HTML fetchato.
 
 **Fonti**: Wellows r=0.76; AIVO GEO data march 2026; SE Ranking nov 2025; LinkSurge entity authority; Google Knowledge Panel changes 2026.
 
@@ -354,7 +354,7 @@ quality = proxy basato su word count medio e entity density
 source_authority = (Σ platform_score_i × weight_i) / (Σ weight_i) × 100
 ```
 
-**Stato implementazione v1**: implementato sulla base della distribuzione di piattaforme rilevata dalla discovery. La piattaforma AI target è derivata dalla configurazione del progetto (Settings).
+**Stato implementazione v2**: formula P×F×Q completamente implementata. `_load_confirmed_platforms()` restituisce `word_count` e `last_fetched_at` per ogni contenuto confermato. `score_source_authority()` calcola presence/freshness/quality per piattaforma con default neutrali per dati mancanti (freshness=0.7, quality=0.5). Pipeline preview converte l'output di `search_cross_platform()` nel formato arricchito.
 
 **Fonti**: Position Digital piattaforme per motore; Ahrefs YouTube most-cited in AIO; Frase.io platform preferences.
 

@@ -29,6 +29,7 @@ HEADERS = {
 }
 
 MIN_WORD_COUNT = 50
+HTML_MAX_BYTES = 100 * 1024  # 100 KB cap on stored rawHtml
 
 # AI bots to check in robots.txt
 AI_BOTS = ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "anthropic-ai", "Omgilibot"]
@@ -164,8 +165,14 @@ async def fetch_url(url: str) -> dict[str, Any] | None:
             title_tag = soup.find("title")
             title = title_tag.get_text(strip=True) if title_tag else None
 
-            # Extract schema markup from original HTML
+            # Extract schema markup from original HTML (before any truncation)
             schema_data = extract_schema_markup(raw_html)
+
+            # Cap rawHtml at 100 KB to keep DB size bounded
+            html_bytes = raw_html.encode("utf-8")
+            html_truncated = len(html_bytes) > HTML_MAX_BYTES
+            if html_truncated:
+                raw_html = html_bytes[:HTML_MAX_BYTES].decode("utf-8", errors="ignore")
 
             # Strip noise for raw_text storage
             for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
@@ -184,6 +191,7 @@ async def fetch_url(url: str) -> dict[str, Any] | None:
             return {
                 "html": raw_html,           # segmenter still uses this field name
                 "raw_html": raw_html,
+                "html_truncated": html_truncated,
                 "title": title,
                 "raw_text": raw_text,
                 "word_count": word_count,

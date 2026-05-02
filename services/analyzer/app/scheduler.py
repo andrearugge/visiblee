@@ -79,19 +79,31 @@ def _pending_job_exists(conn, job_type: str, project_id: str, since: datetime) -
         return cur.fetchone() is not None
 
 
+_SCHEDULER_JOB_CHANNEL: dict[str, str] = {
+    "scheduled_citation_daily":  "fast",
+    "scheduled_citation_burst":  "fast",
+    "scheduled_gsc_sync":        "default",
+    "scheduled_analysis":        "heavy",
+    "cleanup_citation_checks":   "default",
+    "cleanup_old_data":          "default",
+}
+
+
 def _create_job(conn, job_type: str, project_id: str, payload: dict | None = None) -> str:
     job_id = str(uuid.uuid4())
+    job_channel = _SCHEDULER_JOB_CHANNEL.get(job_type, "default")
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO jobs (id, "projectId", type, status, payload, "createdAt")
-            VALUES (%(id)s, %(project_id)s, %(type)s, 'pending', %(payload)s, NOW())
+            INSERT INTO jobs (id, "projectId", type, status, payload, "jobChannel", "createdAt")
+            VALUES (%(id)s, %(project_id)s, %(type)s, 'pending', %(payload)s, %(job_channel)s, NOW())
             """,
             {
                 "id": job_id,
                 "project_id": project_id,
                 "type": job_type,
                 "payload": json.dumps(payload) if payload is not None else None,
+                "job_channel": job_channel,
             },
         )
     conn.commit()
@@ -285,16 +297,62 @@ def create_weekly_cleanup_job(conn) -> int:
             return 0
 
     job_id = str(uuid.uuid4())
+    job_channel = _SCHEDULER_JOB_CHANNEL.get("cleanup_citation_checks", "default")
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO jobs (id, "projectId", type, status, payload, "createdAt")
-            VALUES (%(id)s, NULL, 'cleanup_citation_checks', 'pending', NULL, NOW())
+            INSERT INTO jobs (id, "projectId", type, status, payload, "jobChannel", "createdAt")
+            VALUES (%(id)s, NULL, 'cleanup_citation_checks', 'pending', NULL, %(job_channel)s, NOW())
             """,
-            {"id": job_id},
+            {"id": job_id, "job_channel": job_channel},
         )
     conn.commit()
     log.info("Created cleanup_citation_checks job=%s", job_id)
+    return 1
+
+
+# ─── Monthly (day 1): data cleanup ──────────────────────────────────────────
+
+def create_monthly_cleanup_job(conn) -> int:
+    """
+    On the 1st of each month: create a `cleanup_old_data` job.
+    Cleans up stale fanout queries/coverage maps (>4 weeks) and trims rawHtml (>90 days).
+
+    Returns the number of jobs created (0 or 1).
+    """
+    today = _today_utc()
+    if today.day != 1:
+        return 0
+
+    month_start = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id FROM jobs
+            WHERE type = 'cleanup_old_data'
+              AND status IN ('pending', 'running', 'completed')
+              AND "createdAt" >= %(month_start)s
+            LIMIT 1
+            """,
+            {"month_start": month_start},
+        )
+        if cur.fetchone():
+            log.debug("Skip cleanup_old_data — job already exists this month")
+            return 0
+
+    job_id = str(uuid.uuid4())
+    job_channel = _SCHEDULER_JOB_CHANNEL.get("cleanup_old_data", "default")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO jobs (id, "projectId", type, status, payload, "jobChannel", "createdAt")
+            VALUES (%(id)s, NULL, 'cleanup_old_data', 'pending', NULL, %(job_channel)s, NOW())
+            """,
+            {"id": job_id, "job_channel": job_channel},
+        )
+    conn.commit()
+    log.info("Created cleanup_old_data job=%s", job_id)
     return 1
 
 
@@ -306,11 +364,12 @@ def run() -> None:
     try:
         daily = create_daily_citation_jobs(conn)
         weekly = create_weekly_gsc_sync_jobs(conn)
-        cleanup = create_weekly_cleanup_job(conn)
+        weekly_cleanup = create_weekly_cleanup_job(conn)
         monthly = create_monthly_analysis_jobs(conn)
+        monthly_cleanup = create_monthly_cleanup_job(conn)
         log.info(
-            "Scheduler run complete — daily=%d weekly=%d cleanup=%d monthly=%d",
-            daily, weekly, cleanup, monthly,
+            "Scheduler run complete — daily=%d weekly=%d monthly=%d weekly_cleanup=%d monthly_cleanup=%d",
+            daily, weekly, monthly, weekly_cleanup, monthly_cleanup,
         )
     finally:
         conn.close()
